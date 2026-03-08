@@ -18,7 +18,7 @@
 <div id="groupList" style="display:flex; flex-direction:column; gap:0.75rem;">
   <p style="text-align:center; color:var(--celadon); padding:2rem 0;">Loading groups…</p>
 </div>
-<p id="groupsEmpty" class="hidden" style="text-align:center; color:var(--celadon); font-size:0.9rem; padding:2rem 0;">
+<p id="groupsEmpty" class="hidden" style="text-align:center; color:#666; font-size:0.9rem; padding:2rem 0;">
   You don't belong to any groups yet. Create one or join using a code!
 </p>
 
@@ -30,21 +30,21 @@
       <button class="btn-outline" id="gdClose" style="padding:0.25rem 0.6rem; font-size:0.8rem; border-radius:0.4rem;">✕ Close</button>
     </div>
     <div class="flex gap-1 items-center mb-2" style="flex-wrap:wrap;">
-      <span id="gdCode" style="background:rgba(255,255,255,0.08); padding:0.3rem 0.7rem; border-radius:0.4rem; font-family:monospace; font-size:0.9rem; letter-spacing:1px;"></span>
+      <span id="gdCode" style="background:#f5f5f5; padding:0.3rem 0.7rem; border-radius:0.4rem; font-family:monospace; font-size:0.9rem; letter-spacing:1px; color:#000;"></span>
       <button class="btn-outline" id="gdCopyCode" style="padding:0.25rem 0.6rem; font-size:0.75rem; border-radius:0.4rem;">Copy Code</button>
       <span id="gdRole" class="exp-badge" style="margin-left:auto;"></span>
     </div>
 
     <!-- Members -->
-    <h4 style="font-size:0.9rem; font-weight:600; color:var(--celadon); margin-bottom:0.5rem;">
+    <h4 style="font-size:0.9rem; font-weight:600; color:#333; margin-bottom:0.5rem;">
       Members <span id="gdMemberCount" style="opacity:0.7;"></span>
     </h4>
     <div id="gdMembers" style="display:flex; flex-direction:column; gap:0.4rem; margin-bottom:1rem;"></div>
 
     <!-- Recent Expenses -->
-    <h4 style="font-size:0.9rem; font-weight:600; color:var(--celadon); margin-bottom:0.5rem;">Recent Group Expenses</h4>
+    <h4 style="font-size:0.9rem; font-weight:600; color:#333; margin-bottom:0.5rem;">Recent Group Expenses</h4>
     <div id="gdExpenses" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
-    <p id="gdExpEmpty" class="hidden" style="text-align:center; color:var(--celadon); font-size:0.85rem; padding:1rem 0;">No expenses yet.</p>
+    <p id="gdExpEmpty" class="hidden" style="text-align:center; color:#666; font-size:0.85rem; padding:1rem 0;">No expenses yet.</p>
 
     <!-- Actions -->
     <div class="flex gap-1 mt-2" id="gdActions"></div>
@@ -88,26 +88,27 @@
 <style>
   .modal-x {
     position:absolute;top:1rem;right:1rem;background:none;border:none;
-    color:var(--celadon);font-size:1.4rem;cursor:pointer;
+    color:#666;font-size:1.4rem;cursor:pointer;
   }
   .group-card {
-    background: rgba(255,255,255,0.06);
+    background: #fff;
+    border: 1px solid #e0e0e0;
     border-radius: 0.75rem;
     padding: 0.85rem 1rem;
     cursor: pointer;
     transition: background var(--t-fast), transform var(--t-fast);
   }
-  .group-card:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
-  .group-card .gc-name { font-weight: 600; font-size: 1rem; }
-  .group-card .gc-meta { font-size: 0.8rem; color: var(--celadon); margin-top: 0.15rem; }
+  .group-card:hover { background: #f9f9f9; transform: translateY(-2px); }
+  .group-card .gc-name { font-weight: 600; font-size: 1rem; color: #000; }
+  .group-card .gc-meta { font-size: 0.8rem; color: #666; margin-top: 0.15rem; }
 
   .member-row {
     display: flex; justify-content: space-between; align-items: center;
     padding: 0.4rem 0.6rem; border-radius: 0.4rem;
-    background: rgba(255,255,255,0.04);
+    background: rgba(0,0,0,0.03);
   }
-  .member-row .mr-name { font-size: 0.9rem; }
-  .member-row .mr-role { font-size: 0.75rem; color: var(--celadon); }
+  .member-row .mr-name { font-size: 0.9rem; color: #000; }
+  .member-row .mr-role { font-size: 0.75rem; color: #666; }
 </style>
 
 <!-- ===== Groups JS (inline — loaded only on this page) ===== -->
@@ -195,7 +196,7 @@
               <span class="exp-cat">${esc(e.category_name)}</span>
             </div>
             ${e.note ? `<div class="exp-note">${esc(e.note)}</div>` : ''}
-            <div style="font-size:0.75rem; color:var(--celadon); margin-top:0.15rem;">${e.expense_date} · by ${esc(e.added_by)}</div>
+            <div style="font-size:0.75rem; color:#666; margin-top:0.15rem;">${e.expense_date} · by ${esc(e.added_by)}</div>
           </div>
         </div>
       `).join('');

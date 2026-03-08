@@ -27,7 +27,7 @@ if ($expenseId <= 0) {
 }
 
 // Fetch existing
-$stmt = $conn->prepare('SELECT user_id, group_id, type, amount FROM expenses WHERE id = ?');
+$stmt = $conn->prepare('SELECT user_id, group_id, type, amount, expense_date FROM expenses WHERE id = ?');
 $stmt->bind_param('i', $expenseId);
 $stmt->execute();
 $existing = $stmt->get_result()->fetch_assoc();
@@ -36,6 +36,20 @@ $stmt->close();
 if (!$existing) {
     echo json_encode(['ok' => false, 'error' => 'Expense not found.']);
     exit;
+}
+
+// --- Settlement lock check: block if expense is within a settled period ---
+if ($existing['type'] === 'group' && $existing['group_id']) {
+    $lockGid = (int)$existing['group_id'];
+    $lockStmt = $conn->prepare('SELECT MAX(period_end) AS last_end FROM settlements WHERE group_id = ?');
+    $lockStmt->bind_param('i', $lockGid);
+    $lockStmt->execute();
+    $lockRow = $lockStmt->get_result()->fetch_assoc();
+    $lockStmt->close();
+    if ($lockRow && $lockRow['last_end'] && $existing['expense_date'] <= $lockRow['last_end']) {
+        echo json_encode(['ok' => false, 'error' => 'This expense date has already been settled and cannot be modified.']);
+        exit;
+    }
 }
 
 // --- Permission check ---
@@ -67,16 +81,22 @@ if ($stmt->execute()) {
 
     // Notify group members if group expense deleted
     if ($existing['type'] === 'group' && $existing['group_id']) {
-        $username = $_SESSION['username'];
-        $amt = $existing['amount'];
-        $msg = "$username removed an expense of $amt from the group.";
         $gid = (int)$existing['group_id'];
+        $gStmt = $conn->prepare('SELECT name FROM `groups` WHERE id = ?');
+        $gStmt->bind_param('i', $gid);
+        $gStmt->execute();
+        $gRow = $gStmt->get_result()->fetch_assoc();
+        $gStmt->close();
+        $groupName = $gRow ? $gRow['name'] : 'the group';
+
+        $username = $_SESSION['username'];
+        $msg = "$username removed an expense from $groupName.";
         $n = $conn->prepare(
             'INSERT INTO notifications (user_id, message, type, reference_id)
              SELECT user_id, ?, "group_expense_delete", ?
              FROM group_members WHERE group_id = ? AND user_id != ?'
         );
-        $n->bind_param('siii', $msg, $expenseId, $gid, $userId);
+        $n->bind_param('siii', $msg, $gid, $gid, $userId);
         $n->execute();
         $n->close();
     }

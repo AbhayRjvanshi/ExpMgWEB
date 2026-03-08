@@ -154,9 +154,12 @@ CREATE TABLE IF NOT EXISTS list_items (
 
 -- ============================================================
 -- 9. notifications
---    type examples: 'group_join', 'group_expense_add',
---                   'group_expense_update', 'group_expense_delete',
+--    type examples: 'group_join', 'group_leave', 'group_delete',
+--                   'group_expense_add', 'group_expense_update',
+--                   'group_expense_delete', 'settlement',
 --                   'list_item_add', 'list_item_remove', 'list_item_check'
+--    Daily lifecycle: only today's notifications are displayed;
+--    older ones are auto-cleaned on list fetch.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS notifications (
     id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -170,4 +173,45 @@ CREATE TABLE IF NOT EXISTS notifications (
     INDEX idx_user_read (user_id, is_read, created_at),
 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- 10. settlements (records of completed group settlements)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS settlements (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    group_id      INT UNSIGNED NOT NULL,
+    settled_by    INT UNSIGNED NOT NULL,
+    payer_id      INT UNSIGNED NOT NULL,
+    payee_id      INT UNSIGNED NOT NULL,
+    amount        DECIMAL(12,2) NOT NULL,
+    period_start  DATE NOT NULL,
+    period_end    DATE NOT NULL,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_group_date (group_id, created_at),
+    FOREIGN KEY (group_id)   REFERENCES `groups`(id) ON DELETE CASCADE,
+    FOREIGN KEY (settled_by) REFERENCES users(id)    ON DELETE CASCADE,
+    FOREIGN KEY (payer_id)   REFERENCES users(id)    ON DELETE CASCADE,
+    FOREIGN KEY (payee_id)   REFERENCES users(id)    ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- 11. settlement_confirmations (per-member settlement acknowledgements)
+--     Each member confirms individually; once all confirm, the
+--     settlement is finalized and rows move into `settlements`.
+--     period_start / period_end must match the current unsettled
+--     period for the confirmation to be valid.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS settlement_confirmations (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    group_id      INT UNSIGNED NOT NULL,
+    user_id       INT UNSIGNED NOT NULL,
+    period_start  DATE NOT NULL,
+    period_end    DATE NOT NULL,
+    confirmed_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uq_group_user (group_id, user_id),
+    FOREIGN KEY (group_id)  REFERENCES `groups`(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id)   REFERENCES users(id)    ON DELETE CASCADE
 ) ENGINE=InnoDB;

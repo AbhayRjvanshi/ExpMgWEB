@@ -13,7 +13,7 @@
 
 <!-- List cards container -->
 <div id="listContainer" style="display:flex; flex-direction:column; gap:0.75rem;"></div>
-<p id="listsEmpty" class="hidden" style="text-align:center; color:var(--celadon); font-size:0.9rem; padding:2rem 0;">
+<p id="listsEmpty" class="hidden" style="text-align:center; color:#666; font-size:0.9rem; padding:2rem 0;">
   No lists yet. Create one to start tracking what you need to buy!
 </p>
 
@@ -29,12 +29,12 @@
     </div>
     <div class="flex gap-1 items-center mb-2" style="flex-wrap:wrap;">
       <span id="ldType" class="exp-badge"></span>
-      <span id="ldCreator" style="font-size:0.8rem; color:var(--celadon);"></span>
+      <span id="ldCreator" style="font-size:0.8rem; color:#666;"></span>
     </div>
 
     <!-- Priority sections -->
     <div id="ldItems"></div>
-    <p id="ldItemsEmpty" class="hidden" style="text-align:center; color:var(--celadon); font-size:0.85rem; padding:1.5rem 0;">
+    <p id="ldItemsEmpty" class="hidden" style="text-align:center; color:#666; font-size:0.85rem; padding:1.5rem 0;">
       This list is empty. Add items to get started.
     </p>
 
@@ -118,67 +118,68 @@
 <!-- ===== Lists CSS ===== -->
 <style>
   .list-card {
-    background: rgba(255,255,255,0.06);
+    background: #fff;
+    border: 1px solid #e0e0e0;
     border-radius: 0.75rem;
     padding: 0.85rem 1rem;
     cursor: pointer;
     transition: background var(--t-fast), transform var(--t-fast);
   }
-  .list-card:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
-  .list-card .lc-name { font-weight: 600; font-size: 1rem; }
-  .list-card .lc-meta { font-size: 0.8rem; color: var(--celadon); margin-top: 0.15rem; }
+  .list-card:hover { background: #f9f9f9; transform: translateY(-2px); }
+  .list-card .lc-name { font-weight: 600; font-size: 1rem; color: #000; }
+  .list-card .lc-meta { font-size: 0.8rem; color: #666; margin-top: 0.15rem; }
   .list-card .lc-progress {
-    height: 4px; border-radius: 2px; background: rgba(255,255,255,0.1);
+    height: 4px; border-radius: 2px; background: rgba(0,0,0,0.08);
     margin-top: 0.5rem; overflow: hidden;
   }
   .list-card .lc-progress-bar { height: 100%; background: var(--mint-leaf); border-radius: 2px; transition: width 0.3s ease; }
 
   .priority-label {
     font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-    padding: 0.6rem 0 0.3rem; border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 0.6rem 0 0.3rem; border-bottom: 1px solid rgba(0,0,0,0.08);
     margin-bottom: 0.4rem;
   }
-  .priority-label.pl-high    { color: #fbbf24; }
-  .priority-label.pl-mod     { color: var(--light-mint); }
-  .priority-label.pl-low     { color: var(--celadon); }
+  .priority-label.pl-high    { color: #d97706; }
+  .priority-label.pl-mod     { color: var(--sea-green); }
+  .priority-label.pl-low     { color: #666; }
 
   .list-item-row {
     display: flex; align-items: center; gap: 0.6rem;
     padding: 0.5rem 0.6rem; border-radius: 0.4rem;
     transition: background var(--t-fast);
   }
-  .list-item-row:hover { background: rgba(255,255,255,0.05); }
+  .list-item-row:hover { background: rgba(0,0,0,0.03); }
   .list-item-row.checked .li-desc { text-decoration: line-through; opacity: 0.5; }
   .li-check {
     width: 20px; height: 20px; border-radius: 4px;
-    border: 2px solid var(--celadon); background: none;
+    border: 2px solid #aaa; background: none;
     cursor: pointer; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
     transition: all var(--t-fast); color: transparent; font-size: 0.8rem;
   }
   .li-check.is-checked { background: var(--mint-leaf); border-color: var(--mint-leaf); color: #fff; }
-  .li-desc { flex: 1; font-size: 0.9rem; }
-  .li-cat  { font-size: 0.75rem; color: var(--celadon); }
+  .li-desc { flex: 1; font-size: 0.9rem; color: #000; }
+  .li-cat  { font-size: 0.75rem; color: #666; }
   .li-remove {
-    background: none; border: 1px solid rgba(255,255,255,0.12);
-    color: var(--celadon); font-size: 0.7rem; padding: 0.15rem 0.4rem;
+    background: none; border: 1px solid #ccc;
+    color: #666; font-size: 0.7rem; padding: 0.15rem 0.4rem;
     border-radius: 0.3rem; cursor: pointer; transition: all var(--t-fast);
   }
-  .li-remove:hover { border-color: #ef4444; color: #fca5a5; }
+  .li-remove:hover { border-color: #ef4444; color: #ef4444; }
 
   .priority-radio {
     display: flex; align-items: center; gap: 0.35rem; cursor: pointer;
     padding: 0.3rem 0.6rem; border-radius: 0.4rem; font-size: 0.85rem;
-    border: 1px solid rgba(255,255,255,0.12); transition: all var(--t-fast);
+    border: 1px solid #ccc; transition: all var(--t-fast); color: #000;
   }
   .priority-radio:hover { border-color: var(--mint-leaf); }
-  .pr-high  { color: #fbbf24; }
-  .pr-mod   { color: var(--light-mint); }
-  .pr-low   { color: var(--celadon); }
+  .pr-high  { color: #d97706; }
+  .pr-mod   { color: var(--sea-green); }
+  .pr-low   { color: #666; }
 
   .modal-x {
     position:absolute;top:1rem;right:1rem;background:none;border:none;
-    color:var(--celadon);font-size:1.4rem;cursor:pointer;
+    color:#666;font-size:1.4rem;cursor:pointer;
   }
 </style>
 

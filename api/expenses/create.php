@@ -50,6 +50,19 @@ if (!empty($errors)) {
     exit;
 }
 
+// --- Settlement lock check: block if expense date falls within a settled period ---
+if ($type === 'group' && $groupId) {
+    $lockStmt = $conn->prepare('SELECT MAX(period_end) AS last_end FROM settlements WHERE group_id = ?');
+    $lockStmt->bind_param('i', $groupId);
+    $lockStmt->execute();
+    $lockRow = $lockStmt->get_result()->fetch_assoc();
+    $lockStmt->close();
+    if ($lockRow && $lockRow['last_end'] && $expenseDate <= $lockRow['last_end']) {
+        echo json_encode(['ok' => false, 'error' => 'This expense date has already been settled and cannot be modified.']);
+        exit;
+    }
+}
+
 // --- Insert ---
 $stmt = $conn->prepare(
     'INSERT INTO expenses (user_id, group_id, amount, category_id, note, expense_date, type)
@@ -63,14 +76,21 @@ if ($stmt->execute()) {
 
     // --- Notification: if group expense, notify other members ---
     if ($type === 'group' && $groupId) {
+        $gStmt = $conn->prepare('SELECT name FROM `groups` WHERE id = ?');
+        $gStmt->bind_param('i', $groupId);
+        $gStmt->execute();
+        $gRow = $gStmt->get_result()->fetch_assoc();
+        $gStmt->close();
+        $groupName = $gRow ? $gRow['name'] : 'the group';
+
         $username = $_SESSION['username'];
-        $msg = "$username added an expense of $amount to the group.";
+        $msg = "$username added a new expense to $groupName.";
         $notifStmt = $conn->prepare(
             'INSERT INTO notifications (user_id, message, type, reference_id)
              SELECT user_id, ?, "group_expense_add", ?
              FROM group_members WHERE group_id = ? AND user_id != ?'
         );
-        $notifStmt->bind_param('siii', $msg, $newId, $groupId, $userId);
+        $notifStmt->bind_param('siii', $msg, $groupId, $groupId, $userId);
         $notifStmt->execute();
         $notifStmt->close();
     }

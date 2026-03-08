@@ -42,10 +42,30 @@ if ($member['role'] === 'admin') {
     exit;
 }
 
+// Get group name for notification
+$gStmt = $conn->prepare('SELECT name FROM `groups` WHERE id = ?');
+$gStmt->bind_param('i', $groupId);
+$gStmt->execute();
+$gRow = $gStmt->get_result()->fetch_assoc();
+$gStmt->close();
+$groupName = $gRow ? $gRow['name'] : 'the group';
+
 // Remove member
 $stmt = $conn->prepare('DELETE FROM group_members WHERE group_id = ? AND user_id = ?');
 $stmt->bind_param('ii', $groupId, $userId);
 $stmt->execute();
 $stmt->close();
+
+// Notify remaining group members
+$username = $_SESSION['username'];
+$msg = "$username left the group \"$groupName\".";
+$nStmt = $conn->prepare(
+    'INSERT INTO notifications (user_id, message, type, reference_id)
+     SELECT user_id, ?, "group_leave", ?
+     FROM group_members WHERE group_id = ?'
+);
+$nStmt->bind_param('sii', $msg, $groupId, $groupId);
+$nStmt->execute();
+$nStmt->close();
 
 echo json_encode(['ok' => true]);

@@ -77,10 +77,20 @@
     // Fetch month expenses to show dots
     const monthStr = `${currentYear}-${pad(currentMonth + 1)}`;
     monthExpenseDates = new Set();
+    let dateDotMap = {}; // dateStr -> { personal:bool, groupUnsettled:bool, groupSettled:bool }
     try {
       const mRes = await get(`${API}/expenses/list.php?month=${monthStr}`);
       if (mRes.ok) {
-        mRes.expenses.forEach(e => monthExpenseDates.add(e.expense_date));
+        mRes.expenses.forEach(e => {
+          monthExpenseDates.add(e.expense_date);
+          if (!dateDotMap[e.expense_date]) dateDotMap[e.expense_date] = { personal:false, groupUnsettled:false, groupSettled:false };
+          if (e.type === 'personal') {
+            dateDotMap[e.expense_date].personal = true;
+          } else if (e.type === 'group') {
+            if (e.settled) dateDotMap[e.expense_date].groupSettled = true;
+            else dateDotMap[e.expense_date].groupUnsettled = true;
+          }
+        });
       }
     } catch (_) {}
 
@@ -94,15 +104,24 @@
       const dateStr = `${currentYear}-${pad(currentMonth + 1)}-${pad(d)}`;
       const isToday = dateStr === todayStr;
       const isSelected = dateStr === selectedDate;
-      const hasDot = monthExpenseDates.has(dateStr);
+      const dots = dateDotMap[dateStr];
 
       let cls = 'cal-day';
       if (isToday) cls += ' today';
       if (isSelected) cls += ' selected';
 
+      let dotsHtml = '';
+      if (dots) {
+        dotsHtml = '<span class="dot-row">';
+        if (dots.personal) dotsHtml += '<span class="dot dot-personal"></span>';
+        if (dots.groupUnsettled) dotsHtml += '<span class="dot dot-group"></span>';
+        if (dots.groupSettled) dotsHtml += '<span class="dot dot-settled"></span>';
+        dotsHtml += '</span>';
+      }
+
       html += `<div class="${cls}" data-date="${dateStr}">
         ${d}
-        ${hasDot ? '<span class="dot"></span>' : ''}
+        ${dotsHtml}
       </div>`;
     }
     grid.innerHTML = html;
@@ -153,7 +172,14 @@
   function expenseCardHTML(e) {
     const badgeCls = e.type === 'group' ? 'badge-group' : 'badge-personal';
     const badgeLabel = e.type === 'group' ? (e.group_name || 'Group') : 'Personal';
-    const actions = e.can_edit
+
+    // Status dot: blue=personal, green=unsettled group, gray=settled group
+    let dotCls = 'exp-status-dot exp-dot-personal'; // blue
+    if (e.type === 'group') {
+      dotCls = e.settled ? 'exp-status-dot exp-dot-settled' : 'exp-status-dot exp-dot-group';
+    }
+
+    const actions = (e.can_edit && !e.settled)
       ? `<div class="exp-actions">
            <button class="btn-edit" data-id="${e.id}">Edit</button>
            <button class="btn-del" data-id="${e.id}">Delete</button>
@@ -162,6 +188,7 @@
 
     return `
       <div class="expense-item">
+        <span class="${dotCls}"></span>
         <div class="exp-left">
           <div class="flex items-center gap-1">
             <span class="exp-amount">${parseFloat(e.amount).toFixed(2)}</span>
@@ -363,12 +390,12 @@
 })();
 
 // ============================================================
-// Notifications Module — bell dropdown + polling
+// Notifications Module — bell dropdown + polling + real-time popups
 // ============================================================
 (function () {
   'use strict';
   const API = '../api';
-  const POLL_INTERVAL = 15000; // 15 seconds
+  const POLL_INTERVAL = 10000; // 10 seconds
 
   function $(s) { return document.querySelector(s); }
   function show(el) { el && el.classList.remove('hidden'); }
@@ -389,15 +416,36 @@
   const empty    = $('#notifEmpty');
   const markAll  = $('#notifMarkAll');
   const wrapper  = $('#notifWrapper');
+  const toast      = $('#notifToast');
+  const toastIcon  = toast ? toast.querySelector('.notif-toast-icon') : null;
+  const toastMsg   = toast ? toast.querySelector('.notif-toast-msg') : null;
+  const toastTime  = toast ? toast.querySelector('.notif-toast-time') : null;
 
   if (!bell) return; // not on the logged-in shell
 
   let panelOpen = false;
+  let lastSeenNotifId = 0;
+  let firstPoll = true;
+  let toastTimer = null;
+
+  const bellLined = bell.querySelector('.bell-lined');
+  const bellSolid = bell.querySelector('.bell-solid');
+
+  function setBellIcon(solid) {
+    if (solid) {
+      bellLined && bellLined.classList.add('hidden');
+      bellSolid && bellSolid.classList.remove('hidden');
+    } else {
+      bellSolid && bellSolid.classList.add('hidden');
+      bellLined && bellLined.classList.remove('hidden');
+    }
+  }
 
   // ---- Toggle panel ----
   bell.addEventListener('click', (e) => {
     e.stopPropagation();
     panelOpen = !panelOpen;
+    setBellIcon(panelOpen);
     if (panelOpen) { show(panel); loadNotifications(); }
     else { hide(panel); }
   });
@@ -406,6 +454,7 @@
   document.addEventListener('click', (e) => {
     if (panelOpen && wrapper && !wrapper.contains(e.target)) {
       panelOpen = false;
+      setBellIcon(false);
       hide(panel);
     }
   });
@@ -436,6 +485,8 @@
           if (item.classList.contains('notif-read')) return;
           await post(`${API}/notifications/read.php`, { id: item.dataset.id });
           item.classList.add('notif-read');
+          const dot = item.querySelector('.notif-dot');
+          if (dot) dot.remove();
           pollUnreadCount();
         });
       });
@@ -463,12 +514,15 @@
   function notifIcon(type) {
     switch (type) {
       case 'group_join':           return '👤';
+      case 'group_leave':          return '🚪';
+      case 'group_delete':         return '🗑️';
       case 'group_expense_add':    return '💰';
       case 'group_expense_update': return '✏️';
       case 'group_expense_delete': return '🗑️';
       case 'list_item_add':        return '📝';
       case 'list_item_remove':     return '❌';
       case 'list_item_check':      return '✅';
+      case 'settlement':           return '🤝';
       default:                     return '🔔';
     }
   }
@@ -502,11 +556,58 @@
     }
   }
 
+  // ---- Real-time Toast Popup ----
+  function showNotifPopup(notif) {
+    if (!toast) return;
+    if (toastIcon) toastIcon.textContent = notifIcon(notif.type);
+    if (toastMsg)  toastMsg.textContent  = notif.message;
+    if (toastTime) toastTime.textContent = timeAgo(notif.created_at);
+
+    // Clear any pending hide
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+
+    toast.classList.add('show');
+    playNotifSound();
+
+    toastTimer = setTimeout(() => {
+      toast.classList.remove('show');
+      toastTimer = null;
+    }, 4000);
+  }
+
+  // ---- Notification Sound (Web Audio API) ----
+  function playNotifSound() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch (_) {}
+  }
+
   // ---- Polling ----
   async function pollUnreadCount() {
     try {
       const res = await get(`${API}/notifications/count.php`);
-      if (res.ok) updateBadge(res.count);
+      if (res.ok) {
+        updateBadge(res.count);
+        // Detect new notification for popup
+        if (res.latest && res.latest.id > lastSeenNotifId) {
+          if (!firstPoll) {
+            showNotifPopup(res.latest);
+          }
+          lastSeenNotifId = res.latest.id;
+        }
+        firstPoll = false;
+      }
     } catch (_) {}
   }
 
@@ -514,4 +615,47 @@
   pollUnreadCount();
   setInterval(pollUnreadCount, POLL_INTERVAL);
 
+})();
+
+// ============================================================
+// Profile Dropdown Module
+// ============================================================
+(function () {
+  'use strict';
+
+  function $(s) { return document.querySelector(s); }
+
+  const btn     = $('#profileBtn');
+  const panel   = $('#profilePanel');
+  const wrapper = $('#profileWrapper');
+  if (!btn) return;
+
+  const lined = btn.querySelector('.profile-lined');
+  const solid = btn.querySelector('.profile-solid');
+  let open = false;
+
+  function setIcon(active) {
+    if (active) {
+      lined && lined.classList.add('hidden');
+      solid && solid.classList.remove('hidden');
+    } else {
+      solid && solid.classList.add('hidden');
+      lined && lined.classList.remove('hidden');
+    }
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    open = !open;
+    setIcon(open);
+    panel.classList.toggle('hidden', !open);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (open && wrapper && !wrapper.contains(e.target)) {
+      open = false;
+      setIcon(false);
+      panel.classList.add('hidden');
+    }
+  });
 })();

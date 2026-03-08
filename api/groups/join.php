@@ -69,14 +69,15 @@ $stmt->bind_param('ii', $groupId, $userId);
 $stmt->execute();
 $stmt->close();
 
-// Notify the admin that a new member joined
+// Notify all group members that a new member joined
 $username = $_SESSION['username'];
 $msg = "$username joined the group \"{$group['name']}\".";
-$adminId = (int)$group['created_by'];
 $nStmt = $conn->prepare(
-    'INSERT INTO notifications (user_id, message, type, reference_id) VALUES (?, ?, "group_join", ?)'
+    'INSERT INTO notifications (user_id, message, type, reference_id)
+     SELECT user_id, ?, "group_join", ?
+     FROM group_members WHERE group_id = ? AND user_id != ?'
 );
-$nStmt->bind_param('isi', $adminId, $msg, $groupId);
+$nStmt->bind_param('siii', $msg, $groupId, $groupId, $userId);
 $nStmt->execute();
 $nStmt->close();
 
