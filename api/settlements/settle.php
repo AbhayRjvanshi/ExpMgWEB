@@ -29,16 +29,21 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $periodStart) || !preg_match('/^\d{4}-\
     exit;
 }
 
-// Verify user is member
+// Verify user is admin of this group
 $stmt = $conn->prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?');
 $stmt->bind_param('ii', $groupId, $userId);
 $stmt->execute();
-if (!$stmt->get_result()->fetch_assoc()) {
-    $stmt->close();
+$membership = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+if (!$membership) {
     echo json_encode(['ok' => false, 'error' => 'Not a member of this group.']);
     exit;
 }
-$stmt->close();
+if ($membership['role'] !== 'admin') {
+    echo json_encode(['ok' => false, 'error' => 'Only the group admin can record settlements.']);
+    exit;
+}
 
 $stmt = $conn->prepare(
     'INSERT INTO settlements (group_id, settled_by, payer_id, payee_id, amount, period_start, period_end)

@@ -78,9 +78,7 @@
 <script>
 (function() {
   'use strict';
-  const API = '../api';
-
-  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  const esc = escapeHTML; // alias for brevity
 
   function notifIcon(type) {
     switch (type) {

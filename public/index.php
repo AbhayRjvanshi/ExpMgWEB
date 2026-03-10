@@ -30,6 +30,7 @@ $page     = $_GET['page'] ?? 'home';
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <link rel="stylesheet" href="assets/css/styles.css" />
+  <script src="assets/js/helpers.js?v=<?= time() ?>"></script>
 </head>
 <body>
   <div class="page-shell">
@@ -159,6 +160,6 @@ $page     = $_GET['page'] ?? 'home';
     </div>
   </div>
 
-  <script src="assets/js/app.js"></script>
+  <script src="assets/js/app.js?v=<?= time() ?>"></script>
 </body>
 </html>

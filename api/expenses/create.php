@@ -24,6 +24,7 @@ $note        = trim($_POST['note'] ?? '');
 $expenseDate = trim($_POST['expense_date'] ?? '');
 $type        = ($_POST['type'] ?? 'personal') === 'group' ? 'group' : 'personal';
 $groupId     = !empty($_POST['group_id']) ? (int) $_POST['group_id'] : null;
+$paidBy      = !empty($_POST['paid_by']) ? (int) $_POST['paid_by'] : null;
 
 // --- Validation ---
 $errors = [];
@@ -43,6 +44,20 @@ if ($type === 'group') {
         if ($chk->num_rows === 0) $errors[] = 'You are not a member of this group.';
         $chk->close();
     }
+    // Validate paid_by for group expenses
+    if (!$paidBy) {
+        $errors[] = 'Please select who paid for this expense.';
+    } elseif ($groupId) {
+        $pbChk = $conn->prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?');
+        $pbChk->bind_param('ii', $groupId, $paidBy);
+        $pbChk->execute();
+        $pbChk->store_result();
+        if ($pbChk->num_rows === 0) $errors[] = 'The payer must be a member of this group.';
+        $pbChk->close();
+    }
+} else {
+    // Personal expenses: payer is always the current user
+    $paidBy = $userId;
 }
 
 if (!empty($errors)) {
@@ -65,10 +80,10 @@ if ($type === 'group' && $groupId) {
 
 // --- Insert ---
 $stmt = $conn->prepare(
-    'INSERT INTO expenses (user_id, group_id, amount, category_id, note, expense_date, type)
-     VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO expenses (user_id, paid_by, group_id, amount, category_id, note, expense_date, type, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
 );
-$stmt->bind_param('iidisss', $userId, $groupId, $amount, $categoryId, $note, $expenseDate, $type);
+$stmt->bind_param('iiidisssi', $userId, $paidBy, $groupId, $amount, $categoryId, $note, $expenseDate, $type, $userId);
 
 if ($stmt->execute()) {
     $newId = $stmt->insert_id;
@@ -90,7 +105,7 @@ if ($stmt->execute()) {
              SELECT user_id, ?, "group_expense_add", ?
              FROM group_members WHERE group_id = ? AND user_id != ?'
         );
-        $notifStmt->bind_param('siii', $msg, $groupId, $groupId, $userId);
+        $notifStmt->bind_param('siii', $msg, $newId, $groupId, $userId);
         $notifStmt->execute();
         $notifStmt->close();
     }

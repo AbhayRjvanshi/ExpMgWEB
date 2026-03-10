@@ -83,22 +83,31 @@ CREATE TABLE IF NOT EXISTS group_members (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS expenses (
     id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    user_id      INT UNSIGNED NOT NULL,               -- who recorded it
+    user_id      INT UNSIGNED NOT NULL,               -- who recorded it (legacy / primary actor)
+    paid_by      INT UNSIGNED DEFAULT NULL,            -- who actually paid the money
     group_id     INT UNSIGNED DEFAULT NULL,            -- NULL = personal
     amount       DECIMAL(12,2) NOT NULL,
     category_id  INT UNSIGNED  NOT NULL,
     note         VARCHAR(255)  DEFAULT NULL,
     expense_date DATE          NOT NULL,               -- calendar date
     type         ENUM('personal','group') NOT NULL DEFAULT 'personal',
+    is_post_settlement TINYINT(1) DEFAULT 0,
+    created_by   INT UNSIGNED DEFAULT NULL,            -- who added the expense to the system
+    checked_by   INT UNSIGNED DEFAULT NULL,            -- who checked the list item (if applicable)
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     INDEX idx_user_date   (user_id, expense_date),
     INDEX idx_group_date  (group_id, expense_date),
+    INDEX idx_post_settl  (group_id, is_post_settlement),
+    INDEX idx_paid_by     (paid_by, expense_date),
 
     FOREIGN KEY (user_id)     REFERENCES users(id)      ON DELETE CASCADE,
+    FOREIGN KEY (paid_by)     REFERENCES users(id)      ON DELETE SET NULL,
     FOREIGN KEY (group_id)    REFERENCES `groups`(id)    ON DELETE SET NULL,
-    FOREIGN KEY (category_id) REFERENCES categories(id)  ON DELETE RESTRICT
+    FOREIGN KEY (category_id) REFERENCES categories(id)  ON DELETE RESTRICT,
+    FOREIGN KEY (created_by)  REFERENCES users(id)      ON DELETE SET NULL,
+    FOREIGN KEY (checked_by)  REFERENCES users(id)      ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- ============================================================
@@ -136,20 +145,25 @@ CREATE TABLE IF NOT EXISTS lists (
 --    Within the same priority, newest items appear last.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS list_items (
-    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    list_id     INT UNSIGNED NOT NULL,
-    description VARCHAR(255) NOT NULL,
-    category_id INT UNSIGNED DEFAULT NULL,
-    priority    ENUM('high','moderate','low') NOT NULL DEFAULT 'low',
-    is_checked  TINYINT(1)   DEFAULT 0,
-    added_by    INT UNSIGNED NOT NULL,
-    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    list_id         INT UNSIGNED NOT NULL,
+    description     VARCHAR(255) NOT NULL,
+    category_id     INT UNSIGNED DEFAULT NULL,
+    priority        ENUM('high','moderate','low') NOT NULL DEFAULT 'low',
+    is_checked      TINYINT(1)   DEFAULT 0,
+    price           DECIMAL(12,2) DEFAULT NULL,
+    checked_at      DATETIME      DEFAULT NULL,
+    expense_created TINYINT(1)    DEFAULT 0,
+    expense_id      INT UNSIGNED  DEFAULT NULL,       -- linked expense (for robust uncheck deletion)
+    added_by        INT UNSIGNED NOT NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_list_priority (list_id, priority, created_at),
 
     FOREIGN KEY (list_id)     REFERENCES lists(id)       ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id)  ON DELETE SET NULL,
-    FOREIGN KEY (added_by)    REFERENCES users(id)       ON DELETE CASCADE
+    FOREIGN KEY (added_by)    REFERENCES users(id)       ON DELETE CASCADE,
+    FOREIGN KEY (expense_id)  REFERENCES expenses(id)    ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- ============================================================
@@ -212,6 +226,22 @@ CREATE TABLE IF NOT EXISTS settlement_confirmations (
     confirmed_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     UNIQUE KEY uq_group_user (group_id, user_id),
+    FOREIGN KEY (group_id)  REFERENCES `groups`(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id)   REFERENCES users(id)    ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- 12. post_settlement_confirmations
+--     Per-member confirmations for late (post-settlement) expenses.
+--     Separate from normal settlement_confirmations.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS post_settlement_confirmations (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    group_id      INT UNSIGNED NOT NULL,
+    user_id       INT UNSIGNED NOT NULL,
+    confirmed_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uq_ps_group_user (group_id, user_id),
     FOREIGN KEY (group_id)  REFERENCES `groups`(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id)   REFERENCES users(id)    ON DELETE CASCADE
 ) ENGINE=InnoDB;

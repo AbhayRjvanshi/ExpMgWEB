@@ -23,6 +23,9 @@ $listId      = (int) ($_POST['list_id'] ?? 0);
 $description = trim($_POST['description'] ?? '');
 $categoryId  = !empty($_POST['category_id']) ? (int) $_POST['category_id'] : null;
 $priority    = $_POST['priority'] ?? 'low';
+$price       = isset($_POST['price']) && $_POST['price'] !== '' ? floatval($_POST['price']) : null;
+
+if ($price !== null && $price < 0) $price = null;
 
 if (!in_array($priority, ['high', 'moderate', 'low'])) $priority = 'low';
 if ($listId <= 0)          { echo json_encode(['ok' => false, 'error' => 'Invalid list.']); exit; }
@@ -55,9 +58,9 @@ if ($groupId) {
 
 // Insert item
 $stmt = $conn->prepare(
-    'INSERT INTO list_items (list_id, description, category_id, priority, added_by) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO list_items (list_id, description, category_id, priority, price, added_by) VALUES (?, ?, ?, ?, ?, ?)'
 );
-$stmt->bind_param('isisi', $listId, $description, $categoryId, $priority, $userId);
+$stmt->bind_param('isisdi', $listId, $description, $categoryId, $priority, $price, $userId);
 
 if ($stmt->execute()) {
     $newId = $stmt->insert_id;

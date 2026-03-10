@@ -41,8 +41,11 @@
     </h4>
     <div id="gdMembers" style="display:flex; flex-direction:column; gap:0.4rem; margin-bottom:1rem;"></div>
 
-    <!-- Recent Expenses -->
-    <h4 style="font-size:0.9rem; font-weight:600; color:#333; margin-bottom:0.5rem;">Recent Group Expenses</h4>
+    <!-- Past Expenses -->
+    <div class="flex justify-between items-center" style="margin-bottom:0.5rem;">
+      <h4 style="font-size:0.9rem; font-weight:600; color:#333;">Past Group Expenses</h4>
+      <button class="exp-pdf-btn" id="gdExpPdf" title="Download PDF" style="display:none;">⬇ PDF</button>
+    </div>
     <div id="gdExpenses" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
     <p id="gdExpEmpty" class="hidden" style="text-align:center; color:#666; font-size:0.85rem; padding:1rem 0;">No expenses yet.</p>
 
@@ -115,19 +118,7 @@
 <script>
 (function() {
   'use strict';
-  const API = '../api';
-
-  function $(s) { return document.querySelector(s); }
-  function show(el) { el && el.classList.remove('hidden'); }
-  function hide(el) { el && el.classList.add('hidden'); }
-  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-  async function post(url, data) {
-    const fd = new FormData();
-    for (const [k,v] of Object.entries(data)) { if (v != null) fd.append(k, v); }
-    return (await fetch(url, { method:'POST', body:fd })).json();
-  }
-  async function get(url) { return (await fetch(url)).json(); }
+  const esc = escapeHTML; // alias for brevity
 
   // ---- Load groups ----
   async function loadGroups() {
@@ -183,11 +174,15 @@
     `).join('');
 
     // Expenses
+    const pdfBtn = $('#gdExpPdf');
     if (res.expenses.length === 0) {
       show($('#gdExpEmpty'));
       $('#gdExpenses').innerHTML = '';
+      pdfBtn.style.display = 'none';
     } else {
       hide($('#gdExpEmpty'));
+      pdfBtn.style.display = '';
+      pdfBtn.onclick = () => downloadGroupExpPdf(g.name, res.expenses);
       $('#gdExpenses').innerHTML = res.expenses.map(e => `
         <div class="expense-item">
           <div class="exp-left">
@@ -196,7 +191,7 @@
               <span class="exp-cat">${esc(e.category_name)}</span>
             </div>
             ${e.note ? `<div class="exp-note">${esc(e.note)}</div>` : ''}
-            <div style="font-size:0.75rem; color:#666; margin-top:0.15rem;">${e.expense_date} · by ${esc(e.added_by)}</div>
+            <div style="font-size:0.75rem; color:#666; margin-top:0.15rem;">${e.expense_date} · paid by ${esc(e.payer_username || e.added_by)}</div>
           </div>
         </div>
       `).join('');
@@ -235,6 +230,50 @@
         setTimeout(() => { $('#gdCopyCode').textContent = 'Copy Code'; }, 1500);
       });
     };
+  }
+
+  // ---- Download group expenses PDF ----
+  function downloadGroupExpPdf(groupName, expenses) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const title = `Past Group Expenses – ${groupName}`;
+    doc.setFontSize(14);
+    doc.setTextColor(46, 125, 50);
+    doc.text(title, 14, 18);
+
+    const rows = expenses.map((e, i) => [
+      i + 1,
+      e.note || '—',
+      e.category_name,
+      e.expense_date,
+      e.payer_username || e.added_by,
+      parseFloat(e.amount).toFixed(2)
+    ]);
+    const total = expenses.reduce((s, e) => s + parseFloat(e.amount), 0);
+    rows.push(['', '', '', '', 'Total', total.toFixed(2)]);
+
+    doc.autoTable({
+      startY: 24,
+      head: [['#', 'Description', 'Category', 'Date', 'Paid By', 'Amount']],
+      body: rows,
+      theme: 'grid',
+      headStyles: { fillColor: [46, 125, 50] },
+      styles: { fontSize: 9 },
+      columnStyles: { 5: { halign: 'right' } },
+      didParseCell(data) {
+        if (data.row.index === rows.length - 1 && data.section === 'body') {
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    });
+
+    doc.setFontSize(8);
+    doc.setTextColor(120);
+    doc.text(`Generated ${new Date().toLocaleString()}`, 14, doc.internal.pageSize.height - 10);
+
+    const now = new Date();
+    const mk = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    doc.save(`group_expenses_${groupName.replace(/\s+/g,'_')}_${mk}.pdf`);
   }
 
   // ---- Close detail ----

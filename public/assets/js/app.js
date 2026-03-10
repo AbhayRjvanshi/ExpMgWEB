@@ -6,32 +6,14 @@
   'use strict';
 
   // ------ Globals ------
-  const API = '../api';
   let currentYear, currentMonth; // 0-indexed month
   let selectedDate = null;       // 'YYYY-MM-DD'
   let categories = [];
   let userGroups = [];
   let monthExpenseDates = new Set(); // dates that have expenses (for dots)
 
-  // ------ Helpers ------
-  function $(sel) { return document.querySelector(sel); }
-  function $$(sel) { return document.querySelectorAll(sel); }
-  function show(el) { el && el.classList.remove('hidden'); }
-  function hide(el) { el && el.classList.add('hidden'); }
+  // ------ Helpers (shared from helpers.js; only local extras here) ------
   function pad(n) { return String(n).padStart(2, '0'); }
-
-  async function post(url, data) {
-    const fd = new FormData();
-    for (const [k, v] of Object.entries(data)) {
-      if (v !== null && v !== undefined) fd.append(k, v);
-    }
-    const res = await fetch(url, { method: 'POST', body: fd });
-    return res.json();
-  }
-  async function get(url) {
-    const res = await fetch(url);
-    return res.json();
-  }
 
   // ------ Init ------
   document.addEventListener('DOMContentLoaded', async () => {
@@ -194,7 +176,7 @@
             <span class="exp-amount">${parseFloat(e.amount).toFixed(2)}</span>
             <span class="exp-badge ${badgeCls}">${badgeLabel}</span>
           </div>
-          <div class="exp-cat">${e.category_name} · by ${e.added_by}</div>
+          <div class="exp-cat">${e.category_name} · by ${e.added_by}${e.type === 'group' && e.payer_username ? ` · paid by ${e.payer_username}` : ''}</div>
           ${e.note ? `<div class="exp-note">${escapeHTML(e.note)}</div>` : ''}
           ${actions}
         </div>
@@ -220,6 +202,25 @@
     });
   }
 
+  async function populatePaidByDropdown(groupId) {
+    const sel = $('#expPaidBy');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Loading members…</option>';
+    try {
+      const res = await get(`${API}/groups/details.php?group_id=${groupId}`);
+      if (res.ok && res.members) {
+        sel.innerHTML = '<option value="">Select who paid…</option>';
+        res.members.forEach(m => {
+          sel.innerHTML += `<option value="${m.user_id}">${escapeHTML(m.username)}</option>`;
+        });
+      } else {
+        sel.innerHTML = '<option value="">No members found</option>';
+      }
+    } catch (_) {
+      sel.innerHTML = '<option value="">Failed to load</option>';
+    }
+  }
+
   function openAddModal() {
     const modal = $('#expenseModal');
     $('#modalTitle').textContent = 'Add Expense';
@@ -228,9 +229,14 @@
     $('#expAmount').value = '';
     $('#expCategory').value = '';
     $('#expNote').value = '';
+    const grpSel = $('#expGroup');
+    if (grpSel) grpSel.value = '';
     document.querySelector('input[name="type"][value="personal"]').checked = true;
     hide($('#groupSelectWrap'));
+    hide($('#paidByWrap'));
     hide($('#expError'));
+    const paidBySel = $('#expPaidBy');
+    if (paidBySel) paidBySel.innerHTML = '<option value="">Select who paid…</option>';
     show(modal);
     $('#expAmount').focus();
   }
@@ -250,8 +256,18 @@
     if (e.type === 'group') {
       show($('#groupSelectWrap'));
       $('#expGroup').value = e.group_id || '';
+      // Load paid_by members for this group, then select the payer
+      const gid = e.group_id;
+      if (gid) {
+        populatePaidByDropdown(gid).then(() => {
+          const paidBySel = $('#expPaidBy');
+          if (paidBySel && e.paid_by) paidBySel.value = e.paid_by;
+        });
+        show($('#paidByWrap'));
+      }
     } else {
       hide($('#groupSelectWrap'));
+      hide($('#paidByWrap'));
     }
     hide($('#expError'));
     show(modal);
@@ -267,14 +283,33 @@
     const errEl = $('#expError');
     hide(errEl);
 
+    const isGroup = document.querySelector('input[name="type"]:checked').value === 'group';
     const id = $('#expId').value;
+
+    // Client-side: ensure paid_by dropdown is visible for group expenses
+    if (isGroup) {
+      const gid = $('#expGroup').value;
+      const paidByWrap = $('#paidByWrap');
+      if (gid && paidByWrap && paidByWrap.classList.contains('hidden')) {
+        populatePaidByDropdown(gid);
+        show(paidByWrap);
+      }
+      const paidByVal = $('#expPaidBy') ? $('#expPaidBy').value : '';
+      if (!paidByVal) {
+        errEl.textContent = 'Please select who paid for this expense.';
+        show(errEl);
+        return;
+      }
+    }
+
     const data = {
       amount:      $('#expAmount').value,
       category_id: $('#expCategory').value,
       note:        $('#expNote').value,
       expense_date:$('#expDate').value,
-      type:        document.querySelector('input[name="type"]:checked').value,
-      group_id:    document.querySelector('input[name="type"]:checked').value === 'group' ? $('#expGroup').value : ''
+      type:        isGroup ? 'group' : 'personal',
+      group_id:    isGroup ? $('#expGroup').value : '',
+      paid_by:     isGroup ? ($('#expPaidBy') ? $('#expPaidBy').value : '') : ''
     };
 
     if (id) data.id = id;
@@ -361,14 +396,44 @@
       if (e.target === overlay) closeModal();
     });
 
-    // Expense type toggle (show/hide group dropdown)
+    // Expense type toggle (show/hide group dropdown + paid_by)
     $$('input[name="type"]').forEach(radio => {
       radio.addEventListener('change', () => {
         const wrap = $('#groupSelectWrap');
-        if (radio.value === 'group' && radio.checked) show(wrap);
-        else hide(wrap);
+        const paidByWrap = $('#paidByWrap');
+        if (radio.value === 'group' && radio.checked) {
+          show(wrap);
+          // If group already selected, show paid_by
+          const gid = $('#expGroup').value;
+          if (gid) {
+            populatePaidByDropdown(gid);
+            show(paidByWrap);
+          }
+        } else {
+          hide(wrap);
+          hide(paidByWrap);
+        }
       });
     });
+
+    // Group dropdown change → populate paid_by members
+    const groupSel = $('#expGroup');
+    if (groupSel) {
+      const handleGroupChange = () => {
+        const gid = groupSel.value;
+        const paidByWrap = $('#paidByWrap');
+        if (gid) {
+          populatePaidByDropdown(gid);
+          show(paidByWrap);
+        } else {
+          hide(paidByWrap);
+          const paidBySel = $('#expPaidBy');
+          if (paidBySel) paidBySel.innerHTML = '<option value="">Select who paid…</option>';
+        }
+      };
+      groupSel.addEventListener('change', handleGroupChange);
+      groupSel.addEventListener('input', handleGroupChange);
+    }
 
     // Form submit
     const form = $('#expenseForm');
@@ -381,12 +446,6 @@
     return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   }
 
-  function escapeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
 })();
 
 // ============================================================
@@ -394,20 +453,7 @@
 // ============================================================
 (function () {
   'use strict';
-  const API = '../api';
   const POLL_INTERVAL = 10000; // 10 seconds
-
-  function $(s) { return document.querySelector(s); }
-  function show(el) { el && el.classList.remove('hidden'); }
-  function hide(el) { el && el.classList.add('hidden'); }
-  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-  async function get(url) { return (await fetch(url)).json(); }
-  async function post(url, data) {
-    const fd = new FormData();
-    for (const [k,v] of Object.entries(data)) fd.append(k, v);
-    return (await fetch(url, { method:'POST', body:fd })).json();
-  }
 
   const bell     = $('#notifBell');
   const badge    = $('#notifBadge');
@@ -504,7 +550,7 @@
       <div class="notif-item ${readCls}" data-id="${n.id}">
         <div class="notif-icon">${icon}</div>
         <div class="notif-body">
-          <div class="notif-msg">${esc(n.message)}</div>
+          <div class="notif-msg">${escapeHTML(n.message)}</div>
           <div class="notif-time">${time}</div>
         </div>
         ${!n.is_read ? '<span class="notif-dot"></span>' : ''}
@@ -622,8 +668,6 @@
 // ============================================================
 (function () {
   'use strict';
-
-  function $(s) { return document.querySelector(s); }
 
   const btn     = $('#profileBtn');
   const panel   = $('#profilePanel');

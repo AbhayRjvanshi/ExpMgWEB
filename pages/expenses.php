@@ -101,18 +101,54 @@ $firstName = explode(' ', $currentUsername)[0];
   </div>
 </div>
 
-<!-- Recent Expenses List -->
+<!-- Month's Expenses - Sort Controls + Two Column Layout -->
 <div class="card" style="padding:1.25rem;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
     <span style="font-size:0.82rem;font-weight:600;">Month's Expenses</span>
-    <select id="expTypeFilter" style="background:#f5f5f5;color:#000;border:1px solid #ccc;border-radius:0.4rem;padding:0.25rem 0.5rem;font-size:0.75rem;">
-      <option value="all">All</option>
-      <option value="personal">Personal</option>
-      <option value="group">Group</option>
-    </select>
+    <div class="exp-sort-controls">
+      <select id="expSortField" class="exp-sort-select">
+        <option value="date">Date</option>
+        <option value="name">Name</option>
+        <option value="amount">Amount</option>
+        <option value="category">Category</option>
+      </select>
+      <select id="expSortOrder" class="exp-sort-select">
+        <option value="desc">Descending</option>
+        <option value="asc">Ascending</option>
+      </select>
+    </div>
   </div>
-  <div id="expListContainer" style="max-height:360px;overflow-y:auto;"></div>
-  <p id="expListEmpty" class="hidden" style="text-align:center;color:#666;font-size:0.82rem;padding:1.5rem 0;">No expenses found.</p>
+  <div class="exp-two-col">
+    <div class="exp-col">
+      <div class="exp-col-header">
+        <span class="exp-col-dot exp-col-dot--personal"></span> Personal Expenses
+        <button id="expPersonalPdf" class="exp-pdf-btn" title="Download PDF">&#128196;</button>
+      </div>
+      <div id="expPersonalList" class="exp-col-body"></div>
+      <p id="expPersonalEmpty" class="hidden exp-col-empty">No personal expenses.</p>
+    </div>
+    <div class="exp-col">
+      <div class="exp-col-header">
+        <span class="exp-col-dot exp-col-dot--group"></span> Group Expenses
+        <button id="expGroupPdf" class="exp-pdf-btn" title="Download PDF">&#128196;</button>
+      </div>
+      <div id="expGroupList" class="exp-col-body"></div>
+      <p id="expGroupEmpty" class="hidden exp-col-empty">No group expenses.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Unpriced Items Section -->
+<div class="card unpriced-card" style="padding:1.25rem;margin-top:1rem;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+    <span style="font-size:0.82rem;font-weight:600;">Unpriced Items</span>
+    <span class="unpriced-badge" id="unpricedCount" style="display:none;">0</span>
+  </div>
+  <p style="font-size:0.72rem;color:#888;margin-bottom:0.75rem;">
+    Items checked from lists without a price. Add a price to convert them into expenses.
+  </p>
+  <div id="unpricedListContainer"></div>
+  <p id="unpricedListEmpty" class="hidden" style="text-align:center;color:#666;font-size:0.82rem;padding:1.5rem 0;">No unpriced items pending.</p>
 </div>
 
 </div><!-- /panelMyExpenses -->
@@ -176,6 +212,48 @@ $firstName = explode(' ', $currentUsername)[0];
       <div id="settlWaitingText" style="font-size:0.78rem;color:#666;margin-top:0.4rem;"></div>
     </div>
     <p id="settlUserNone" class="hidden" style="text-align:center;color:#666;font-size:0.82rem;padding:1rem 0;">You are all settled up!</p>
+  </div>
+
+  <!-- Late Expenses Settlement Card (post-settlement adjustments) -->
+  <div id="postSettlCard" class="card post-settl-card hidden" style="padding:1.25rem;margin-bottom:1rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+      <div>
+        <div style="font-size:0.9rem;font-weight:600;color:#b45309;">Late Expenses Settlement</div>
+        <div style="font-size:0.7rem;color:#888;margin-top:0.15rem;">Expenses completed during a settled period but priced afterwards</div>
+      </div>
+      <button id="postSettlBtn" class="hidden" style="padding:0.35rem 0.9rem;font-size:0.78rem;font-weight:600;border:none;border-radius:0.4rem;background:#f59e0b;color:#fff;cursor:pointer;transition:opacity 0.3s,transform 0.3s;">Settle</button>
+    </div>
+
+    <!-- Post-settlement summary -->
+    <div id="postSettlSummary" style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
+      <div style="background:#fffbeb;border-radius:0.5rem;padding:0.6rem 0.75rem;">
+        <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.04em;color:#92400e;">Late Total</div>
+        <div id="postSettlTotal" style="font-size:1.1rem;font-weight:700;color:#000;">&mdash;</div>
+      </div>
+      <div style="background:#fffbeb;border-radius:0.5rem;padding:0.6rem 0.75rem;">
+        <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.04em;color:#92400e;">Per Person</div>
+        <div id="postSettlPerPerson" style="font-size:1.1rem;font-weight:700;color:#000;">&mdash;</div>
+      </div>
+    </div>
+
+    <!-- Late expenses list -->
+    <div id="postSettlExpenseList" style="margin-bottom:0.75rem;"></div>
+
+    <!-- Post-settlement breakdown -->
+    <div id="postSettlBreakdown" style="margin-bottom:0.75rem;"></div>
+
+    <!-- Post-settlement user status -->
+    <div id="postSettlUserStatus"></div>
+    <div id="postSettlConfirmedMsg" class="hidden" style="text-align:center;padding:1.25rem 0;transition:opacity 0.4s ease;">
+      <div id="postSettlConfirmedIcon" class="hidden" style="margin-bottom:0.75rem;">
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none" style="display:inline-block;">
+          <circle cx="26" cy="26" r="24" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+          <path d="M16 27l7 7 13-14" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+      <div id="postSettlConfirmedText" style="font-size:0.88rem;font-weight:600;color:#000;"></div>
+      <div id="postSettlWaitingText" style="font-size:0.78rem;color:#666;margin-top:0.4rem;"></div>
+    </div>
   </div>
 
   <!-- Past Settlements Card -->
@@ -263,9 +341,12 @@ function switchExpTab(tab) {
   var $dayCanvas   = document.getElementById('chartDaily');
   var $catEmpty    = document.getElementById('chartCatEmpty');
   var $dayEmpty    = document.getElementById('chartDayEmpty');
-  var $listCont    = document.getElementById('expListContainer');
-  var $listEmpty   = document.getElementById('expListEmpty');
-  var $typeFilter  = document.getElementById('expTypeFilter');
+  var $personalList  = document.getElementById('expPersonalList');
+  var $groupList     = document.getElementById('expGroupList');
+  var $personalEmpty = document.getElementById('expPersonalEmpty');
+  var $groupEmpty    = document.getElementById('expGroupEmpty');
+  var $sortField     = document.getElementById('expSortField');
+  var $sortOrder     = document.getElementById('expSortOrder');
 
   // Budget card elements
   var $budgetAmtDisp   = document.getElementById('budgetAmountDisplay');
@@ -374,31 +455,135 @@ function switchExpTab(tab) {
     }
   }
 
-  function renderList(){
-    var filter = $typeFilter.value;
-    var filtered = filter === 'all' ? allExpenses : allExpenses.filter(function(e){return e.type === filter;});
-    if(!filtered.length){ $listCont.innerHTML = ''; $listEmpty.classList.remove('hidden'); return; }
-    $listEmpty.classList.add('hidden');
-    $listCont.innerHTML = filtered.map(function(e){
-      var icon = e.type === 'group' ? '\uD83D\uDC65' : '\uD83D\uDC64';
-      var tag  = e.type === 'group' ? '<span style="font-size:0.65rem;background:rgba(82,183,136,0.15);color:var(--mint-leaf);padding:0.1rem 0.4rem;border-radius:999px;">' + escHtml(e.group_name || 'Group') + '</span>' : '';
-      return '<div style="display:flex;align-items:center;gap:0.65rem;padding:0.6rem 0;border-bottom:1px solid rgba(0,0,0,0.08);">'
-        + '<span style="font-size:1.1rem;">' + icon + '</span>'
-        + '<div style="flex:1;min-width:0;">'
-        + '<div style="font-size:0.82rem;font-weight:500;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(e.category_name) + (e.note ? ' \u2014 ' + escHtml(e.note) : '') + ' ' + tag + '</div>'
-        + '<div style="font-size:0.7rem;color:#666;">' + e.expense_date + ' &middot; by ' + escHtml(e.added_by) + '</div>'
-        + '</div>'
-        + '<div style="font-weight:600;font-size:0.9rem;color:#000;white-space:nowrap;">' + fmtMoney(e.amount) + '</div>'
-        + '</div>';
-    }).join('');
+function sortExpenses(arr) {
+    var field = $sortField.value;
+    var asc   = $sortOrder.value === 'asc';
+    var sorted = arr.slice();
+    sorted.sort(function(a, b) {
+      var va, vb;
+      if (field === 'date')     { va = a.expense_date; vb = b.expense_date; }
+      else if (field === 'name')    { va = (a.note || '').toLowerCase(); vb = (b.note || '').toLowerCase(); }
+      else if (field === 'amount')  { va = parseFloat(a.amount); vb = parseFloat(b.amount); }
+      else if (field === 'category'){ va = (a.category_name || '').toLowerCase(); vb = (b.category_name || '').toLowerCase(); }
+      if (va < vb) return asc ? -1 : 1;
+      if (va > vb) return asc ? 1 : -1;
+      return 0;
+    });
+    return sorted;
   }
 
-  function escHtml(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+  function renderExpRow(e) {
+    var dotClass;
+    if (e.type === 'personal') dotClass = 'exp-row-dot--personal';
+    else if (e.settled)        dotClass = 'exp-row-dot--settled';
+    else                       dotClass = 'exp-row-dot--unsettled';
+    var tag = e.type === 'group' ? ' <span class="exp-row-grouptag">' + escHtml(e.group_name || 'Group') + '</span>' : '';
+    var paidInfo = e.type === 'group' && e.payer_username ? ' · paid by ' + escHtml(e.payer_username) : '';
+    return '<div class="exp-row">'
+      + '<span class="exp-row-dot ' + dotClass + '"></span>'
+      + '<div class="exp-row-info">'
+      + '<div class="exp-row-name">' + escHtml(e.note || '\u2014') + tag + '</div>'
+      + '<div class="exp-row-meta">' + e.expense_date + ' &middot; ' + escHtml(e.category_name) + paidInfo + '</div>'
+      + '</div>'
+      + '<div class="exp-row-amt">' + fmtMoney(e.amount) + '</div>'
+      + '</div>';
+  }
+
+  function renderList(){
+    var personal = sortExpenses(allExpenses.filter(function(e){ return e.type === 'personal'; }));
+    var group    = sortExpenses(allExpenses.filter(function(e){ return e.type === 'group'; }));
+
+    if (personal.length) {
+      $personalEmpty.classList.add('hidden');
+      $personalList.innerHTML = personal.map(renderExpRow).join('');
+    } else {
+      $personalList.innerHTML = '';
+      $personalEmpty.classList.remove('hidden');
+    }
+
+    if (group.length) {
+      $groupEmpty.classList.add('hidden');
+      $groupList.innerHTML = group.map(renderExpRow).join('');
+    } else {
+      $groupList.innerHTML = '';
+      $groupEmpty.classList.remove('hidden');
+    }
+  }
+
+  var escHtml = escapeHTML;
 
   /* ---- Events ---- */
   $prevBtn.onclick = function(){ clearDateFilter(); curMonth--; if(curMonth<0){curMonth=11;curYear--;} loadMonth(); };
   $nextBtn.onclick = function(){ clearDateFilter(); curMonth++; if(curMonth>11){curMonth=0;curYear++;} loadMonth(); };
-  $typeFilter.onchange = function(){ renderList(); };
+  $sortField.onchange = function(){ renderList(); };
+  $sortOrder.onchange = function(){ renderList(); };
+
+  /* ---- Expense List PDF Download ---- */
+  function downloadExpensePdf(type) {
+    var expenses = sortExpenses(allExpenses.filter(function(e){ return e.type === type; }));
+    if (!expenses.length) { alert('No ' + type + ' expenses to download.'); return; }
+
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    var pageW = doc.internal.pageSize.getWidth();
+    var pdfMoney = function(n){ return 'Rs. ' + Number(n).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}); };
+    var title = type === 'personal' ? 'Personal Expenses' : 'Group Expenses';
+    var period = $label.textContent;
+
+    doc.setFontSize(16);
+    doc.setFont('helvetica','bold');
+    doc.text(title, pageW/2, 18, {align:'center'});
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica','normal');
+    doc.text(period, pageW/2, 26, {align:'center'});
+
+    var head, rows;
+    if (type === 'personal') {
+      head = [['#','Description','Category','Date','Amount']];
+      rows = expenses.map(function(e, i){
+        return [(i+1).toString(), e.note || '-', e.category_name, e.expense_date, pdfMoney(e.amount)];
+      });
+      doc.autoTable({
+        startY: 32, head: head, body: rows,
+        styles: { fontSize:9, cellPadding:2.5, overflow:'linebreak' },
+        headStyles: { fillColor:[59,130,246], textColor:255, fontStyle:'bold' },
+        columnStyles: { 0:{halign:'center',cellWidth:10}, 1:{cellWidth:55}, 2:{cellWidth:30}, 3:{cellWidth:28}, 4:{halign:'right',cellWidth:30} },
+        alternateRowStyles: { fillColor:[245,245,245] },
+        margin: {left:14,right:14}, tableWidth:'wrap'
+      });
+    } else {
+      head = [['#','Description','Group','Category','Date','Amount']];
+      rows = expenses.map(function(e, i){
+        return [(i+1).toString(), e.note || '-', e.group_name || '-', e.category_name, e.expense_date, pdfMoney(e.amount)];
+      });
+      doc.autoTable({
+        startY: 32, head: head, body: rows,
+        styles: { fontSize:9, cellPadding:2.5, overflow:'linebreak' },
+        headStyles: { fillColor:[82,183,136], textColor:255, fontStyle:'bold' },
+        columnStyles: { 0:{halign:'center',cellWidth:10}, 1:{cellWidth:40}, 2:{cellWidth:28}, 3:{cellWidth:25}, 4:{cellWidth:24}, 5:{halign:'right',cellWidth:28} },
+        alternateRowStyles: { fillColor:[245,245,245] },
+        margin: {left:14,right:14}, tableWidth:'wrap'
+      });
+    }
+
+    var total = expenses.reduce(function(s,e){ return s + parseFloat(e.amount); }, 0);
+    var finalY = doc.lastAutoTable.finalY + 6;
+    doc.setFontSize(11);
+    doc.setFont('helvetica','bold');
+    doc.text('Total: ' + pdfMoney(total), pageW - 14, finalY, {align:'right'});
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(150);
+    doc.text('Generated on ' + new Date().toLocaleString(), pageW/2, doc.internal.pageSize.getHeight() - 8, {align:'center'});
+
+    var filename = type + '_expenses_' + monthKey() + '.pdf';
+    doc.save(filename);
+  }
+
+  document.getElementById('expPersonalPdf').onclick = function(){ downloadExpensePdf('personal'); };
+  document.getElementById('expGroupPdf').onclick = function(){ downloadExpensePdf('group'); };
 
   $dateFilterBtn.onclick = function(){ applyDateFilter(); };
   $dateClearBtn.onclick  = function(){ clearDateFilter(); loadMonth(); };
@@ -461,13 +646,157 @@ function switchExpTab(tab) {
   loadMonth();
 })();
 
+/* ========== UNPRICED ITEMS MODULE ========== */
+(function(){
+  var $container  = document.getElementById('unpricedListContainer');
+  var $empty      = document.getElementById('unpricedListEmpty');
+  var $badge      = document.getElementById('unpricedCount');
+  var fmtMoney    = window._expFmtMoney;
+  var escHtml = escapeHTML;
+
+  window.loadUnpricedItems = async function(){
+    try {
+      var res = await fetch('../api/expenses/unpriced.php').then(function(r){return r.json();});
+      if (!res.ok) return;
+      var items = res.items;
+      if (!items.length) {
+        $container.innerHTML = '';
+        $empty.classList.remove('hidden');
+        $badge.style.display = 'none';
+        return;
+      }
+      $empty.classList.add('hidden');
+      $badge.textContent = items.length;
+      $badge.style.display = 'inline-block';
+
+      $container.innerHTML = items.map(function(it){
+        var src = it.group_id
+          ? '<span class="unpriced-src">\uD83D\uDCCB ' + escHtml(it.group_name || 'Group') + '</span>'
+          : '<span class="unpriced-src">\uD83D\uDD12 Personal</span>';
+        var paidByHtml = '';
+        if (it.group_id) {
+          paidByHtml = '<select class="unpriced-paidby-select form-input" data-group="' + it.group_id + '" style="font-size:0.8rem;padding:0.35rem 0.5rem;min-width:100px;">'
+            + '<option value="">Paid by…</option></select>';
+        }
+        return '<div class="unpriced-row" data-id="' + it.id + '" data-group="' + (it.group_id || '') + '">'
+          + '<div class="unpriced-info">'
+          + '<div class="unpriced-name">' + escHtml(it.description) + '</div>'
+          + '<div class="unpriced-meta">'
+          + (it.category_name ? escHtml(it.category_name) + ' &middot; ' : '')
+          + 'Checked ' + formatCheckedDate(it.checked_at)
+          + ' &middot; ' + src
+          + '</div>'
+          + '</div>'
+          + '<div class="unpriced-action">'
+          + paidByHtml
+          + '<input type="number" class="unpriced-price-input" placeholder="\u20B9 Price" min="0.01" step="0.01" />'
+          + '<button class="unpriced-add-btn" data-id="' + it.id + '" title="Add price &amp; create expense">\u2713</button>'
+          + '</div>'
+          + '</div>';
+      }).join('');
+
+      // Populate paid_by selects for group items
+      var groupSelects = $container.querySelectorAll('.unpriced-paidby-select');
+      var groupCache = {};
+      groupSelects.forEach(function(sel){
+        var gid = sel.dataset.group;
+        if (groupCache[gid]) {
+          fillPaidBySelect(sel, groupCache[gid]);
+        } else {
+          fetch('../api/groups/details.php?group_id=' + gid).then(function(r){return r.json();}).then(function(res){
+            if (res.ok && res.members) {
+              groupCache[gid] = res.members;
+              $container.querySelectorAll('.unpriced-paidby-select[data-group="' + gid + '"]').forEach(function(s){
+                fillPaidBySelect(s, res.members);
+              });
+            }
+          });
+        }
+      });
+
+      function fillPaidBySelect(sel, members) {
+        sel.innerHTML = '<option value="">Paid by…</option>';
+        members.forEach(function(m){
+          sel.innerHTML += '<option value="' + m.user_id + '">' + escHtml(m.username) + '</option>';
+        });
+      }
+
+      // Bind add-price buttons
+      $container.querySelectorAll('.unpriced-add-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var row = btn.closest('.unpriced-row');
+          var input = row.querySelector('.unpriced-price-input');
+          var price = parseFloat(input.value);
+          if (!price || price <= 0) { input.focus(); input.style.borderColor = '#ef4444'; return; }
+          var paidBy = '';
+          var paidBySel = row.querySelector('.unpriced-paidby-select');
+          if (paidBySel) {
+            paidBy = paidBySel.value;
+            if (!paidBy) { paidBySel.focus(); paidBySel.style.borderColor = '#ef4444'; return; }
+          }
+          priceItem(btn.dataset.id, price, btn, paidBy);
+        });
+      });
+
+      // Allow Enter key in price input
+      $container.querySelectorAll('.unpriced-price-input').forEach(function(inp){
+        inp.addEventListener('keydown', function(e){
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            inp.closest('.unpriced-row').querySelector('.unpriced-add-btn').click();
+          }
+        });
+        inp.addEventListener('input', function(){ inp.style.borderColor = ''; });
+      });
+    } catch(e) { console.error(e); }
+  };
+
+  function formatCheckedDate(d) {
+    if (!d) return '\u2014';
+    var dt = new Date(d + 'T00:00:00');
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[dt.getMonth()] + ' ' + dt.getDate() + ', ' + dt.getFullYear();
+  }
+
+  async function priceItem(itemId, price, btn, paidBy) {
+    btn.disabled = true;
+    btn.textContent = '\u2026';
+    try {
+      var fd = new FormData();
+      fd.append('item_id', itemId);
+      fd.append('price', price);
+      if (paidBy) fd.append('paid_by', paidBy);
+      var res = await fetch('../api/expenses/price_unpriced.php', {method:'POST', body:fd}).then(function(r){return r.json();});
+      if (res.ok) {
+        // Animate row removal
+        var row = btn.closest('.unpriced-row');
+        row.style.transition = 'opacity 0.3s, transform 0.3s';
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(20px)';
+        setTimeout(function(){ loadUnpricedItems(); }, 300);
+      } else {
+        alert(res.error || 'Failed to add price.');
+        btn.disabled = false;
+        btn.textContent = '\u2713';
+      }
+    } catch(e) {
+      alert('Network error.');
+      btn.disabled = false;
+      btn.textContent = '\u2713';
+    }
+  }
+
+  // Load on init
+  loadUnpricedItems();
+})();
+
 /* ========== SETTLEMENT MODULE ========== */
 (function(){
   var API = '../api';
   var currentUserId = <?= $currentUserId ?>;
   var firstName = <?= json_encode($firstName) ?>;
   var fmtMoney = window._expFmtMoney;
-  function escHtml(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+  var escHtml = escapeHTML;
 
   var $groupSelect  = document.getElementById('settlGroupSelect');
   var $loading      = document.getElementById('settlLoading');
@@ -545,6 +874,11 @@ function switchExpTab(tab) {
       renderBreakdown(calcRes);
       renderUserStatus(calcRes);
       renderHistory(histRes.ok ? histRes.settlements : [], groupId);
+      if (calcRes.post_settlement_count > 0) {
+        loadPostSettlement(groupId);
+      } else {
+        document.getElementById('postSettlCard').classList.add('hidden');
+      }
     } catch(e) {
       $loading.classList.add('hidden');
       console.error(e);
@@ -717,7 +1051,7 @@ function switchExpTab(tab) {
         + '</div>'
         + res.expenses.map(function(e){
           return '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:0.5rem;font-size:0.82rem;padding:0.5rem 0;border-bottom:1px solid rgba(0,0,0,0.06);">'
-            + '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(e.note || '\u2014') + ' <span style="font-size:0.7rem;color:#666;">by ' + escHtml(e.added_by) + '</span></span>'
+            + '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(e.note || '\u2014') + ' <span style="font-size:0.7rem;color:#666;">paid by ' + escHtml(e.payer_username || e.added_by) + '</span></span>'
             + '<span style="color:#666;">' + escHtml(e.category_name) + '</span>'
             + '<span style="color:#666;">' + e.expense_date + '</span>'
             + '<span style="text-align:right;font-weight:600;">' + fmtMoney(e.amount) + '</span>'
@@ -757,7 +1091,7 @@ function switchExpTab(tab) {
       return [
         (i+1).toString(),
         e.note || '-',
-        e.added_by,
+        e.payer_username || e.added_by,
         e.category_name,
         e.expense_date,
         pdfMoney(e.amount)
@@ -766,7 +1100,7 @@ function switchExpTab(tab) {
 
     doc.autoTable({
       startY: 32,
-      head: [['#','Item','Added By','Category','Date','Amount']],
+      head: [['#','Item','Paid By','Category','Date','Amount']],
       body: rows,
       styles: { fontSize:9, cellPadding:2.5, overflow:'linebreak' },
       headStyles: { fillColor:[82,183,136], textColor:255, fontStyle:'bold' },
@@ -820,6 +1154,144 @@ function switchExpTab(tab) {
     }
     $settleBtn.disabled = false;
     $settleBtn.textContent = 'Settle';
+  };
+
+  /* ---- Post-Settlement (Late Expenses) Module ---- */
+  var $psCard          = document.getElementById('postSettlCard');
+  var $psBtn           = document.getElementById('postSettlBtn');
+  var $psTotal         = document.getElementById('postSettlTotal');
+  var $psPerPerson     = document.getElementById('postSettlPerPerson');
+  var $psExpenseList   = document.getElementById('postSettlExpenseList');
+  var $psBreakdown     = document.getElementById('postSettlBreakdown');
+  var $psUserStatus    = document.getElementById('postSettlUserStatus');
+  var $psConfirmedMsg  = document.getElementById('postSettlConfirmedMsg');
+  var $psConfirmedIcon = document.getElementById('postSettlConfirmedIcon');
+  var $psConfirmedText = document.getElementById('postSettlConfirmedText');
+  var $psWaitingText   = document.getElementById('postSettlWaitingText');
+
+  window.loadPostSettlement = async function(groupId) {
+    // Reset
+    $psCard.classList.add('hidden');
+    if (!groupId) return;
+
+    try {
+      var res = await fetch(API + '/settlements/post_calculate.php?group_id=' + groupId).then(function(r){return r.json();});
+      if (!res.ok || !res.has_expenses) return;
+
+      $psCard.classList.remove('hidden');
+      $psTotal.textContent = fmtMoney(res.total_spend);
+      $psPerPerson.textContent = fmtMoney(res.per_person);
+
+      // Show settle button if user hasn't confirmed yet
+      if (!res.user_confirmed) {
+        $psBtn.classList.remove('hidden');
+      } else {
+        $psBtn.classList.add('hidden');
+      }
+
+      // Render late expenses list
+      if (res.expenses.length) {
+        $psExpenseList.innerHTML = '<div style="font-size:0.78rem;font-weight:600;color:#92400e;margin-bottom:0.4rem;">Late Expenses (' + res.expenses.length + ')</div>'
+          + res.expenses.map(function(e){
+            return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid rgba(0,0,0,0.06);font-size:0.82rem;">'
+              + '<div style="flex:1;min-width:0;"><span style="font-weight:500;">' + escHtml(e.note || '\u2014') + '</span> <span style="font-size:0.7rem;color:#666;">paid by ' + escHtml(e.payer_username || e.added_by) + '</span></div>'
+              + '<div style="font-size:0.72rem;color:#666;">' + e.expense_date + '</div>'
+              + '<div style="font-weight:600;white-space:nowrap;">' + fmtMoney(e.amount) + '</div>'
+              + '</div>';
+          }).join('');
+      } else {
+        $psExpenseList.innerHTML = '';
+      }
+
+      // Render breakdown
+      if (res.settlements.length) {
+        $psBreakdown.innerHTML = '<div style="font-size:0.78rem;font-weight:600;color:#92400e;margin-bottom:0.4rem;">Settlement Breakdown</div>'
+          + res.settlements.map(function(s){
+            return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid rgba(0,0,0,0.06);font-size:0.82rem;">'
+              + '<div style="flex:1;">' + escHtml(s.from_username) + ' \u2192 ' + escHtml(s.to_username) + '</div>'
+              + '<div style="font-weight:600;color:#ef4444;">' + fmtMoney(s.amount) + '</div>'
+              + '</div>';
+          }).join('');
+      } else {
+        $psBreakdown.innerHTML = '';
+      }
+
+      // Render user status
+      renderPostSettlStatus(res);
+    } catch(e) { console.error(e); }
+  };
+
+  function renderPostSettlStatus(data) {
+    $psUserStatus.innerHTML = '';
+    $psConfirmedMsg.classList.add('hidden');
+    $psConfirmedIcon.classList.add('hidden');
+    $psConfirmedText.textContent = '';
+    $psWaitingText.textContent = '';
+
+    if (data.user_confirmed) {
+      $psConfirmedMsg.classList.remove('hidden');
+      $psConfirmedMsg.style.opacity = '0';
+      var remaining = data.member_count - data.confirmed_count;
+      if (remaining <= 0) {
+        $psConfirmedIcon.classList.remove('hidden');
+        $psConfirmedText.textContent = 'You are all settled up!';
+        $psWaitingText.textContent = '';
+        $psBtn.classList.add('hidden');
+      } else {
+        $psConfirmedText.textContent = 'You have confirmed the late expenses settlement.';
+        $psWaitingText.textContent = 'Waiting for ' + remaining + ' member(s) to settle.';
+      }
+      requestAnimationFrame(function(){ $psConfirmedMsg.style.opacity = '1'; });
+      return;
+    }
+
+    // Show debit/credit for current user
+    var userOwes = data.settlements.filter(function(s){return s.from_id === currentUserId;});
+    var userRecv = data.settlements.filter(function(s){return s.to_id === currentUserId;});
+
+    if (!userOwes.length && !userRecv.length) {
+      $psUserStatus.innerHTML = '<p style="text-align:center;color:#666;font-size:0.82rem;padding:0.5rem 0;">Equal contribution — no transfers needed.</p>';
+      return;
+    }
+
+    var html = '';
+    userOwes.forEach(function(s){
+      html += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid rgba(0,0,0,0.06);font-size:0.82rem;">'
+        + '<div style="flex:1;">' + escHtml(firstName) + ' \u2192 ' + escHtml(s.to_username) + '</div>'
+        + '<div style="font-weight:700;color:#ef4444;">\u2193 ' + fmtMoney(s.amount) + '</div>'
+        + '</div>';
+    });
+    userRecv.forEach(function(s){
+      html += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid rgba(0,0,0,0.06);font-size:0.82rem;">'
+        + '<div style="flex:1;">' + escHtml(s.from_username) + ' \u2192 ' + escHtml(firstName) + '</div>'
+        + '<div style="font-weight:700;color:#22c55e;">\u2191 ' + fmtMoney(s.amount) + '</div>'
+        + '</div>';
+    });
+    $psUserStatus.innerHTML = html;
+  }
+
+  $psBtn.onclick = async function(){
+    if (!currentGroupId) return;
+    if (!confirm('Confirm the late expenses settlement for this group?')) return;
+    $psBtn.disabled = true;
+    $psBtn.textContent = 'Confirming\u2026';
+    try {
+      var fd = new FormData();
+      fd.append('group_id', currentGroupId);
+      var res = await fetch(API + '/settlements/post_confirm.php', {method:'POST', body:fd}).then(function(r){return r.json();});
+      if (res.ok) {
+        await loadPostSettlement(currentGroupId);
+        // If all settled, also reload main settlement
+        if (res.all_settled) await loadSettlement(currentGroupId);
+      } else {
+        alert(res.error || 'Failed to confirm.');
+      }
+    } catch(e) {
+      console.error(e);
+      alert('Network error.');
+    }
+    $psBtn.disabled = false;
+    $psBtn.textContent = 'Settle';
   };
 
 })();
@@ -914,5 +1386,255 @@ function switchExpTab(tab) {
   #expSummaryRow,
   #expChartsRow { grid-template-columns: 1fr !important; }
   #panelSettlement [style*="grid-template-columns:repeat(3"] { grid-template-columns: 1fr !important; }
+  .unpriced-row { flex-direction: column; align-items: flex-start; }
+  .unpriced-action { width: 100%; }
+  .exp-two-col { flex-direction: column; }
+  .exp-col { max-height: none; }
+}
+
+/* Sort Controls */
+.exp-sort-controls {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.exp-sort-select {
+  background: #f5f5f5;
+  color: #000;
+  border: 1px solid #ccc;
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.exp-sort-select:focus { border-color: var(--mint-leaf); }
+
+/* Two-Column Expense Layout */
+.exp-two-col {
+  display: flex;
+  gap: 0.75rem;
+}
+.exp-col {
+  flex: 1;
+  min-width: 0;
+  background: #fafafa;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+}
+.exp-col-header {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #333;
+}
+.exp-pdf-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 0.35rem;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+  color: #555;
+  transition: background 0.2s, border-color 0.2s;
+  line-height: 1;
+}
+.exp-pdf-btn:hover {
+  background: rgba(82,183,136,0.1);
+  border-color: var(--mint-leaf);
+  color: var(--mint-leaf);
+}
+.exp-col-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.exp-col-dot--personal { background: #3b82f6; }
+.exp-col-dot--group    { background: var(--mint-leaf); }
+.exp-col-body {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 0 0.5rem;
+}
+.exp-col-empty {
+  text-align: center;
+  color: #888;
+  font-size: 0.8rem;
+  padding: 1.5rem 0.5rem;
+  margin: 0;
+}
+
+/* Expense Row */
+.exp-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.25rem;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  border-radius: 0.3rem;
+  transition: background 0.15s;
+}
+.exp-row:last-child { border-bottom: none; }
+.exp-row:hover { background: rgba(82,183,136,0.06); }
+.exp-row-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.exp-row-dot--personal  { background: #3b82f6; }
+.exp-row-dot--unsettled { background: #22c55e; }
+.exp-row-dot--settled   { background: #9ca3af; }
+.exp-row-info {
+  flex: 1;
+  min-width: 0;
+}
+.exp-row-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.exp-row-grouptag {
+  font-size: 0.62rem;
+  background: rgba(82,183,136,0.15);
+  color: var(--mint-leaf);
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.exp-row-meta {
+  font-size: 0.68rem;
+  color: #666;
+  margin-top: 0.1rem;
+}
+.exp-row-amt {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: #000;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Unpriced Items Section */
+.unpriced-card {
+  border: 1px dashed #d4a843;
+  background: #fffdf5;
+}
+.unpriced-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #f59e0b;
+  color: #fff;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  min-width: 20px;
+  text-align: center;
+}
+.unpriced-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.unpriced-row:last-child { border-bottom: none; }
+.unpriced-info { flex: 1; min-width: 0; }
+.unpriced-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.unpriced-meta { font-size: 0.72rem; color: #666; margin-top: 0.15rem; }
+.unpriced-src {
+  font-size: 0.65rem;
+  background: rgba(82,183,136,0.12);
+  color: var(--sea-green);
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+}
+.unpriced-action {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.unpriced-price-input {
+  width: 90px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 0.4rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+  background: #fff;
+  color: #000;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.unpriced-price-input:focus { border-color: var(--mint-leaf); }
+.unpriced-add-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--mint-leaf);
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+.unpriced-add-btn:hover { opacity: 0.85; }
+.unpriced-add-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* Post-Settlement (Late Expenses) Section */
+.post-settl-card {
+  border: 1px dashed #f59e0b;
+  background: #fffdf5;
+}
+.post-settl-card .card-header {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+.ps-expense-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.ps-expense-row:last-child { border-bottom: none; }
+.ps-exp-info { flex: 1; min-width: 0; }
+.ps-exp-desc {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ps-exp-meta { font-size: 0.72rem; color: #666; margin-top: 0.15rem; }
+.ps-exp-amt {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #d97706;
+  flex-shrink: 0;
 }
 </style>

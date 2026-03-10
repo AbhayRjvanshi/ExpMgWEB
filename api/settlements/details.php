@@ -38,11 +38,12 @@ if (!$stmt->get_result()->fetch_assoc()) {
 $stmt->close();
 
 $stmt = $conn->prepare(
-    "SELECT e.id, e.amount, e.note, e.expense_date, e.user_id,
-            c.name AS category_name, u.username AS added_by
+    "SELECT e.id, e.amount, e.note, e.expense_date, e.user_id, e.paid_by,
+            c.name AS category_name, u.username AS added_by, pb.username AS payer_username
      FROM expenses e
      JOIN categories c ON c.id = e.category_id
      JOIN users u ON u.id = e.user_id
+     LEFT JOIN users pb ON pb.id = e.paid_by
      WHERE e.group_id = ? AND e.type = 'group'
        AND e.expense_date BETWEEN ? AND ?
      ORDER BY e.expense_date ASC, e.created_at ASC"
@@ -56,13 +57,15 @@ while ($r = $result->fetch_assoc()) {
     $amt = (float) $r['amount'];
     $total += $amt;
     $expenses[] = [
-        'id'            => (int) $r['id'],
-        'amount'        => $amt,
-        'note'          => $r['note'],
-        'expense_date'  => $r['expense_date'],
-        'category_name' => $r['category_name'],
-        'added_by'      => $r['added_by'],
-        'user_id'       => (int) $r['user_id']
+        'id'              => (int) $r['id'],
+        'amount'          => $amt,
+        'note'            => $r['note'],
+        'expense_date'    => $r['expense_date'],
+        'category_name'   => $r['category_name'],
+        'added_by'        => $r['added_by'],
+        'payer_username'  => $r['payer_username'],
+        'user_id'         => (int) $r['user_id'],
+        'paid_by'         => $r['paid_by'] ? (int) $r['paid_by'] : null
     ];
 }
 $stmt->close();

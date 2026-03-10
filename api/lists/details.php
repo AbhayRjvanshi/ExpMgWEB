@@ -63,6 +63,7 @@ if ($list['group_id']) {
 // Fetch items sorted by priority (high→moderate→low), then by created_at ASC
 $stmt = $conn->prepare(
     "SELECT li.id, li.description, li.category_id, li.priority, li.is_checked,
+            li.price, li.checked_at, li.expense_created,
             li.added_by, li.created_at,
             c.name AS category_name,
             u.username AS added_by_name
@@ -78,6 +79,7 @@ $result = $stmt->get_result();
 $items = [];
 while ($row = $result->fetch_assoc()) {
     $row['is_checked'] = (int)$row['is_checked'];
+    $row['expense_created'] = (int)$row['expense_created'];
     $items[] = $row;
 }
 $stmt->close();

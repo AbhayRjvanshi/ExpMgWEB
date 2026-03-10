@@ -7,6 +7,11 @@ session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    exit;
+}
+
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['ok' => false, 'error' => 'Not authenticated.']);
     exit;

@@ -24,9 +24,10 @@ $month  = trim($_GET['month'] ?? '');
 if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
     // ---- Expenses for a single day ----
     $sql = "SELECT e.id, e.amount, e.note, e.expense_date, e.type, e.category_id,
-                   e.group_id, e.user_id, e.created_at,
+                   e.group_id, e.user_id, e.paid_by, e.created_at,
                    c.name AS category_name,
                    u.username AS added_by,
+                   pb.username AS payer_username,
                    g.name AS group_name,
                    CASE
                        WHEN e.type = 'personal' AND e.user_id = ? THEN 1
@@ -39,6 +40,7 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             FROM expenses e
             JOIN categories c ON c.id = e.category_id
             JOIN users u ON u.id = e.user_id
+            LEFT JOIN users pb ON pb.id = e.paid_by
             LEFT JOIN `groups` g ON g.id = e.group_id
             WHERE e.expense_date = ?
               AND (
@@ -58,9 +60,10 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
     $endDate   = date('Y-m-t', strtotime($startDate));
 
     $sql = "SELECT e.id, e.amount, e.note, e.expense_date, e.type, e.category_id,
-                   e.group_id, e.user_id, e.created_at,
+                   e.group_id, e.user_id, e.paid_by, e.created_at,
                    c.name AS category_name,
                    u.username AS added_by,
+                   pb.username AS payer_username,
                    g.name AS group_name,
                    CASE
                        WHEN e.type = 'personal' AND e.user_id = ? THEN 1
@@ -73,6 +76,7 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             FROM expenses e
             JOIN categories c ON c.id = e.category_id
             JOIN users u ON u.id = e.user_id
+            LEFT JOIN users pb ON pb.id = e.paid_by
             LEFT JOIN `groups` g ON g.id = e.group_id
             WHERE e.expense_date BETWEEN ? AND ?
               AND (
@@ -94,9 +98,10 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
     $endDate   = trim($_GET['end']);
 
     $sql = "SELECT e.id, e.amount, e.note, e.expense_date, e.type, e.category_id,
-                   e.group_id, e.user_id, e.created_at,
+                   e.group_id, e.user_id, e.paid_by, e.created_at,
                    c.name AS category_name,
                    u.username AS added_by,
+                   pb.username AS payer_username,
                    g.name AS group_name,
                    CASE
                        WHEN e.type = 'personal' AND e.user_id = ? THEN 1
@@ -109,6 +114,7 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             FROM expenses e
             JOIN categories c ON c.id = e.category_id
             JOIN users u ON u.id = e.user_id
+            LEFT JOIN users pb ON pb.id = e.paid_by
             LEFT JOIN `groups` g ON g.id = e.group_id
             WHERE e.expense_date BETWEEN ? AND ?
               AND (

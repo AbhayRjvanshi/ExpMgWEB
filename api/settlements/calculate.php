@@ -4,6 +4,7 @@
  * GET ?group_id=N
  * Returns members, contributions, per-person share, settlement instructions.
  */
+require_once __DIR__ . '/settlement_helpers.php';
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
@@ -70,18 +71,20 @@ if ($memberCount === 0) {
 
 // Get group expenses since last settlement
 if ($lastSettlementDate) {
-    $sql = "SELECT e.user_id, COALESCE(SUM(e.amount), 0) AS total
+    $sql = "SELECT e.paid_by, COALESCE(SUM(e.amount), 0) AS total
             FROM expenses e
             WHERE e.group_id = ? AND e.type = 'group'
               AND e.expense_date > ?
-            GROUP BY e.user_id";
+              AND e.is_post_settlement = 0
+            GROUP BY e.paid_by";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param('is', $groupId, $lastSettlementDate);
 } else {
-    $sql = "SELECT e.user_id, COALESCE(SUM(e.amount), 0) AS total
+    $sql = "SELECT e.paid_by, COALESCE(SUM(e.amount), 0) AS total
             FROM expenses e
             WHERE e.group_id = ? AND e.type = 'group'
-            GROUP BY e.user_id";
+              AND e.is_post_settlement = 0
+            GROUP BY e.paid_by";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param('i', $groupId);
 }
@@ -89,7 +92,7 @@ $stmt->execute();
 $contribRes = $stmt->get_result();
 $contributions = [];
 while ($r = $contribRes->fetch_assoc()) {
-    $contributions[(int) $r['user_id']] = (float) $r['total'];
+    $contributions[(int) $r['paid_by']] = (float) $r['total'];
 }
 $stmt->close();
 
@@ -111,46 +114,34 @@ foreach ($members as $m) {
     ];
 }
 
-// Calculate settlements: greedy algorithm
-$creditors = [];
-$debtors   = [];
+// Calculate settlements using shared helper
+$balances = [];
+$usernames = [];
 foreach ($memberDetails as $m) {
-    if ($m['balance'] > 0.005) {
-        $creditors[] = ['user_id' => $m['user_id'], 'username' => $m['username'], 'amount' => $m['balance']];
-    } elseif ($m['balance'] < -0.005) {
-        $debtors[] = ['user_id' => $m['user_id'], 'username' => $m['username'], 'amount' => abs($m['balance'])];
-    }
+    $balances[] = ['user_id' => $m['user_id'], 'amount' => $m['balance']];
+    $usernames[$m['user_id']] = $m['username'];
 }
-
+$rawSettlements = calculateSettlements($balances);
 $settlements = [];
-$ci = 0;
-$di = 0;
-while ($ci < count($creditors) && $di < count($debtors)) {
-    $pay = min($creditors[$ci]['amount'], $debtors[$di]['amount']);
-    if ($pay > 0.005) {
-        $settlements[] = [
-            'from_id'       => $debtors[$di]['user_id'],
-            'from_username' => $debtors[$di]['username'],
-            'to_id'         => $creditors[$ci]['user_id'],
-            'to_username'   => $creditors[$ci]['username'],
-            'amount'        => round($pay, 2)
-        ];
-    }
-    $creditors[$ci]['amount'] -= $pay;
-    $debtors[$di]['amount']   -= $pay;
-    if ($creditors[$ci]['amount'] < 0.005) $ci++;
-    if ($debtors[$di]['amount'] < 0.005)   $di++;
+foreach ($rawSettlements as $s) {
+    $settlements[] = [
+        'from_id'       => $s['payer_id'],
+        'from_username' => $usernames[$s['payer_id']] ?? '?',
+        'to_id'         => $s['payee_id'],
+        'to_username'   => $usernames[$s['payee_id']] ?? '?',
+        'amount'        => $s['amount']
+    ];
 }
 
 // Period dates from actual expense dates (avoids server timezone mismatches)
 if ($lastSettlementDate) {
     $stmt = $conn->prepare(
-        "SELECT MIN(expense_date) AS first_date, MAX(expense_date) AS last_date FROM expenses WHERE group_id = ? AND type = 'group' AND expense_date > ?"
+        "SELECT MIN(expense_date) AS first_date, MAX(expense_date) AS last_date FROM expenses WHERE group_id = ? AND type = 'group' AND expense_date > ? AND is_post_settlement = 0"
     );
     $stmt->bind_param('is', $groupId, $lastSettlementDate);
 } else {
     $stmt = $conn->prepare(
-        "SELECT MIN(expense_date) AS first_date, MAX(expense_date) AS last_date FROM expenses WHERE group_id = ? AND type = 'group'"
+        "SELECT MIN(expense_date) AS first_date, MAX(expense_date) AS last_date FROM expenses WHERE group_id = ? AND type = 'group' AND is_post_settlement = 0"
     );
     $stmt->bind_param('i', $groupId);
 }
@@ -189,6 +180,16 @@ foreach ($confirmations as $uid => $c) {
 
 $userConfirmed = in_array($userId, $confirmedUserIds);
 
+// Count unsettled post-settlement expenses for this group
+$psStmt = $conn->prepare(
+    "SELECT COUNT(*) AS cnt FROM expenses
+     WHERE group_id = ? AND type = 'group' AND is_post_settlement = 1"
+);
+$psStmt->bind_param('i', $groupId);
+$psStmt->execute();
+$postSettlementCount = (int) $psStmt->get_result()->fetch_assoc()['cnt'];
+$psStmt->close();
+
 echo json_encode([
     'ok'              => true,
     'group_id'        => $groupId,
@@ -202,5 +203,6 @@ echo json_encode([
     'last_settlement' => $lastSettlementDate,
     'confirmed_users' => $confirmedUserIds,
     'confirmed_count' => count($confirmedUserIds),
-    'user_confirmed'  => $userConfirmed
+    'user_confirmed'  => $userConfirmed,
+    'post_settlement_count' => $postSettlementCount
 ]);

@@ -109,8 +109,46 @@
           </label>
         </div>
       </div>
+      <div class="form-group">
+        <label for="aiPrice">Price <span style="font-weight:400;color:#888;">(Optional)</span></label>
+        <input type="number" id="aiPrice" name="price" class="form-input" placeholder="e.g. 150.00" min="0" step="0.01" />
+      </div>
       <div id="aiError" class="alert alert-error hidden"></div>
       <button type="submit" class="btn w-full">Add Item</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===== Group Check Confirm Modal ===== -->
+<div id="checkConfirmModal" class="modal-overlay hidden">
+  <div class="auth-card" style="max-width:420px; position:relative;">
+    <button class="modal-x" onclick="document.getElementById('checkConfirmModal').classList.add('hidden')">✕</button>
+    <h2 style="font-size:1.2rem; font-weight:700; margin-bottom:1rem;">Confirm Purchase</h2>
+    <form id="checkConfirmForm">
+      <input type="hidden" id="ccItemId" value="" />
+      <div class="form-group">
+        <label>Item</label>
+        <input type="text" id="ccItemName" class="form-input" readonly style="background:#f5f5f5;" />
+      </div>
+      <div class="form-group">
+        <label for="ccAmount">Amount</label>
+        <input type="number" step="0.01" min="0.01" id="ccAmount" name="price" class="form-input" placeholder="0.00" required />
+      </div>
+      <div class="form-group">
+        <label for="ccPaidBy">Paid By</label>
+        <select id="ccPaidBy" name="paid_by" class="form-input" required>
+          <option value="">Select who paid…</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="text" id="ccDate" class="form-input" readonly style="background:#f5f5f5;" />
+      </div>
+      <div id="ccError" class="alert alert-error hidden"></div>
+      <div class="flex gap-1">
+        <button type="submit" class="btn w-full">Confirm</button>
+        <button type="button" class="btn-outline w-full" id="ccCancel" style="padding:0.65rem;">Cancel</button>
+      </div>
     </form>
   </div>
 </div>
@@ -160,12 +198,26 @@
   .li-check.is-checked { background: var(--mint-leaf); border-color: var(--mint-leaf); color: #fff; }
   .li-desc { flex: 1; font-size: 0.9rem; color: #000; }
   .li-cat  { font-size: 0.75rem; color: #666; }
+  .li-price { font-size: 0.78rem; font-weight: 600; color: var(--sea-green); white-space: nowrap; }
   .li-remove {
     background: none; border: 1px solid #ccc;
     color: #666; font-size: 0.7rem; padding: 0.15rem 0.4rem;
     border-radius: 0.3rem; cursor: pointer; transition: all var(--t-fast);
   }
   .li-remove:hover { border-color: #ef4444; color: #ef4444; }
+
+  .li-lock {
+    font-size: 0.75rem; opacity: 0.6;
+  }
+  .li-timer {
+    font-size: 0.72rem; font-weight: 600; color: #d97706;
+    background: #fef3c7; padding: 0.1rem 0.4rem;
+    border-radius: 0.3rem; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .li-check.li-locked {
+    opacity: 0.4; cursor: not-allowed;
+  }
 
   .priority-radio {
     display: flex; align-items: center; gap: 0.35rem; cursor: pointer;
@@ -187,23 +239,42 @@
 <script>
 (function() {
   'use strict';
-  const API = '../api';
-
-  function $(s) { return document.querySelector(s); }
-  function show(el) { el && el.classList.remove('hidden'); }
-  function hide(el) { el && el.classList.add('hidden'); }
-  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-  async function post(url, data) {
-    const fd = new FormData();
-    for (const [k,v] of Object.entries(data)) { if (v != null && v !== '') fd.append(k, v); }
-    return (await fetch(url, { method:'POST', body:fd })).json();
-  }
-  async function get(url) { return (await fetch(url)).json(); }
+  const esc = escapeHTML; // alias for brevity
 
   let categories = [];
   let userGroups = [];
   let currentListId = null;
+  let currentListGroupId = null;
+  let timerInterval = null;
+
+  // Format seconds as M:SS
+  function fmtTimer(secs) {
+    if (secs <= 0) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  // Start live countdown for all visible timers
+  function startTimers() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      const timers = document.querySelectorAll('.li-timer');
+      if (timers.length === 0) { clearInterval(timerInterval); timerInterval = null; return; }
+      const now = Date.now();
+      let needRefresh = false;
+      timers.forEach(el => {
+        const expires = parseInt(el.dataset.expires, 10);
+        const left = Math.ceil((expires - now) / 1000);
+        if (left <= 0) {
+          needRefresh = true;
+        } else {
+          el.textContent = fmtTimer(left);
+        }
+      });
+      if (needRefresh && currentListId) openListDetail(currentListId);
+    }, 1000);
+  }
 
   // ---- Init ----
   async function init() {
@@ -273,6 +344,7 @@
     if (!res.ok) { hide(panel); alert(res.error); return; }
 
     const l = res.list;
+    currentListGroupId = l.group_id || null;
     $('#ldName').textContent = l.name;
     $('#ldType').textContent = l.group_id ? `📋 ${l.group_name}` : '🔒 Personal';
     $('#ldType').className = 'exp-badge ' + (l.group_id ? 'badge-group' : 'badge-personal');
@@ -315,10 +387,29 @@
       groups[p].forEach(i => {
         const checkedCls = i.is_checked ? 'checked' : '';
         const checkBtnCls = i.is_checked ? 'li-check is-checked' : 'li-check';
+
+        // 10-minute lock logic
+        let lockInfo = '';
+        let isLocked = false;
+        if (i.is_checked && i.checked_at) {
+          const checkedMs = new Date(i.checked_at.replace(' ', 'T')).getTime();
+          const elapsedMs = Date.now() - checkedMs;
+          const tenMin = 10 * 60 * 1000;
+          if (elapsedMs >= tenMin) {
+            isLocked = true;
+            lockInfo = `<span class="li-lock" title="Locked — cannot uncheck after 10 minutes">🔒</span>`;
+          } else {
+            const secsLeft = Math.ceil((tenMin - elapsedMs) / 1000);
+            lockInfo = `<span class="li-timer" data-expires="${checkedMs + tenMin}" title="Time remaining to uncheck">${fmtTimer(secsLeft)}</span>`;
+          }
+        }
+
         html += `
           <div class="list-item-row ${checkedCls}">
-            <button class="${checkBtnCls}" data-id="${i.id}" title="Toggle">${i.is_checked ? '✓' : ''}</button>
+            <button class="${checkBtnCls}${isLocked ? ' li-locked' : ''}" data-id="${i.id}" title="${isLocked ? 'Locked' : 'Toggle'}" ${isLocked ? 'disabled' : ''}>${i.is_checked ? '✓' : ''}</button>
             <span class="li-desc">${esc(i.description)}</span>
+            ${lockInfo}
+            ${i.price ? `<span class="li-price">₹${Number(i.price).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>` : ''}
             ${i.category_name ? `<span class="li-cat">${esc(i.category_name)}</span>` : ''}
             <button class="li-remove" data-id="${i.id}" title="Remove">✕</button>
           </div>
@@ -330,10 +421,28 @@
 
     // Bind check/remove
     container.querySelectorAll('.li-check').forEach(btn => {
+      if (btn.disabled) return; // locked items
       btn.addEventListener('click', async () => {
-        const r = await post(`${API}/lists/check_item.php`, { item_id: btn.dataset.id });
-        if (r.ok) openListDetail(currentListId);
-        else alert(r.error);
+        const isChecked = btn.classList.contains('is-checked');
+        if (isChecked) {
+          // Unchecking — direct call
+          const r = await post(`${API}/lists/check_item.php`, { item_id: btn.dataset.id });
+          if (r.ok) { openListDetail(currentListId); loadLists(); }
+          else alert(r.error);
+        } else {
+          // Checking — POST to check the item
+          const r = await post(`${API}/lists/check_item.php`, { item_id: btn.dataset.id });
+          if (!r.ok) { alert(r.error); return; }
+
+          if (r.needs_confirm) {
+            // Group item — show confirmation popup
+            showCheckConfirmModal(r);
+          } else {
+            // Personal item — already handled
+            openListDetail(currentListId);
+            loadLists();
+          }
+        }
       });
     });
     container.querySelectorAll('.li-remove').forEach(btn => {
@@ -344,6 +453,32 @@
         else alert(r.error);
       });
     });
+
+    // Start live countdown timers
+    startTimers();
+  }
+
+  // ---- Group Check Confirm Popup ----
+  function showCheckConfirmModal(resp) {
+    const item = resp.item;
+    const members = resp.members;
+    $('#ccItemId').value = item.id;
+    $('#ccItemName').value = item.description;
+    $('#ccAmount').value = item.price ? Number(item.price) : '';
+    $('#ccAmount').readOnly = !!item.price;
+    $('#ccAmount').style.background = item.price ? '#f5f5f5' : '';
+    $('#ccDate').value = item.date;
+    hide($('#ccError'));
+
+    // Populate paid_by dropdown
+    const sel = $('#ccPaidBy');
+    sel.innerHTML = '<option value="">Select who paid…</option>';
+    members.forEach(m => {
+      sel.innerHTML += `<option value="${m.user_id}">${esc(m.username)}</option>`;
+    });
+
+    show($('#checkConfirmModal'));
+    sel.focus();
   }
 
   // ---- Events ----
@@ -356,6 +491,7 @@
       $('#aiListId').value = currentListId;
       $('#aiDesc').value = '';
       $('#aiCategory').value = '';
+      $('#aiPrice').value = '';
       document.querySelector('input[name="priority"][value="low"]').checked = true;
       hide($('#aiError'));
       show($('#addItemModal'));
@@ -370,7 +506,8 @@
         list_id:     $('#aiListId').value,
         description: $('#aiDesc').value.trim(),
         category_id: $('#aiCategory').value,
-        priority:    document.querySelector('input[name="priority"]:checked').value
+        priority:    document.querySelector('input[name="priority"]:checked').value,
+        price:       $('#aiPrice').value.trim()
       };
       if (!data.description) return;
       const res = await post(`${API}/lists/add_item.php`, data);
@@ -420,8 +557,46 @@
       }
     });
 
+    // Check confirm form
+    $('#checkConfirmForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      hide($('#ccError'));
+      const data = {
+        item_id:  $('#ccItemId').value,
+        paid_by:  $('#ccPaidBy').value,
+        price:    $('#ccAmount').value,
+        confirm:  '1'
+      };
+      if (!data.paid_by) {
+        $('#ccError').textContent = 'Please select who paid.';
+        show($('#ccError'));
+        return;
+      }
+      const res = await post(`${API}/lists/check_item.php`, data);
+      if (res.ok) {
+        hide($('#checkConfirmModal'));
+        openListDetail(currentListId);
+        loadLists();
+      } else {
+        $('#ccError').textContent = res.error;
+        show($('#ccError'));
+      }
+    });
+
+    // Check confirm cancel — uncheck the item
+    $('#ccCancel').addEventListener('click', async () => {
+      const itemId = $('#ccItemId').value;
+      if (itemId) {
+        // Uncheck the item since they cancelled
+        await post(`${API}/lists/check_item.php`, { item_id: itemId });
+        openListDetail(currentListId);
+        loadLists();
+      }
+      hide($('#checkConfirmModal'));
+    });
+
     // Close modals on overlay click
-    ['createListModal', 'addItemModal'].forEach(id => {
+    ['createListModal', 'addItemModal', 'checkConfirmModal'].forEach(id => {
       document.getElementById(id).addEventListener('click', function(e) {
         if (e.target === this) this.classList.add('hidden');
       });

@@ -87,6 +87,13 @@
         </select>
       </div>
 
+      <div class="form-group hidden" id="paidByWrap">
+        <label for="expPaidBy">Paid By</label>
+        <select id="expPaidBy" name="paid_by" class="form-input">
+          <option value="">Select who paid…</option>
+        </select>
+      </div>
+
       <div id="expError" class="alert alert-error hidden" style="margin-bottom:0.75rem;"></div>
 
       <div class="flex gap-1">

@@ -7,6 +7,7 @@
  * When ALL group members have confirmed, the settlement is finalized
  * (records inserted into the settlements table) and confirmations are cleared.
  */
+require_once __DIR__ . '/settlement_helpers.php';
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
@@ -64,12 +65,12 @@ if ($memberCount === 0) {
 // Get total unsettled spending
 if ($lastSettlementDate) {
     $sql = "SELECT COALESCE(SUM(amount), 0) AS total FROM expenses
-            WHERE group_id = ? AND type = 'group' AND expense_date > ?";
+            WHERE group_id = ? AND type = 'group' AND expense_date > ? AND is_post_settlement = 0";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param('is', $groupId, $lastSettlementDate);
 } else {
     $sql = "SELECT COALESCE(SUM(amount), 0) AS total FROM expenses
-            WHERE group_id = ? AND type = 'group'";
+            WHERE group_id = ? AND type = 'group' AND is_post_settlement = 0";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param('i', $groupId);
 }
@@ -86,13 +87,13 @@ if ($totalSpend <= 0) {
 if ($lastSettlementDate) {
     $stmt = $conn->prepare(
         "SELECT MIN(expense_date) AS first_date, MAX(expense_date) AS last_date
-         FROM expenses WHERE group_id = ? AND type = 'group' AND expense_date > ?"
+         FROM expenses WHERE group_id = ? AND type = 'group' AND expense_date > ? AND is_post_settlement = 0"
     );
     $stmt->bind_param('is', $groupId, $lastSettlementDate);
 } else {
     $stmt = $conn->prepare(
         "SELECT MIN(expense_date) AS first_date, MAX(expense_date) AS last_date
-         FROM expenses WHERE group_id = ? AND type = 'group'"
+         FROM expenses WHERE group_id = ? AND type = 'group' AND is_post_settlement = 0"
     );
     $stmt->bind_param('i', $groupId);
 }
@@ -102,7 +103,9 @@ $stmt->close();
 $periodStart = $dateRow['first_date'] ?? date('Y-m-d');
 $periodEnd   = max($dateRow['last_date'] ?? date('Y-m-d'), date('Y-m-d'));
 
-// ---- Record this user's confirmation ----
+// ---- Record this user's confirmation (inside transaction to prevent race) ----
+$conn->begin_transaction();
+
 $stmt = $conn->prepare(
     'INSERT INTO settlement_confirmations (group_id, user_id, period_start, period_end)
      VALUES (?, ?, ?, ?)
@@ -114,11 +117,12 @@ $stmt->bind_param('iiss', $groupId, $userId, $periodStart, $periodEnd);
 $stmt->execute();
 $stmt->close();
 
-// ---- Check if ALL members have confirmed for the current period ----
+// ---- Check if ALL members have confirmed (use FOR UPDATE to prevent race) ----
 $stmt = $conn->prepare(
     'SELECT COUNT(*) AS cnt FROM settlement_confirmations sc
      JOIN group_members gm ON gm.group_id = sc.group_id AND gm.user_id = sc.user_id
-     WHERE sc.group_id = ? AND sc.period_end = ?'
+     WHERE sc.group_id = ? AND sc.period_end = ?
+     FOR UPDATE'
 );
 $stmt->bind_param('is', $groupId, $periodEnd);
 $stmt->execute();
@@ -131,17 +135,17 @@ if ($remaining <= 0) {
     // ---- ALL confirmed → finalize settlement ----
     // Recompute contributions (same as settle_all.php)
     if ($lastSettlementDate) {
-        $sql = "SELECT e.user_id, COALESCE(SUM(e.amount), 0) AS total
+        $sql = "SELECT e.paid_by, COALESCE(SUM(e.amount), 0) AS total
                 FROM expenses e
-                WHERE e.group_id = ? AND e.type = 'group' AND e.expense_date > ?
-                GROUP BY e.user_id";
+                WHERE e.group_id = ? AND e.type = 'group' AND e.expense_date > ? AND e.is_post_settlement = 0
+                GROUP BY e.paid_by";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param('is', $groupId, $lastSettlementDate);
     } else {
-        $sql = "SELECT e.user_id, COALESCE(SUM(e.amount), 0) AS total
+        $sql = "SELECT e.paid_by, COALESCE(SUM(e.amount), 0) AS total
                 FROM expenses e
-                WHERE e.group_id = ? AND e.type = 'group'
-                GROUP BY e.user_id";
+                WHERE e.group_id = ? AND e.type = 'group' AND e.is_post_settlement = 0
+                GROUP BY e.paid_by";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param('i', $groupId);
     }
@@ -149,44 +153,21 @@ if ($remaining <= 0) {
     $contribRes = $stmt->get_result();
     $contributions = [];
     while ($r = $contribRes->fetch_assoc()) {
-        $contributions[(int) $r['user_id']] = (float) $r['total'];
+        $contributions[(int) $r['paid_by']] = (float) $r['total'];
     }
     $stmt->close();
 
     $perPerson = round($totalSpend / $memberCount, 2);
 
-    // Greedy settlement algorithm
-    $creditors = [];
-    $debtors   = [];
+    // Calculate settlements using shared helper
+    $balances = [];
     foreach ($memberIds as $mid) {
         $contrib = $contributions[$mid] ?? 0;
-        $balance = round($contrib - $perPerson, 2);
-        if ($balance > 0.005) {
-            $creditors[] = ['user_id' => $mid, 'amount' => $balance];
-        } elseif ($balance < -0.005) {
-            $debtors[] = ['user_id' => $mid, 'amount' => abs($balance)];
-        }
+        $balances[] = ['user_id' => $mid, 'amount' => round($contrib - $perPerson, 2)];
     }
+    $settlements = calculateSettlements($balances);
 
-    $settlements = [];
-    $ci = 0;
-    $di = 0;
-    while ($ci < count($creditors) && $di < count($debtors)) {
-        $pay = min($creditors[$ci]['amount'], $debtors[$di]['amount']);
-        if ($pay > 0.005) {
-            $settlements[] = [
-                'payer_id' => $debtors[$di]['user_id'],
-                'payee_id' => $creditors[$ci]['user_id'],
-                'amount'   => round($pay, 2)
-            ];
-        }
-        $creditors[$ci]['amount'] -= $pay;
-        $debtors[$di]['amount']   -= $pay;
-        if ($creditors[$ci]['amount'] < 0.005) $ci++;
-        if ($debtors[$di]['amount'] < 0.005)   $di++;
-    }
-
-    $conn->begin_transaction();
+    // Transaction already active from the confirmation insert above — finalize within it
     try {
         $insertStmt = $conn->prepare(
             'INSERT INTO settlements (group_id, settled_by, payer_id, payee_id, amount, period_start, period_end)
@@ -246,6 +227,9 @@ if ($remaining <= 0) {
         echo json_encode(['ok' => false, 'error' => 'Failed to finalize settlement.']);
     }
 } else {
+    // Commit the transaction that recorded this user's individual confirmation
+    $conn->commit();
+
     // Notify other members that this user confirmed
     $gStmt = $conn->prepare('SELECT name FROM `groups` WHERE id = ?');
     $gStmt->bind_param('i', $groupId);

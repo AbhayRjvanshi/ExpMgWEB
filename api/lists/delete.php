@@ -2,7 +2,7 @@
 /**
  * api/lists/delete.php — Delete a list.
  * POST: list_id
- * Personal list → only owner. Group list → any member can delete.
+ * Personal list → only owner. Group list → admin or list creator only.
  */
 session_start();
 header('Content-Type: application/json');
@@ -38,17 +38,21 @@ if (!$list) {
 
 // Permission check
 if ($list['group_id']) {
-    $chk = $conn->prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?');
+    $chk = $conn->prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?');
     $gid = (int)$list['group_id'];
     $chk->bind_param('ii', $gid, $userId);
     $chk->execute();
-    $chk->store_result();
-    if ($chk->num_rows === 0) {
-        $chk->close();
+    $role = $chk->get_result()->fetch_assoc();
+    $chk->close();
+    if (!$role) {
         echo json_encode(['ok' => false, 'error' => 'Access denied.']);
         exit;
     }
-    $chk->close();
+    // Only admin or the list creator can delete a group list
+    if ($role['role'] !== 'admin' && (int)$list['user_id'] !== $userId) {
+        echo json_encode(['ok' => false, 'error' => 'Only the group admin or list creator can delete this list.']);
+        exit;
+    }
 } else {
     if ((int)$list['user_id'] !== $userId) {
         echo json_encode(['ok' => false, 'error' => 'You can only delete your own personal lists.']);

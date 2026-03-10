@@ -25,6 +25,7 @@ $categoryId = (int) ($_POST['category_id'] ?? 0);
 $note       = trim($_POST['note'] ?? '');
 $type       = ($_POST['type'] ?? 'personal') === 'group' ? 'group' : 'personal';
 $groupId    = !empty($_POST['group_id']) ? (int) $_POST['group_id'] : null;
+$paidBy     = !empty($_POST['paid_by']) ? (int) $_POST['paid_by'] : null;
 
 if ($expenseId <= 0)  { echo json_encode(['ok' => false, 'error' => 'Invalid expense ID.']); exit; }
 if ($amount <= 0)     { echo json_encode(['ok' => false, 'error' => 'Amount must be > 0.']); exit; }
@@ -55,6 +56,18 @@ if ($existing['type'] === 'group' && $existing['group_id']) {
         exit;
     }
 }
+// Also check the target group if moving expense into a (different) group
+if ($type === 'group' && $groupId && $groupId !== (int)($existing['group_id'] ?? 0)) {
+    $lockStmt = $conn->prepare('SELECT MAX(period_end) AS last_end FROM settlements WHERE group_id = ?');
+    $lockStmt->bind_param('i', $groupId);
+    $lockStmt->execute();
+    $lockRow = $lockStmt->get_result()->fetch_assoc();
+    $lockStmt->close();
+    if ($lockRow && $lockRow['last_end'] && $existing['expense_date'] <= $lockRow['last_end']) {
+        echo json_encode(['ok' => false, 'error' => 'Cannot move expense into a group with a settled period covering this date.']);
+        exit;
+    }
+}
 
 // --- Permission check ---
 if ($existing['type'] === 'personal') {
@@ -76,11 +89,14 @@ if ($existing['type'] === 'personal') {
     }
 }
 
+// For personal expenses, payer is always the current user
+if ($type !== 'group') $paidBy = $userId;
+
 // --- Update ---
 $stmt = $conn->prepare(
-    'UPDATE expenses SET amount = ?, category_id = ?, note = ?, type = ?, group_id = ? WHERE id = ?'
+    'UPDATE expenses SET amount = ?, category_id = ?, note = ?, type = ?, group_id = ?, paid_by = ? WHERE id = ?'
 );
-$stmt->bind_param('dissii', $amount, $categoryId, $note, $type, $groupId, $expenseId);
+$stmt->bind_param('dissiii', $amount, $categoryId, $note, $type, $groupId, $paidBy, $expenseId);
 
 if ($stmt->execute()) {
     $stmt->close();

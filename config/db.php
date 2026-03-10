@@ -10,7 +10,9 @@ $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
 // Check connection
 if ($conn->connect_error) {
-    die('Database connection failed: ' . $conn->connect_error);
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Database connection failed.']);
+    exit;
 }
 
 // Use $conn for queries throughout the app

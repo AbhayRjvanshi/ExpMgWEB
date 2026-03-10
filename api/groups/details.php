@@ -54,13 +54,14 @@ $members = [];
 while ($row = $result->fetch_assoc()) $members[] = $row;
 $stmt->close();
 
-// Recent group expenses (last 20)
+// Past group expenses (last 20)
 $stmt = $conn->prepare(
-    'SELECT e.id, e.amount, e.note, e.expense_date, e.category_id,
-            c.name AS category_name, u.username AS added_by, e.created_at
+    'SELECT e.id, e.amount, e.note, e.expense_date, e.category_id, e.paid_by,
+            c.name AS category_name, u.username AS added_by, pb.username AS payer_username, e.created_at
      FROM expenses e
      JOIN categories c ON c.id = e.category_id
      JOIN users u ON u.id = e.user_id
+     LEFT JOIN users pb ON pb.id = e.paid_by
      WHERE e.group_id = ? AND e.type = "group"
      ORDER BY e.expense_date DESC, e.created_at DESC
      LIMIT 20'
