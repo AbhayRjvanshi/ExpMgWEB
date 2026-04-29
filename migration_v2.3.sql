@@ -1,0 +1,50 @@
+-- ============================================================
+-- Migration v2.3 — CSRF Protection Layer (Hardened)
+-- 
+-- This migration adds comprehensive CSRF protection to all
+-- state-changing API endpoints with multiple defense layers.
+--
+-- NO DATABASE CHANGES REQUIRED
+-- 
+-- This migration is code-only and includes:
+-- 1. Enhanced CSRF helper: api/helpers/csrf.php
+--    - Double-submit cookie defense
+--    - Automatic 12-hour token rotation
+--    - CSRF failure rate monitoring
+-- 2. Secure session cookie configuration (SameSite=Lax)
+-- 3. CSRF token generation on login/signup with rotation
+-- 4. CSRF token verification in requireAuth()
+-- 5. Framework-level bootstrap (api/bootstrap.php)
+-- 6. Frontend CSRF token inclusion (cookie + header)
+-- 7. Content-Security-Policy headers (XSS mitigation)
+-- 8. Automated CSRF bypass test suite (test_csrf.php)
+--
+-- Security improvements:
+-- - Prevents Cross-Site Request Forgery attacks
+-- - Session-bound 256-bit cryptographically secure tokens
+-- - Double-submit cookie pattern (cookie + header verification)
+-- - Automatic token rotation every 12 hours
+-- - Timing-attack resistant token comparison
+-- - SameSite=Lax cookie policy (OAuth/redirect compatible)
+-- - CSRF failure threshold monitoring (50 failures/10 min)
+-- - Content-Security-Policy headers prevent XSS
+-- - Centralized enforcement via middleware + bootstrap
+--
+-- Deployment notes:
+-- 1. Update all files as per code changes
+-- 2. Set 'secure' => true in session_set_cookie_params when using HTTPS
+-- 3. Monitor logs for CSRF validation failures (potential attacks)
+-- 4. Run test_csrf.php to verify protection works correctly
+-- 5. Ensure all custom frontend code uses the post() helper from helpers.js
+-- 6. Review CSP headers if adding new CDN resources
+--
+-- Testing:
+-- - Run: php test_csrf.php (dedicated CSRF test suite)
+-- - All existing tests should pass (CSRF tokens auto-included)
+-- - Failed CSRF attempts logged with WARNING level
+-- - External form submissions blocked with 403 Forbidden
+-- - Token rotation verified on login
+-- ============================================================
+
+-- No SQL changes required for this migration
+SELECT 'CSRF Protection Layer (Hardened) implemented - code changes only' AS status;

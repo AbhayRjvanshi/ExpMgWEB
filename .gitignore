@@ -5,3 +5,18 @@
 *.swo
 Thumbs.db
 .DS_Store
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data and logs
+data/
+logs/
+*.log
+
+# Local troubleshooting artifacts
+git_status.txt
+modified_files.txt
+scratch_cleanup.php

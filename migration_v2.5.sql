@@ -1,0 +1,51 @@
+-- ============================================================
+-- Migration v2.5 — Ephemeral Notification System
+-- ============================================================
+-- This migration documents the architectural shift from MySQL-based
+-- notifications to an ephemeral file-based notification store.
+--
+-- WHAT CHANGED:
+--   * Notifications are now stored as per-user JSON files in
+--     data/notifications/user_{id}.json instead of MySQL rows.
+--   * 3-day TTL with automatic expiry (no cron needed).
+--   * Max 50 notifications per user (oldest evicted on overflow).
+--   * Dedup via SHA-256 event IDs (prevents duplicates).
+--   * Group rate limiting: max 20 notifications per minute per group.
+--   * Immediate consumption (notifications deleted on read).
+--   * File-level locking for concurrency safety.
+--
+-- WHY:
+--   Ephemeral notifications don't need ACID guarantees. Moving them
+--   out of MySQL eliminates write amplification, index bloat, and
+--   the need for cleanup cron jobs. The file store acts as a Redis
+--   stand-in when Redis is unavailable (XAMPP/local dev).
+--
+-- NO SQL CHANGES REQUIRED:
+--   The notifications table is retained for backward compatibility
+--   and because existing index/FK tests validate its schema. It is
+--   no longer actively written to or read from by the application.
+--
+-- New files:
+--   api/helpers/notification_store.php   -- ephemeral store engine
+--   data/notifications/                  -- per-user JSON + lock files
+--   data/.gitignore                      -- excludes runtime data
+--
+-- Modified files:
+--   api/services/NotificationService.php -- rewritten, no mysqli dep
+--   api/notifications/count.php          -- uses ephemeral service
+--   api/notifications/list.php           -- uses ephemeral service
+--   api/notifications/read.php           -- consume semantics
+--   api/notifications/history.php        -- delegates to service
+--   api/services/ExpenseService.php      -- notifPublishToGroup()
+--   api/services/ListService.php         -- notifPublishToGroup()
+--   api/services/SettlementService.php   -- notifPublishToGroup()
+--   api/services/GroupService.php        -- notifPublishToGroup/Users()
+--   public/assets/js/app.js             -- event_id tracking
+--
+-- To apply: no SQL execution needed. Deploy the updated PHP files
+-- and ensure the data/notifications/ directory exists and is writable.
+-- ============================================================
+
+-- No SQL changes required for this migration.
+-- The notifications table is kept for backward compatibility.
+SELECT 'Ephemeral Notification System (v2.5) - code changes only' AS status;
