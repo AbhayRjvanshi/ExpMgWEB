@@ -24,7 +24,7 @@
       <h3 id="ldName" style="font-size:1.1rem; font-weight:700;"></h3>
       <div class="flex gap-1">
         <button class="btn" id="ldAddItem" style="padding:0.3rem 0.7rem; font-size:0.8rem;">+ Add Item</button>
-        <button class="btn-outline" id="ldClose" style="padding:0.25rem 0.6rem; font-size:0.8rem; border-radius:0.4rem;">✕</button>
+        <button class="btn btn-icon" id="ldClose">✕</button>
       </div>
     </div>
     <div class="flex gap-1 items-center mb-2" style="flex-wrap:wrap;">
@@ -147,7 +147,7 @@
       <div id="ccError" class="alert alert-error hidden"></div>
       <div class="flex gap-1">
         <button type="submit" class="btn w-full">Confirm</button>
-        <button type="button" class="btn-outline w-full" id="ccCancel" style="padding:0.65rem;">Cancel</button>
+        <button type="button" class="btn w-full" id="ccCancel">Cancel</button>
       </div>
     </form>
   </div>

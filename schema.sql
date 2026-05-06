@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS categories (
 
 -- Seed the default categories
 INSERT IGNORE INTO categories (name) VALUES
+    ('General'),
     ('Food/Groceries'),
     ('Transport'),
     ('Utilities'),
@@ -244,4 +245,37 @@ CREATE TABLE IF NOT EXISTS post_settlement_confirmations (
     UNIQUE KEY uq_ps_group_user (group_id, user_id),
     FOREIGN KEY (group_id)  REFERENCES `groups`(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id)   REFERENCES users(id)    ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- 13. rate_limits (IP-based rate limiting ledger)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS rate_limits (
+    id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ip_address   VARCHAR(45)  NOT NULL,
+    action       VARCHAR(30)  NOT NULL,
+    attempted_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_rate_ip_action (ip_address, action, attempted_at)
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- 14. outbox_events (durable notification side-effect replay queue)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS outbox_events (
+    id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    event_key        CHAR(64) NOT NULL UNIQUE,
+    event_type       VARCHAR(80) NOT NULL,
+    payload_json     LONGTEXT NOT NULL,
+    status           ENUM('pending','processing','retryable','sent','dead') NOT NULL DEFAULT 'pending',
+    retry_count      INT UNSIGNED NOT NULL DEFAULT 0,
+    next_attempt_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    processing_since TIMESTAMP NULL DEFAULT NULL,
+    last_error       VARCHAR(500) DEFAULT NULL,
+    processed_at     TIMESTAMP NULL DEFAULT NULL,
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_outbox_status_next (status, next_attempt_at, created_at),
+    INDEX idx_outbox_type_created (event_type, created_at)
 ) ENGINE=InnoDB;

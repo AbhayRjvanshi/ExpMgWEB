@@ -14,6 +14,12 @@
 
   // ------ Helpers (shared from helpers.js; only local extras here) ------
   function pad(n) { return String(n).padStart(2, '0'); }
+  function fmtCalendarMoney(amount) {
+    return '\u20B9' + Number(amount).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
 
   // ------ Init ------
   document.addEventListener('DOMContentLoaded', async () => {
@@ -60,17 +66,26 @@
     const monthStr = `${currentYear}-${pad(currentMonth + 1)}`;
     monthExpenseDates = new Set();
     let dateDotMap = {}; // dateStr -> { personal:bool, groupUnsettled:bool, groupSettled:bool }
+    let dateSummaryMap = {}; // dateStr -> { personal: number, groupOpen: number, groupSettled: number }
     try {
       const mRes = await get(`${API}/expenses/list.php?month=${monthStr}`);
       if (mRes.ok) {
         mRes.expenses.forEach(e => {
+          const amount = parseFloat(e.amount) || 0;
           monthExpenseDates.add(e.expense_date);
           if (!dateDotMap[e.expense_date]) dateDotMap[e.expense_date] = { personal:false, groupUnsettled:false, groupSettled:false };
+          if (!dateSummaryMap[e.expense_date]) dateSummaryMap[e.expense_date] = { personal: 0, groupOpen: 0, groupSettled: 0 };
           if (e.type === 'personal') {
             dateDotMap[e.expense_date].personal = true;
+            dateSummaryMap[e.expense_date].personal += amount;
           } else if (e.type === 'group') {
-            if (e.settled) dateDotMap[e.expense_date].groupSettled = true;
-            else dateDotMap[e.expense_date].groupUnsettled = true;
+            if (e.settled) {
+              dateDotMap[e.expense_date].groupSettled = true;
+              dateSummaryMap[e.expense_date].groupSettled += amount;
+            } else {
+              dateDotMap[e.expense_date].groupUnsettled = true;
+              dateSummaryMap[e.expense_date].groupOpen += amount;
+            }
           }
         });
       }
@@ -87,10 +102,24 @@
       const isToday = dateStr === todayStr;
       const isSelected = dateStr === selectedDate;
       const dots = dateDotMap[dateStr];
+      const summary = dateSummaryMap[dateStr] || { personal: 0, groupOpen: 0, groupSettled: 0 };
+      const personalTotal = summary.personal;
+      const groupTotal = summary.groupOpen + (summary.groupSettled / 2);
+      const hasPersonal = personalTotal > 0;
+      const hasGroup = groupTotal > 0;
 
       let cls = 'cal-day';
       if (isToday) cls += ' today';
       if (isSelected) cls += ' selected';
+
+      const amountLines = [];
+      if (hasPersonal) {
+        amountLines.push(`<span class="cal-amount-line cal-amount-personal">${fmtCalendarMoney(personalTotal)}</span>`);
+      }
+      if (hasGroup) {
+        const groupLineClass = summary.groupSettled > 0 ? 'cal-amount-line cal-amount-group cal-amount-settled' : 'cal-amount-line cal-amount-group';
+        amountLines.push(`<span class="${groupLineClass}">${fmtCalendarMoney(groupTotal)}</span>`);
+      }
 
       let dotsHtml = '';
       if (dots) {
@@ -101,12 +130,25 @@
         dotsHtml += '</span>';
       }
 
+      const amountHtml = amountLines.length
+        ? `<div class="cal-amount-stack">${amountLines.join('')}</div>`
+        : '';
+
       html += `<div class="${cls}" data-date="${dateStr}">
-        ${d}
+        <span class="cal-day-number">${d}</span>
+        ${amountHtml}
         ${dotsHtml}
       </div>`;
     }
     grid.innerHTML = html;
+
+    if (!selectedDate && currentYear === today.getFullYear() && currentMonth === today.getMonth()) {
+      const todayCell = grid.querySelector(`[data-date="${todayStr}"]`);
+      if (todayCell) {
+        todayCell.classList.add('selected');
+      }
+      await loadDayExpenses(todayStr);
+    }
   }
 
   // ------ Day Panel ------
@@ -115,6 +157,11 @@
     const empty = $('#dayEmpty');
     const panel = $('#dayPanel');
     const dateLabel = $('#dayPanelDate');
+    const summaryRow = $('#daySummaryRow');
+    const summaryTotal = $('#daySummaryTotal');
+    const summaryShareWrap = $('#daySummaryShareWrap');
+    const summaryShare = $('#daySummaryShare');
+    const summaryCount = $('#daySummaryCount');
     if (!list) return;
 
     selectedDate = date;
@@ -125,16 +172,45 @@
 
     try {
       const res = await get(`${API}/expenses/list.php?date=${date}`);
-      if (!res.ok) { list.innerHTML = ''; show(empty); return; }
+      if (!res.ok) {
+        list.innerHTML = '';
+        if (summaryRow) hide(summaryRow);
+        show(empty);
+        return;
+      }
 
       const expenses = res.expenses;
       if (expenses.length === 0) {
         list.innerHTML = '';
+        if (summaryRow) hide(summaryRow);
         show(empty);
         return;
       }
 
       hide(empty);
+      const totals = expenses.reduce((acc, expense) => {
+        const amount = parseFloat(expense.amount) || 0;
+        acc.total += amount;
+        if (expense.type === 'personal') {
+          acc.personal += amount;
+        } else if (expense.type === 'group') {
+          if (expense.settled) acc.groupSettled += amount;
+          else acc.groupOpen += amount;
+        }
+        return acc;
+      }, { total: 0, personal: 0, groupOpen: 0, groupSettled: 0 });
+
+      const hasGroup = (totals.groupOpen + totals.groupSettled) > 0;
+      const yourShare = totals.personal + ((totals.groupOpen + totals.groupSettled) / 2);
+
+      if (summaryRow && summaryTotal && summaryShareWrap && summaryShare && summaryCount) {
+        summaryTotal.textContent = fmtCalendarMoney(totals.total);
+        summaryShare.textContent = fmtCalendarMoney(yourShare);
+        summaryCount.textContent = String(expenses.length);
+        if (hasGroup) show(summaryShareWrap); else hide(summaryShareWrap);
+        show(summaryRow);
+      }
+
       list.innerHTML = expenses.map(e => expenseCardHTML(e)).join('');
 
       // Bind edit/delete buttons
@@ -147,6 +223,7 @@
 
     } catch (err) {
       list.innerHTML = '';
+      if (summaryRow) hide(summaryRow);
       show(empty);
     }
   }
@@ -187,10 +264,27 @@
   function populateCategoryDropdown() {
     const sel = $('#expCategory');
     if (!sel) return;
-    sel.innerHTML = '<option value="">Select category…</option>';
-    categories.forEach(c => {
-      sel.innerHTML += `<option value="${c.id}">${escapeHTML(c.name)}</option>`;
+    sel.innerHTML = '';
+
+    var list = categories.slice();
+    var generalIndex = list.findIndex(function(c) { return (c.name || '').toLowerCase() === 'general'; });
+    if (generalIndex > 0) {
+      list.unshift(list.splice(generalIndex, 1)[0]);
+    }
+
+    list.forEach(function(c, index) {
+      var selected = index === 0 ? ' selected' : '';
+      sel.innerHTML += `<option value="${c.id}"${selected}>${escapeHTML(c.name)}</option>`;
     });
+
+    if (!list.length) {
+      sel.innerHTML = '<option value="">General</option>';
+      return;
+    }
+
+    if (generalIndex === -1) {
+      sel.selectedIndex = 0;
+    }
   }
 
   function populateGroupDropdown() {
@@ -227,7 +321,17 @@
     $('#expId').value = '';
     $('#expDate').value = selectedDate;
     $('#expAmount').value = '';
-    $('#expCategory').value = '';
+    const categorySel = $('#expCategory');
+    if (categorySel) {
+      const generalOption = Array.from(categorySel.options).find(function(option) {
+        return (option.textContent || '').trim().toLowerCase() === 'general';
+      });
+      if (generalOption) {
+        categorySel.value = generalOption.value;
+      } else if (categorySel.options.length) {
+        categorySel.selectedIndex = 0;
+      }
+    }
     $('#expNote').value = '';
     const grpSel = $('#expGroup');
     if (grpSel) grpSel.value = '';
@@ -368,15 +472,11 @@
     if (prev) prev.addEventListener('click', () => {
       currentMonth--;
       if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-      selectedDate = null;
-      hide($('#dayPanel'));
       renderCalendar();
     });
     if (next) next.addEventListener('click', () => {
       currentMonth++;
       if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-      selectedDate = null;
-      hide($('#dayPanel'));
       renderCalendar();
     });
 
@@ -641,6 +741,10 @@
 
   // ---- Polling ----
   async function pollUnreadCount() {
+    if (typeof getRateLimitRemainingSeconds === 'function' && getRateLimitRemainingSeconds() > 0) {
+      return;
+    }
+
     try {
       const res = await get(`${API}/notifications/count.php`);
       if (res.ok) {

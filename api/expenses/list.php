@@ -8,20 +8,37 @@
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/validator.php';
 
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['ok' => false, 'error' => 'Not authenticated.']);
-    exit;
-}
+requireAuth();
 
 $userId = (int) $_SESSION['user_id'];
 $date   = trim($_GET['date']  ?? '');
 $month  = trim($_GET['month'] ?? '');
+[$page, $limit, $offset] = parsePagination(20, 50);
+$total = 0;
 
 // Build the query: personal expenses + group expenses for groups the user belongs to
 // We use a UNION approach or a single query with OR conditions.
 
 if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+    $countSql = "SELECT COUNT(*) AS total
+                 FROM expenses e
+                 WHERE e.expense_date = ?
+                   AND (
+                       (e.type = 'personal' AND e.user_id = ?)
+                       OR
+                       (e.type = 'group' AND e.group_id IN (
+                           SELECT group_id FROM group_members WHERE user_id = ?
+                       ))
+                   )";
+    $countStmt = $conn->prepare($countSql);
+    $countStmt->bind_param('sii', $date, $userId, $userId);
+    $countStmt->execute();
+    $total = (int)($countStmt->get_result()->fetch_assoc()['total'] ?? 0);
+    $countStmt->close();
+
     // ---- Expenses for a single day ----
     $sql = "SELECT e.id, e.amount, e.note, e.expense_date, e.type, e.category_id,
                    e.group_id, e.user_id, e.paid_by, e.created_at,
@@ -50,14 +67,31 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
                       SELECT group_id FROM group_members WHERE user_id = ?
                   ))
               )
-            ORDER BY e.created_at DESC";
+            ORDER BY e.created_at DESC
+            LIMIT ? OFFSET ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param('iisii', $userId, $userId, $date, $userId, $userId);
+    $stmt->bind_param('iisiiii', $userId, $userId, $date, $userId, $userId, $limit, $offset);
 
 } elseif ($month !== '' && preg_match('/^\d{4}-\d{2}$/', $month)) {
     // ---- Expenses for a whole month ----
     $startDate = $month . '-01';
     $endDate   = date('Y-m-t', strtotime($startDate));
+
+    $countSql = "SELECT COUNT(*) AS total
+                 FROM expenses e
+                 WHERE e.expense_date BETWEEN ? AND ?
+                   AND (
+                       (e.type = 'personal' AND e.user_id = ?)
+                       OR
+                       (e.type = 'group' AND e.group_id IN (
+                           SELECT group_id FROM group_members WHERE user_id = ?
+                       ))
+                   )";
+    $countStmt = $conn->prepare($countSql);
+    $countStmt->bind_param('ssii', $startDate, $endDate, $userId, $userId);
+    $countStmt->execute();
+    $total = (int)($countStmt->get_result()->fetch_assoc()['total'] ?? 0);
+    $countStmt->close();
 
     $sql = "SELECT e.id, e.amount, e.note, e.expense_date, e.type, e.category_id,
                    e.group_id, e.user_id, e.paid_by, e.created_at,
@@ -86,9 +120,10 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
                       SELECT group_id FROM group_members WHERE user_id = ?
                   ))
               )
-            ORDER BY e.expense_date ASC, e.created_at DESC";
+            ORDER BY e.expense_date ASC, e.created_at DESC
+            LIMIT ? OFFSET ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param('iissii', $userId, $userId, $startDate, $endDate, $userId, $userId);
+    $stmt->bind_param('iissiiii', $userId, $userId, $startDate, $endDate, $userId, $userId, $limit, $offset);
 
 } elseif (isset($_GET['start'], $_GET['end'])
          && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($_GET['start']))
@@ -97,6 +132,22 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
     $startDate = trim($_GET['start']);
     $endDate   = trim($_GET['end']);
 
+    $countSql = "SELECT COUNT(*) AS total
+                 FROM expenses e
+                 WHERE e.expense_date BETWEEN ? AND ?
+                   AND (
+                       (e.type = 'personal' AND e.user_id = ?)
+                       OR
+                       (e.type = 'group' AND e.group_id IN (
+                           SELECT group_id FROM group_members WHERE user_id = ?
+                       ))
+                   )";
+    $countStmt = $conn->prepare($countSql);
+    $countStmt->bind_param('ssii', $startDate, $endDate, $userId, $userId);
+    $countStmt->execute();
+    $total = (int)($countStmt->get_result()->fetch_assoc()['total'] ?? 0);
+    $countStmt->close();
+
     $sql = "SELECT e.id, e.amount, e.note, e.expense_date, e.type, e.category_id,
                    e.group_id, e.user_id, e.paid_by, e.created_at,
                    c.name AS category_name,
@@ -124,9 +175,10 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
                       SELECT group_id FROM group_members WHERE user_id = ?
                   ))
               )
-            ORDER BY e.expense_date ASC, e.created_at DESC";
+            ORDER BY e.expense_date ASC, e.created_at DESC
+            LIMIT ? OFFSET ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param('iissii', $userId, $userId, $startDate, $endDate, $userId, $userId);
+    $stmt->bind_param('iissiiii', $userId, $userId, $startDate, $endDate, $userId, $userId, $limit, $offset);
 
 } else {
     echo json_encode(['ok' => false, 'error' => 'Provide ?date=YYYY-MM-DD or ?month=YYYY-MM or ?start=YYYY-MM-DD&end=YYYY-MM-DD']);
@@ -178,4 +230,8 @@ if (!empty($groupIds)) {
     unset($e);
 }
 
-echo json_encode(['ok' => true, 'expenses' => $expenses]);
+echo json_encode([
+    'ok' => true,
+    'expenses' => $expenses,
+    'pagination' => paginationMeta($page, $limit, $total)
+]);

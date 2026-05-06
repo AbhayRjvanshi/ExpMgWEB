@@ -2502,7 +2502,10 @@ test("33s: 6th attempt blocked (no extra record)", (int)$rlCountAfter === 5);
 $conn->query("TRUNCATE TABLE rate_limits");
 // Fill login attempts
 for ($i = 0; $i < 5; $i++) {
-    $stmt = $conn->prepare("INSERT INTO rate_limits (ip_address, action, attempted_at) VALUES ('127.0.0.1', 'login', NOW())");
+    $stmt = $conn->prepare("INSERT INTO rate_limits (ip_address, action, attempted_at) VALUES (?, 'login', ?)");
+    $ip = '127.0.0.1';
+    $now = date('Y-m-d H:i:s');
+    $stmt->bind_param('ss', $ip, $now);
     $stmt->execute();
     $stmt->close();
 }
@@ -2518,15 +2521,17 @@ $conn->query("TRUNCATE TABLE rate_limits");
 $rlUserKey = 'user:' . (int)$userA;
 $rlIpKeys  = ['ip:127.0.0.1', 'ip:::1'];
 for ($i = 0; $i < 120; $i++) {
-    $stmt = $conn->prepare("INSERT INTO rate_limits (ip_address, action, attempted_at) VALUES (?, 'api_user', NOW())");
-    $stmt->bind_param('s', $rlUserKey);
+    $stmt = $conn->prepare("INSERT INTO rate_limits (ip_address, action, attempted_at) VALUES (?, 'api_user', ?)");
+    $now = date('Y-m-d H:i:s');
+    $stmt->bind_param('ss', $rlUserKey, $now);
     $stmt->execute();
     $stmt->close();
 }
 foreach ($rlIpKeys as $rlIpKey) {
     for ($i = 0; $i < 240; $i++) {
-        $stmt = $conn->prepare("INSERT INTO rate_limits (ip_address, action, attempted_at) VALUES (?, 'api_ip', NOW())");
-        $stmt->bind_param('s', $rlIpKey);
+        $stmt = $conn->prepare("INSERT INTO rate_limits (ip_address, action, attempted_at) VALUES (?, 'api_ip', ?)");
+        $now = date('Y-m-d H:i:s');
+        $stmt->bind_param('ss', $rlIpKey, $now);
         $stmt->execute();
         $stmt->close();
     }
@@ -2703,6 +2708,42 @@ if ($gid34 && $jc34) {
     apiPost('groups/leave.php', ['group_id' => $gid34], $cookieB);
     apiPost('groups/delete.php', ['group_id' => $gid34], $cookieA);
 }
+
+// ════════════════════════════════════════════════════════════════
+// SECTION 35: SYSTEM HEALTH AND PREDICTIVE HEALTH
+// ════════════════════════════════════════════════════════════════
+echo "\n── 35. System Health ──\n";
+
+require_once __DIR__ . '/../api/services/PredictiveHealthService.php';
+require_once __DIR__ . '/../api/services/SystemOrchestrator.php';
+
+// 35a: Predictive health score is bounded after reset
+MetricsService::reset();
+$score35 = PredictiveHealthService::calculateScore();
+test("35a: Predictive score is within range", $score35 >= 0 && $score35 <= 100);
+
+// 35b: Predictive health state is valid after reset
+$state35 = PredictiveHealthService::getState();
+test("35b: Predictive state is valid", in_array($state35, ['healthy', 'caution', 'degraded', 'critical'], true));
+
+// 35c: Orchestrator snapshot has expected shape
+$orchestrator35 = new SystemOrchestrator();
+$snapshot35 = $orchestrator35->getModeSnapshot();
+test("35c: Orchestrator snapshot has mode", isset($snapshot35['mode']));
+test("35c: Orchestrator snapshot has score", isset($snapshot35['score']));
+test("35c: Orchestrator snapshot has retry_policy", isset($snapshot35['retry_policy']) && is_array($snapshot35['retry_policy']));
+test("35c: Orchestrator snapshot has concurrency_limit", isset($snapshot35['concurrency_limit']));
+test("35c: Orchestrator snapshot has fallback flag", array_key_exists('fallback', $snapshot35));
+
+// 35d: Health endpoint returns structured status for authenticated users
+$health35 = apiGet('system/health.php', [], $cookieA);
+test("35d: health.php returns ok", ($health35['ok'] ?? false) === true);
+test("35d: health.php returns status", isset($health35['status']) && in_array($health35['status'], ['ok', 'warning', 'degraded', 'critical'], true));
+test("35d: health.php returns queue_pressure", isset($health35['queue_pressure']));
+test("35d: health.php returns retry_after", isset($health35['retry_after']));
+test("35d: health.php returns redis snapshot", isset($health35['redis']) && is_array($health35['redis']));
+test("35d: health.php returns backend labels", isset($health35['rate_limit_backend']) && isset($health35['idempotency_backend']) && isset($health35['notifications_backend']));
+test("35d: health.php returns outbox snapshot", isset($health35['outbox']) && is_array($health35['outbox']));
 
 // Clean notification data after tests
 if (is_dir($notifDir34)) {

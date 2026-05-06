@@ -8,11 +8,11 @@
 <!-- ===== Calendar Section ===== -->
 <div class="card mb-2" id="calendarCard">
   <div class="flex justify-between items-center mb-1">
-    <button class="btn-outline" style="padding:0.3rem 0.7rem; font-size:0.85rem; border-radius:0.4rem;" id="prevMonth">
+    <button class="btn btn-compact" id="prevMonth">
       ← Prev
     </button>
     <h2 id="calendarTitle" style="font-size:1.15rem; font-weight:700;"></h2>
-    <button class="btn-outline" style="padding:0.3rem 0.7rem; font-size:0.85rem; border-radius:0.4rem;" id="nextMonth">
+    <button class="btn btn-compact" id="nextMonth">
       Next →
     </button>
   </div>
@@ -23,6 +23,16 @@
   </div>
   <!-- Day cells rendered by JS -->
   <div class="cal-grid" id="calendarGrid"></div>
+
+  <div class="cal-legend-wrap">
+    <div class="cal-legend">
+      <span class="cal-legend-item">🔵 Personal</span>
+      <span class="cal-legend-sep">|</span>
+      <span class="cal-legend-item">🟢 Group (Active)</span>
+      <span class="cal-legend-sep">|</span>
+      <span class="cal-legend-item">⚪ Group (Settled)</span>
+    </div>
+  </div>
 </div>
 
 <!-- ===== Selected-date panel ===== -->
@@ -31,6 +41,21 @@
   <div class="flex justify-between items-center mb-1">
     <h3 id="dayPanelDate" style="font-size:1.05rem; font-weight:600; color:#000;"></h3>
     <button class="btn" id="btnAddExpense" style="padding:0.45rem 1rem; font-size:0.85rem;">+ Add Expense</button>
+  </div>
+
+  <div id="daySummaryRow" class="day-summary-row hidden">
+    <div class="day-summary-stat">
+      <span class="day-summary-label">Total Spend</span>
+      <strong id="daySummaryTotal">₹0.00</strong>
+    </div>
+    <div class="day-summary-stat" id="daySummaryShareWrap">
+      <span class="day-summary-label">Your Share</span>
+      <strong id="daySummaryShare">₹0.00</strong>
+    </div>
+    <div class="day-summary-stat">
+      <span class="day-summary-label">Expenses</span>
+      <strong id="daySummaryCount">0</strong>
+    </div>
   </div>
 
   <!-- Daily expense list -->
@@ -44,7 +69,7 @@
 <!-- ===== Add / Edit Expense Modal ===== -->
 <div id="expenseModal" class="modal-overlay hidden">
   <div class="auth-card" style="max-width:440px; position:relative;">
-    <button id="modalClose" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:#666;font-size:1.4rem;cursor:pointer;">✕</button>
+    <button id="modalClose" class="btn btn-icon" style="position:absolute;top:1rem;right:1rem;">✕</button>
     <h2 id="modalTitle" style="font-size:1.25rem; font-weight:700; margin-bottom:1rem;">Add Expense</h2>
 
     <form id="expenseForm">
@@ -59,7 +84,7 @@
       <div class="form-group">
         <label for="expCategory">Category</label>
         <select id="expCategory" name="category_id" class="form-input" required>
-          <option value="">Select category…</option>
+          <option value="">General</option>
         </select>
       </div>
 
@@ -98,7 +123,7 @@
 
       <div class="flex gap-1">
         <button type="submit" class="btn w-full">Save</button>
-        <button type="button" class="btn-outline w-full" id="btnCancelExpense" style="padding:0.65rem;">Cancel</button>
+        <button type="button" class="btn w-full" id="btnCancelExpense">Cancel</button>
       </div>
     </form>
   </div>
@@ -118,6 +143,66 @@
     color: #000;
     padding: 0.3rem 0;
   }
+  .cal-legend-wrap {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(0,0,0,0.08);
+  }
+  .cal-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    color: #444;
+  }
+  .cal-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+  }
+  .cal-legend-sep {
+    color: rgba(0,0,0,0.35);
+    font-weight: 600;
+  }
+  .cal-legend .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .cal-legend .dot-personal { background: #3b82f6; }
+  .cal-legend .dot-group { background: #52b788; }
+  .cal-legend .dot-settled { background: #aaa; }
+
+  .day-summary-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+    margin: 0.75rem 0 1rem;
+  }
+  .day-summary-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.75rem 0.85rem;
+    border-radius: 0.75rem;
+    background: rgba(0,0,0,0.03);
+  }
+  .day-summary-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #666;
+  }
+  .day-summary-stat strong {
+    font-size: 0.95rem;
+    color: #000;
+    line-height: 1.2;
+  }
+  #daySummaryShareWrap.hidden { display: none !important; }
   .cal-day {
     aspect-ratio: 1;
     display: flex;
@@ -133,12 +218,54 @@
     position: relative;
     background: #f0f0f0;
     overflow: visible;
+    --cal-day-text: #333;
+    --cal-day-subtext: #5a5a5a;
   }
   .cal-day:hover { background: #e4e4e4; }
   .cal-day.today { background: rgba(82,183,136,0.45); color: #fff; }
   .cal-day.selected { background: var(--mint-leaf); color: #fff; font-weight: 700; }
+  .cal-day.today,
+  .cal-day.selected {
+    --cal-day-text: #fff;
+    --cal-day-subtext: rgba(255,255,255,0.92);
+  }
   .cal-day.empty { background: transparent; cursor: default; }
   .cal-day.empty:hover { background: transparent; }
+  .cal-day .cal-day-number {
+    font-size: 0.92rem;
+    line-height: 1;
+  }
+  .cal-day .cal-amount-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    margin-top: 0.22rem;
+    min-height: 1.7rem;
+  }
+  .cal-day .cal-amount-line {
+    font-size: 0.62rem;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cal-day .cal-amount-personal {
+    color: var(--cal-day-text);
+    font-weight: 700;
+  }
+  .cal-day .cal-amount-group {
+    color: var(--cal-day-subtext);
+    font-weight: 700;
+  }
+  .cal-day .cal-amount-settled {
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+    text-decoration-color: currentColor;
+    opacity: 0.9;
+  }
   .cal-day .dot-row {
     display: flex;
     gap: 3px;

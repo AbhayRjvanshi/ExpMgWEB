@@ -1,6 +1,6 @@
 # Rate Limiting Documentation (Current Project State)
 
-Last updated: 2026-04-27
+Last updated: 2026-05-04
 
 This document summarizes everything related to rate limiting in this project so far:
 - what was implemented,
@@ -52,6 +52,11 @@ This document summarizes everything related to rate limiting in this project so 
 - Operational visibility:
   - Rate-limit blocks are logged with structured context in app logs.
   - `api/system/health.php` exposes active limiter backend (`db` vs `redis`).
+
+- Frontend cooldown behavior:
+  - `public/assets/js/helpers.js` owns the shared request wrapper, cooldown storage, and banner rendering.
+  - The cooldown banner restores from `sessionStorage` on page navigation so the UI stays visible wherever the active shell navigates.
+  - `public/assets/js/app.js` pauses unread polling while cooldown is active, so the app does not keep firing background requests during a limit window.
 
 ---
 

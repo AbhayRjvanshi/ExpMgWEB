@@ -137,7 +137,7 @@
     const emptyEl = document.getElementById('notifHistoryEmpty');
 
     try {
-      const res = await (await fetch(`${API}/notifications/history.php?limit=100`)).json();
+      const res = await get(`${API}/notifications/history.php?limit=100`);
       if (!res.ok || res.notifications.length === 0) {
         listEl.innerHTML = '';
         emptyEl.classList.remove('hidden');

@@ -9,11 +9,9 @@ require_once __DIR__ . '/settlement_helpers.php';
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../middleware/auth.php';
 
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['ok' => false, 'error' => 'Not authenticated.']);
-    exit;
-}
+requireAuth();
 
 $userId  = (int) $_SESSION['user_id'];
 $groupId = (int) ($_GET['group_id'] ?? 0);

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/_shared.php';
 require_once __DIR__ . '/../../api/helpers/outbox.php';
 require_once __DIR__ . '/../../api/helpers/redis.php';
 
@@ -11,67 +12,6 @@ $runId = 'phase5_' . date('Ymd_His');
 
 function nowMs(): int {
     return (int) round(microtime(true) * 1000);
-}
-
-function httpRequest(string $method, string $url, array $data = [], string $cookie = '', array $headers = []): array {
-    $ch = curl_init();
-    if ($method === 'GET' && !empty($data)) {
-        $url .= '?' . http_build_query($data);
-    }
-
-    curl_setopt_array($ch, [
-        CURLOPT_URL => $url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HEADER => true,
-        CURLOPT_FOLLOWLOCATION => false,
-        CURLOPT_TIMEOUT => 20,
-    ]);
-
-    if ($cookie !== '') {
-        curl_setopt($ch, CURLOPT_COOKIE, $cookie);
-    }
-
-    if ($method === 'POST') {
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-        $headers[] = 'Content-Type: application/x-www-form-urlencoded';
-    }
-
-    if (!empty($headers)) {
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    }
-
-    $started = microtime(true);
-    $response = curl_exec($ch);
-    $elapsedMs = (int) round((microtime(true) - $started) * 1000);
-    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-    $error = curl_error($ch);
-    curl_close($ch);
-
-    if ($response === false) {
-        return ['status' => 0, 'headers' => '', 'body' => '', 'json' => null, 'error' => $error, 'elapsed_ms' => $elapsedMs];
-    }
-
-    $rawHeaders = substr($response, 0, $headerSize);
-    $body = substr($response, $headerSize);
-    $json = json_decode($body, true);
-
-    return [
-        'status' => $status,
-        'headers' => $rawHeaders,
-        'body' => $body,
-        'json' => is_array($json) ? $json : null,
-        'error' => '',
-        'elapsed_ms' => $elapsedMs,
-    ];
-}
-
-function extractCookieValue(string $headers, string $name): string {
-    if (preg_match_all('/Set-Cookie:\\s*' . preg_quote($name, '/') . '=([^;\\s]+)/i', $headers, $m) && !empty($m[1])) {
-        return (string) end($m[1]);
-    }
-    return '';
 }
 
 function ensureStressUser(string $baseUrl): array {
@@ -115,20 +55,6 @@ function apiPostAuthed(string $baseUrl, string $path, array $data, string $cooki
 
 function apiGetAuthed(string $baseUrl, string $path, array $params, string $cookie): array {
     return httpRequest('GET', $baseUrl . '/' . ltrim($path, '/'), $params, $cookie);
-}
-
-function dbSingleInt(mysqli $conn, string $sql, string $types = '', array $params = []): int {
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        return 0;
-    }
-    if ($types !== '') {
-        $stmt->bind_param($types, ...$params);
-    }
-    $stmt->execute();
-    $row = $stmt->get_result()->fetch_row();
-    $stmt->close();
-    return (int) ($row[0] ?? 0);
 }
 
 function sendConcurrentWrites(string $baseUrl, string $cookie, string $csrf, string $notePrefix, int $count, int $concurrency, ?string $forcedIdempotencyKey = null): array {

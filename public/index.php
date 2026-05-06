@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once __DIR__ . '/../api/helpers/csrf.php';
 
 // Show splash screen on fresh visit
 if (empty($_SESSION['splash_seen'])) {
@@ -14,6 +15,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $username = htmlspecialchars($_SESSION['username']);
+$csrfToken = getCsrfToken();
 $page     = $_GET['page'] ?? 'home';
 ?>
 <!doctype html>
@@ -22,6 +24,7 @@ $page     = $_GET['page'] ?? 'home';
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Expense Manager</title>
+  <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <!-- Chart.js (loaded early; used on expenses page) -->

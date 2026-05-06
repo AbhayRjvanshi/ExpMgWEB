@@ -55,6 +55,23 @@
     if (listDetailLoading && currentListId) renderListDetailCoolingDown(currentListId);
   });
 
+  function retryAfterCooldown(scope, isLoading) {
+    if (isLoading) return;
+    if (!window.ExpMgStatus || typeof window.ExpMgStatus.getRetryAction !== 'function') return;
+    const retry = window.ExpMgStatus.getRetryAction(scope);
+    if (typeof retry !== 'function') return;
+    try {
+      retry();
+    } catch (_) {
+      // Keep cooldown-end handler non-fatal even if a retry callback throws.
+    }
+  }
+
+  window.addEventListener('expmg:cooldown-end', () => {
+    retryAfterCooldown('lists-overview', listsLoading);
+    retryAfterCooldown('list-detail', listDetailLoading);
+  });
+
   // Format seconds as M:SS
   function fmtTimer(secs) {
     if (secs <= 0) return '0:00';

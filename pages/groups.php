@@ -10,7 +10,7 @@
   <h2 style="font-size:1.2rem; font-weight:700;">My Groups</h2>
   <div class="flex gap-1">
     <button class="btn" id="btnCreateGroup" style="padding:0.45rem 1rem; font-size:0.85rem;">+ Create Group</button>
-    <button class="btn-outline" id="btnJoinGroup" style="padding:0.45rem 1rem; font-size:0.85rem; border-radius:0.5rem;">Join Group</button>
+    <button class="btn btn-compact" id="btnJoinGroup">Join Group</button>
   </div>
 </div>
 
@@ -27,11 +27,11 @@
   <div class="card">
     <div class="flex justify-between items-center mb-1">
       <h3 id="gdName" style="font-size:1.1rem; font-weight:700;"></h3>
-      <button class="btn-outline" id="gdClose" style="padding:0.25rem 0.6rem; font-size:0.8rem; border-radius:0.4rem;">✕ Close</button>
+      <button class="btn btn-icon" id="gdClose">✕</button>
     </div>
     <div class="flex gap-1 items-center mb-2" style="flex-wrap:wrap;">
       <span id="gdCode" style="background:#f5f5f5; padding:0.3rem 0.7rem; border-radius:0.4rem; font-family:monospace; font-size:0.9rem; letter-spacing:1px; color:#000;"></span>
-      <button class="btn-outline" id="gdCopyCode" style="padding:0.25rem 0.6rem; font-size:0.75rem; border-radius:0.4rem;">Copy Code</button>
+      <button class="btn btn-compact" id="gdCopyCode">Copy Code</button>
       <span id="gdRole" class="exp-badge" style="margin-left:auto;"></span>
     </div>
 
@@ -110,8 +110,27 @@
     padding: 0.4rem 0.6rem; border-radius: 0.4rem;
     background: rgba(0,0,0,0.03);
   }
+  .member-main {
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .member-actions {
+    display: flex; align-items: center; gap: 0.5rem;
+  }
   .member-row .mr-name { font-size: 0.9rem; color: #000; }
   .member-row .mr-role { font-size: 0.75rem; color: #666; }
+  .btn-remove-member {
+    border: 1px solid #d32f2f;
+    background: #fff;
+    color: #d32f2f;
+    border-radius: 0.35rem;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-remove-member:hover {
+    background: #fdecec;
+  }
 </style>
 
 <!-- ===== Groups JS (inline — loaded only on this page) ===== -->
@@ -168,10 +187,40 @@
     // Members
     $('#gdMembers').innerHTML = res.members.map(m => `
       <div class="member-row">
-        <span class="mr-name">${esc(m.username)}</span>
-        <span class="mr-role">${m.role === 'admin' ? '👑 Admin' : 'Member'}</span>
+        <div class="member-main">
+          <span class="mr-name">${esc(m.username)}</span>
+        </div>
+        <div class="member-actions">
+          <span class="mr-role">${m.role === 'admin' ? '👑 Admin' : 'Member'}</span>
+          ${res.my_role === 'admin' && m.role !== 'admin'
+            ? `<button class="btn-remove-member" data-member-id="${m.user_id}" data-member-name="${esc(m.username)}">Remove</button>`
+            : ''}
+        </div>
       </div>
     `).join('');
+
+    $('#gdMembers').querySelectorAll('.btn-remove-member').forEach(btn => {
+      btn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        const memberId = Number(btn.dataset.memberId || 0);
+        const memberName = btn.dataset.memberName || 'this member';
+        if (!memberId) return;
+        if (!confirm(`Remove ${memberName} from this group?`)) return;
+
+        const r = await post(`${API}/groups/remove_member.php`, {
+          group_id: g.id,
+          user_id: memberId
+        });
+
+        if (!r.ok) {
+          alert(r.error || 'Failed to remove member.');
+          return;
+        }
+
+        openGroupDetail(g.id);
+        loadGroups();
+      });
+    });
 
     // Expenses
     const pdfBtn = $('#gdExpPdf');
@@ -202,7 +251,7 @@
     if (res.my_role === 'admin') {
       actionsHtml += `<button class="btn-danger btn" id="gdDeleteGroup" data-id="${g.id}" style="padding:0.4rem 0.9rem; font-size:0.85rem;">Delete Group</button>`;
     } else {
-      actionsHtml += `<button class="btn-outline" id="gdLeaveGroup" data-id="${g.id}" style="padding:0.4rem 0.9rem; font-size:0.85rem; border-radius:0.5rem;">Leave Group</button>`;
+      actionsHtml += `<button class="btn btn-compact" id="gdLeaveGroup" data-id="${g.id}">Leave Group</button>`;
     }
     $('#gdActions').innerHTML = actionsHtml;
 

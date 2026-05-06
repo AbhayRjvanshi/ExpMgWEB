@@ -5,9 +5,31 @@
  */
 session_start();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/helpers/rate_limiter.php';
 
 // Only accept POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ../pages/signup.php');
+    exit;
+}
+
+// ---------- Rate limiting check ----------
+$ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+if (!checkRateLimit($conn, $ip, 'signup', 3, 3600)) {
+    $retryAfter = rateLimitRetryAfter($conn, $ip, 'signup', 3600);
+    $_SESSION['rate_limit_retry_after'] = $retryAfter;
+    $acceptJson = strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false 
+               || $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest';
+    
+    if ($acceptJson) {
+        header('Content-Type: application/json');
+        header('Retry-After: ' . $retryAfter);
+        http_response_code(429);
+        echo json_encode(['ok' => false, 'error' => 'Rate limited', 'retry_after' => $retryAfter, 'limited_by' => 'signup']);
+        exit;
+    }
+    
+    $_SESSION['auth_error'] = 'Too many signup attempts. Try again in 1 hour.';
     header('Location: ../pages/signup.php');
     exit;
 }
@@ -61,6 +83,7 @@ $stmt = $conn->prepare('INSERT INTO users (username, email, password) VALUES (?,
 $stmt->bind_param('sss', $username, $email, $hash);
 
 if ($stmt->execute()) {
+    recordRateLimit($conn, $ip, 'signup', 3600);
     $_SESSION['auth_success'] = 'Account created! Please sign in.';
     $stmt->close();
     header('Location: ../pages/login.php');

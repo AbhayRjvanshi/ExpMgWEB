@@ -16,6 +16,7 @@ foreach ([
 }
 
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/_shared.php';
 require_once __DIR__ . '/../../api/helpers/outbox.php';
 require_once __DIR__ . '/../../api/helpers/notification_store.php';
 require_once __DIR__ . '/../../api/helpers/redis.php';
@@ -37,88 +38,6 @@ function logTest(string $name, string $status, array $notes = []): void
         'status' => $status,
         'notes' => $notes,
     ];
-}
-
-function curlRequest(string $method, string $url, array $data = [], string $cookie = '', array $headers = []): array
-{
-    $ch = curl_init();
-
-    if ($method === 'GET' && !empty($data)) {
-        $url .= (str_contains($url, '?') ? '&' : '?') . http_build_query($data);
-    }
-
-    $finalHeaders = $headers;
-    if ($cookie !== '') {
-        $finalHeaders[] = 'Cookie: ' . $cookie;
-    }
-
-    $options = [
-        CURLOPT_URL => $url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HEADER => true,
-        CURLOPT_FOLLOWLOCATION => false,
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_TIMEOUT => 30,
-    ];
-
-    if ($method === 'POST') {
-        $options[CURLOPT_POST] = true;
-        $options[CURLOPT_POSTFIELDS] = http_build_query($data);
-        $finalHeaders[] = 'Content-Type: application/x-www-form-urlencoded';
-    } elseif ($method !== 'GET') {
-        $options[CURLOPT_CUSTOMREQUEST] = $method;
-        if (!empty($data)) {
-            $options[CURLOPT_POSTFIELDS] = http_build_query($data);
-            $finalHeaders[] = 'Content-Type: application/x-www-form-urlencoded';
-        }
-    }
-
-    if (!empty($finalHeaders)) {
-        $options[CURLOPT_HTTPHEADER] = $finalHeaders;
-    }
-
-    curl_setopt_array($ch, $options);
-
-    $started = microtime(true);
-    $raw = curl_exec($ch);
-    $elapsedMs = (int) round((microtime(true) - $started) * 1000);
-    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-    $error = curl_error($ch);
-    curl_close($ch);
-
-    if ($raw === false) {
-        return [
-            'status' => 0,
-            'headers' => '',
-            'body' => '',
-            'json' => null,
-            'error' => $error,
-            'elapsed_ms' => $elapsedMs,
-        ];
-    }
-
-    $headersRaw = substr($raw, 0, $headerSize);
-    $body = substr($raw, $headerSize);
-    $json = json_decode($body, true);
-
-    return [
-        'status' => $code,
-        'headers' => $headersRaw,
-        'body' => $body,
-        'json' => is_array($json) ? $json : null,
-        'error' => '',
-        'elapsed_ms' => $elapsedMs,
-    ];
-}
-
-function extractCookie(string $headers, string $name): string
-{
-    if (preg_match_all('/^Set-Cookie:\s*' . preg_quote($name, '/') . '=([^;\r\n]+)/mi', $headers, $matches) && !empty($matches[1])) {
-        return (string) end($matches[1]);
-    }
-
-    return '';
 }
 
 function cookieHeader(array $cookies): string
@@ -146,21 +65,6 @@ function bindParams(mysqli_stmt $stmt, string $types, array $params): void
 
     array_unshift($refs, $types);
     call_user_func_array([$stmt, 'bind_param'], $refs);
-}
-
-function dbScalar(mysqli $conn, string $sql, string $types = '', array $params = []): mixed
-{
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        throw new RuntimeException($conn->error ?: 'Failed to prepare scalar query.');
-    }
-
-    bindParams($stmt, $types, $params);
-    $stmt->execute();
-    $row = $stmt->get_result()->fetch_row();
-    $stmt->close();
-
-    return $row[0] ?? null;
 }
 
 function dbExec(mysqli $conn, string $sql, string $types = '', array $params = []): void

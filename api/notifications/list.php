@@ -10,11 +10,9 @@
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../middleware/auth.php';
 
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['ok' => false, 'error' => 'Not authenticated.']);
-    exit;
-}
+requireAuth();
 
 $userId     = (int) $_SESSION['user_id'];
 $unreadOnly = isset($_GET['unread_only']) && $_GET['unread_only'] == '1';

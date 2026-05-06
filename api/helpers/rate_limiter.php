@@ -253,22 +253,29 @@ function rateLimitRetryAfter(mysqli $conn, string $ip, string $action, int $wind
         return $ttl > 0 ? $ttl : 0;
     }
 
+    // Use a wider clearance window for authenticated API bursts so retry-after
+    // reflects when a normal page-load burst can proceed safely.
+    $clearanceNeeded = in_array($action, ['api_user', 'api_ip'], true) ? 15 : 1;
+
     $since = date('Y-m-d H:i:s', time() - $windowSecs);
     $stmt = $conn->prepare(
-        'SELECT MIN(attempted_at) AS oldest FROM rate_limits WHERE ip_address = ? AND action = ? AND attempted_at >= ?'
+        'SELECT attempted_at FROM rate_limits
+         WHERE ip_address = ? AND action = ? AND attempted_at >= ?
+         ORDER BY attempted_at ASC
+         LIMIT ?, 1'
     );
-    $stmt->bind_param('sss', $ip, $action, $since);
+    $clearanceOffset = max(0, $clearanceNeeded - 1);
+    $stmt->bind_param('sssi', $ip, $action, $since, $clearanceOffset);
     $stmt->execute();
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
     $stmt->close();
 
-    if (!$row['oldest']) {
+    if (!$row || empty($row['attempted_at'])) {
         return 0;
     }
 
-    $oldestTime = strtotime($row['oldest']);
-    $expiresAt = $oldestTime + $windowSecs;
+    $expiresAt = strtotime($row['attempted_at']) + $windowSecs;
     // Fix 1: return the actual remaining seconds, not capped at 60.
     return max(0, $expiresAt - time());
 }

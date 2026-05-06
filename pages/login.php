@@ -1,5 +1,7 @@
 <?php
 session_start();
+$rateLimitRetryAfter = isset($_SESSION['rate_limit_retry_after']) ? (int) $_SESSION['rate_limit_retry_after'] : 0;
+unset($_SESSION['rate_limit_retry_after']);
 
 // Show splash screen on fresh visit
 if (empty($_SESSION['splash_seen'])) {
@@ -22,6 +24,7 @@ if (isset($_SESSION['user_id'])) {
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../public/assets/css/styles.css" />
+  <script src="../public/assets/js/helpers.js?v=<?= time() ?>"></script>
 </head>
 <body>
   <div class="auth-wrapper">
@@ -58,5 +61,14 @@ if (isset($_SESSION['user_id'])) {
       </p>
     </div>
   </div>
+
+  <script>
+    (function () {
+      var retryAfter = <?= (int) $rateLimitRetryAfter ?>;
+      if (retryAfter > 0 && window.ExpMgStatus && typeof window.ExpMgStatus.showCooldown === 'function') {
+        window.ExpMgStatus.showCooldown(retryAfter, 'Too many login attempts. Please wait before trying again.');
+      }
+    })();
+  </script>
 </body>
 </html>

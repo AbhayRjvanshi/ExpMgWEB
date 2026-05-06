@@ -13,7 +13,7 @@ $safeCooldown = $conn->real_escape_string($cooldownAction);
 $conn->query("DELETE FROM rate_limits WHERE ip_address='{$safeIp}' AND (action='{$safeAction}' OR action='{$safeCooldown}')");
 
 for ($i = 0; $i < 65; $i++) {
-    recordRateLimit($conn, $ip, $action);
+    recordRateLimit($conn, $ip, $action, 60);
 }
 
 $allowed = checkRateLimit($conn, $ip, $action, 60, 60);

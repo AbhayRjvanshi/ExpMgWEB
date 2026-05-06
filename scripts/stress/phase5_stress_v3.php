@@ -3,53 +3,12 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/_shared.php';
 require_once __DIR__ . '/../../api/helpers/outbox.php';
 require_once __DIR__ . '/../../api/helpers/redis.php';
 
 $baseUrl = 'http://localhost/ExpMgWEB/api';
 $runId = 'phase5v3_' . date('Ymd_His');
-
-function httpReq(string $method, string $url, array $data = [], string $cookie = '', array $headers = []): array {
-    $ch = curl_init();
-    if ($method === 'GET' && $data) {
-        $url .= '?' . http_build_query($data);
-    }
-    curl_setopt_array($ch, [
-        CURLOPT_URL => $url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HEADER => true,
-        CURLOPT_FOLLOWLOCATION => false,
-        CURLOPT_TIMEOUT => 30,
-    ]);
-    if ($cookie !== '') curl_setopt($ch, CURLOPT_COOKIE, $cookie);
-    if ($method === 'POST') {
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-        $headers[] = 'Content-Type: application/x-www-form-urlencoded';
-    }
-    if ($headers) curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-    $start = microtime(true);
-    $resp = curl_exec($ch);
-    $elapsed = (int) round((microtime(true) - $start) * 1000);
-    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $hsz = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-    $err = curl_error($ch);
-    curl_close($ch);
-
-    if ($resp === false) return ['status' => 0, 'headers' => '', 'json' => null, 'body' => '', 'error' => $err, 'elapsed_ms' => $elapsed];
-    $headersRaw = substr($resp, 0, $hsz);
-    $body = substr($resp, $hsz);
-    $json = json_decode($body, true);
-    return ['status' => $code, 'headers' => $headersRaw, 'json' => is_array($json) ? $json : null, 'body' => $body, 'error' => '', 'elapsed_ms' => $elapsed];
-}
-
-function cookieVal(string $headers, string $name): string {
-    if (preg_match_all('/Set-Cookie:\\s*' . preg_quote($name, '/') . '=([^;\\s]+)/i', $headers, $m) && !empty($m[1])) {
-        return (string) end($m[1]);
-    }
-    return '';
-}
 
 function createAndLoginStressUser(string $baseUrl, mysqli $conn, string $runId): array {
     $conn->query('TRUNCATE TABLE rate_limits');
@@ -109,16 +68,6 @@ function createAndLoginStressUser(string $baseUrl, mysqli $conn, string $runId):
         'csrf' => $csrf,
         'email' => $email,
     ];
-}
-
-function dbInt(mysqli $conn, string $sql, string $types = '', array $params = []): int {
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) return 0;
-    if ($types !== '') $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $row = $stmt->get_result()->fetch_row();
-    $stmt->close();
-    return (int) ($row[0] ?? 0);
 }
 
 function multiPost(array $jobs, int $concurrency): array {

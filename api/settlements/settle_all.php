@@ -5,15 +5,14 @@
  * Only the group admin can perform this action.
  * Calculates current settlements and records them all at once.
  */
-require_once __DIR__ . '/settlement_helpers.php';
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/logger.php';
+require_once __DIR__ . '/settlement_helpers.php';
 
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['ok' => false, 'error' => 'Not authenticated.']);
-    exit;
-}
+requireAuth();
 
 $userId  = (int) $_SESSION['user_id'];
 $groupId = (int) ($_POST['group_id'] ?? 0);
@@ -141,9 +140,10 @@ try {
     }
     // If everyone contributed equally (no settlements needed), insert a marker record
     if (empty($settlements)) {
+        $zeroAmount = 0.0;
         $insertStmt->bind_param(
             'iiiidss',
-            $groupId, $userId, $userId, $userId, $zero = 0.0, $periodStart, $periodEnd
+            $groupId, $userId, $userId, $userId, $zeroAmount, $periodStart, $periodEnd
         );
         $insertStmt->execute();
     }
@@ -172,5 +172,10 @@ try {
     echo json_encode(['ok' => true, 'message' => 'All expenses have been settled.', 'count' => count($settlements)]);
 } catch (Exception $e) {
     $conn->rollback();
+    logMessage('ERROR', 'Settle all failed', [
+        'group_id' => $groupId,
+        'user_id' => $userId,
+        'error' => $e->getMessage()
+    ]);
     echo json_encode(['ok' => false, 'error' => 'Failed to record settlements.']);
 }

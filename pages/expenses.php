@@ -53,15 +53,15 @@ $firstName = explode(' ', $currentUsername)[0];
     </div>
   </div>
   <div style="display:flex;justify-content:flex-end;">
-    <button id="expSetBudgetBtn" class="btn-outline" style="padding:0.3rem 0.7rem;font-size:0.75rem;border-radius:0.4rem;">Set Budget &gt;</button>
+    <button id="expSetBudgetBtn" class="btn btn-compact">Set Budget &gt;</button>
   </div>
 </div>
 
 <!-- Month Selector -->
 <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1.25rem;">
-  <button id="expPrevMonth" class="btn-outline" style="padding:0.35rem 0.65rem;font-size:0.85rem;border-radius:0.4rem;">&#8592;</button>
+  <button id="expPrevMonth" class="btn btn-icon" aria-label="Previous month">&#8592;</button>
   <h2 id="expMonthLabel" style="font-size:1.15rem;font-weight:700;min-width:160px;text-align:center;"></h2>
-  <button id="expNextMonth" class="btn-outline" style="padding:0.35rem 0.65rem;font-size:0.85rem;border-radius:0.4rem;">&#8594;</button>
+  <button id="expNextMonth" class="btn btn-icon" aria-label="Next month">&#8594;</button>
 </div>
 
 <!-- Summary Cards Row -->
@@ -72,7 +72,7 @@ $firstName = explode(' ', $currentUsername)[0];
   </div>
   <div class="card" style="padding:1.25rem;">
     <div style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;margin-bottom:0.35rem;">Breakdown</div>
-    <div style="display:flex;gap:1.5rem;margin-top:0.35rem;">
+    <div style="display:flex;gap:1.5rem;margin-top:0.35rem;flex-wrap:wrap;">
       <div>
         <div style="font-size:0.72rem;color:#666;">Personal</div>
         <div id="expPersonal" style="font-size:1.15rem;font-weight:600;color:#000;">&mdash;</div>
@@ -80,6 +80,10 @@ $firstName = explode(' ', $currentUsername)[0];
       <div>
         <div style="font-size:0.72rem;color:#666;">Group</div>
         <div id="expGroup" style="font-size:1.15rem;font-weight:600;color:#000;">&mdash;</div>
+      </div>
+      <div id="expShareWrap" class="hidden">
+        <div style="font-size:0.72rem;color:#666;">Your Share</div>
+        <div id="expShare" style="font-size:1.15rem;font-weight:600;color:#000;">&mdash;</div>
       </div>
     </div>
   </div>
@@ -294,7 +298,7 @@ $firstName = explode(' ', $currentUsername)[0];
   <div class="card" style="width:100%;max-width:480px;padding:1.75rem;max-height:80vh;overflow-y:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
       <h3 style="font-size:1.05rem;font-weight:700;">Settlement Details</h3>
-      <button id="settlDetailClose" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;">&times;</button>
+      <button id="settlDetailClose" class="btn btn-icon">&times;</button>
     </div>
     <div id="settlDetailContent"></div>
     <div id="settlDetailTotal" style="margin-top:1rem;padding-top:0.75rem;border-top:2px solid #e0e0e0;font-size:1rem;font-weight:700;text-align:right;"></div>
@@ -337,6 +341,8 @@ function switchExpTab(tab) {
   var $totalSpent  = document.getElementById('expTotalSpent');
   var $personal    = document.getElementById('expPersonal');
   var $group       = document.getElementById('expGroup');
+  var $shareWrap   = document.getElementById('expShareWrap');
+  var $share       = document.getElementById('expShare');
   var $catCanvas   = document.getElementById('chartCategory');
   var $dayCanvas   = document.getElementById('chartDaily');
   var $catEmpty    = document.getElementById('chartCatEmpty');
@@ -375,16 +381,36 @@ function switchExpTab(tab) {
 
   function updateLabel(){ $label.textContent = monthNames[curMonth] + ' ' + curYear; }
 
-  var chartPalette = ['#52b788','#40916c','#74c69d','#2d6a4f','#95d5b2','#b7e4c7','#1b4332','#d8f3dc'];
+  var chartColorMap = {
+    'General': '#6b7280',
+    'Food/Groceries': '#84cc16',
+    'Food': '#84cc16',
+    'Groceries': '#84cc16',
+    'Transport': '#14b8a6',
+    'Utilities': '#a3a33a',
+    'Bills': '#166534',
+    'Shopping': '#6ee7b7',
+    'Education': '#22d3ee',
+    'Health': '#10b981',
+    'Others': '#4d7c0f'
+  };
+
+  function categoryColor(name, index) {
+    var key = (name || '').trim();
+    if (chartColorMap[key]) return chartColorMap[key];
+
+    var fallbackPalette = ['#6b7280', '#84cc16', '#14b8a6', '#a3a33a', '#166534', '#6ee7b7', '#22d3ee', '#10b981', '#4d7c0f'];
+    return fallbackPalette[index % fallbackPalette.length];
+  }
 
   async function loadMonth(){
     updateLabel();
     var mk = monthKey();
     try {
       var results = await Promise.all([
-        fetch('../api/expenses/summary.php?month=' + mk).then(function(r){return r.json();}),
-        fetch('../api/expenses/list.php?month=' + mk).then(function(r){return r.json();}),
-        fetch('../api/budgets/get.php?month=' + mk).then(function(r){return r.json();})
+        get(API + '/expenses/summary.php?month=' + mk),
+        get(API + '/expenses/list.php?month=' + mk),
+        get(API + '/budgets/get.php?month=' + mk)
       ]);
       var sumRes = results[0], listRes = results[1], budRes = results[2];
       if(sumRes.ok) renderSummary(sumRes);
@@ -421,15 +447,25 @@ function switchExpTab(tab) {
     $personal.textContent   = fmtMoney(d.personal_total);
     $group.textContent      = fmtMoney(d.group_total);
 
+    if ($shareWrap && $share) {
+      if (Number(d.group_total) > 0) {
+        $share.textContent = fmtMoney(d.group_share || 0);
+        $shareWrap.classList.remove('hidden');
+      } else {
+        $shareWrap.classList.add('hidden');
+      }
+    }
+
     if(d.by_category.length){
       $catEmpty.classList.add('hidden');
       $catCanvas.style.display = '';
       var labels = d.by_category.map(function(c){return c.name;});
       var values = d.by_category.map(function(c){return c.total;});
+      var colors = d.by_category.map(function(c, i){ return categoryColor(c.name, i); });
       if(catChart) catChart.destroy();
       catChart = new Chart($catCanvas, {
         type: 'doughnut',
-        data: { labels: labels, datasets: [{ data: values, backgroundColor: chartPalette.slice(0, labels.length), borderWidth: 0 }] },
+        data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
         options: { cutout:'60%', plugins:{ legend:{ display:true, position:'bottom', labels:{ color:'#000', font:{size:11}, padding:10 } }, tooltip:{ callbacks:{ label: function(ctx){ return ctx.label + ': ' + fmtMoney(ctx.parsed); } } } } }
       });
     } else {
@@ -440,14 +476,29 @@ function switchExpTab(tab) {
     if(d.by_day.length){
       $dayEmpty.classList.add('hidden'); $dayCanvas.style.display = '';
       var daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
-      var dayMap = {}; d.by_day.forEach(function(x){ dayMap[x.day] = x.total; });
+      var personalMap = {}, groupMap = {};
+      d.by_day.forEach(function(x){
+        personalMap[x.day] = x.personal_total || 0;
+        groupMap[x.day] = x.group_total || 0;
+      });
       var dayLabels = [], dayValues = [];
-      for(var i=1; i<=daysInMonth; i++){ dayLabels.push(i); dayValues.push(dayMap[i] || 0); }
+      var personalValues = [], groupValues = [];
+      for(var i=1; i<=daysInMonth; i++){
+        dayLabels.push(i);
+        personalValues.push(personalMap[i] || 0);
+        groupValues.push(groupMap[i] || 0);
+      }
       if(dayChart) dayChart.destroy();
       dayChart = new Chart($dayCanvas, {
-        type: 'bar',
-        data: { labels: dayLabels, datasets: [{ label:'Spent', data: dayValues, backgroundColor:'rgba(82,183,136,0.6)', borderRadius:3, maxBarThickness:18 }] },
-        options: { responsive:true, scales:{ x:{ ticks:{ color:'#000', font:{size:10} }, grid:{ display:false } }, y:{ ticks:{ color:'#000', font:{size:10}, callback: function(v){return '\u20B9'+v;} }, grid:{ color:'rgba(0,0,0,0.08)' }, beginAtZero:true } }, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: function(ctx){return fmtMoney(ctx.parsed.y);} } } } }
+        type: 'line',
+        data: {
+          labels: dayLabels,
+          datasets: [
+            { label:'Personal', data: personalValues, borderColor:'#3b82f6', backgroundColor:'#3b82f6', pointRadius:0, pointHoverRadius:0, pointHitRadius:6, tension:0.35, borderWidth:2, fill:false },
+            { label:'Group', data: groupValues, borderColor:'#52b788', backgroundColor:'#52b788', pointRadius:0, pointHoverRadius:0, pointHitRadius:6, tension:0.35, borderWidth:2, fill:false }
+          ]
+        },
+        options: { responsive:true, scales:{ x:{ ticks:{ color:'#000', font:{size:10} }, grid:{ display:false } }, y:{ ticks:{ color:'#000', font:{size:10}, callback: function(v){return '\u20B9'+v;} }, grid:{ color:'rgba(0,0,0,0.08)' }, beginAtZero:true } }, plugins:{ legend:{ display:true, position:'bottom', labels:{ color:'#000', font:{size:11}, usePointStyle:true, pointStyle:'circle' } }, tooltip:{ callbacks:{ label: function(ctx){ return ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y); } } } } }
       });
     } else {
       $dayEmpty.classList.remove('hidden'); $dayCanvas.style.display = 'none';
@@ -596,7 +647,7 @@ function sortExpenses(arr) {
     $dateClearBtn.classList.remove('hidden');
     $label.textContent = s + ' \u2014 ' + e;
     try {
-      var listRes = await fetch('../api/expenses/list.php?start=' + encodeURIComponent(s) + '&end=' + encodeURIComponent(e)).then(function(r){return r.json();});
+      var listRes = await get(API + '/expenses/list.php?start=' + encodeURIComponent(s) + '&end=' + encodeURIComponent(e));
       if(listRes.ok){
         allExpenses = listRes.expenses; renderList();
         var total = allExpenses.reduce(function(a,x){return a+parseFloat(x.amount);},0);
@@ -633,11 +684,11 @@ function sortExpenses(arr) {
   $saveBtn.onclick = async function(){
     var val = parseFloat($budgetInput.value);
     if(!val || val <= 0) return;
-    var fd = new FormData();
-    fd.append('month', monthKey());
-    fd.append('amount_limit', val);
     try {
-      var res = await fetch('../api/budgets/set.php', {method:'POST', body:fd}).then(function(r){return r.json();});
+      var res = await post(API + '/budgets/set.php', {
+        month: monthKey(),
+        amount_limit: val
+      });
       if(res.ok){ closeModal(); loadMonth(); }
       else { alert(res.error || 'Failed to save budget.'); }
     } catch(err){ alert('Network error.'); }
@@ -656,7 +707,7 @@ function sortExpenses(arr) {
 
   window.loadUnpricedItems = async function(){
     try {
-      var res = await fetch('../api/expenses/unpriced.php').then(function(r){return r.json();});
+      var res = await get(API + '/expenses/unpriced.php');
       if (!res.ok) return;
       var items = res.items;
       if (!items.length) {
@@ -703,7 +754,7 @@ function sortExpenses(arr) {
         if (groupCache[gid]) {
           fillPaidBySelect(sel, groupCache[gid]);
         } else {
-          fetch('../api/groups/details.php?group_id=' + gid).then(function(r){return r.json();}).then(function(res){
+          get(API + '/groups/details.php?group_id=' + gid).then(function(res){
             if (res.ok && res.members) {
               groupCache[gid] = res.members;
               $container.querySelectorAll('.unpriced-paidby-select[data-group="' + gid + '"]').forEach(function(s){
@@ -762,11 +813,11 @@ function sortExpenses(arr) {
     btn.disabled = true;
     btn.textContent = '\u2026';
     try {
-      var fd = new FormData();
-      fd.append('item_id', itemId);
-      fd.append('price', price);
-      if (paidBy) fd.append('paid_by', paidBy);
-      var res = await fetch('../api/expenses/price_unpriced.php', {method:'POST', body:fd}).then(function(r){return r.json();});
+      var res = await post(API + '/expenses/price_unpriced.php', {
+        item_id: itemId,
+        price: price,
+        paid_by: paidBy || undefined
+      });
       if (res.ok) {
         // Animate row removal
         var row = btn.closest('.unpriced-row');
@@ -792,7 +843,6 @@ function sortExpenses(arr) {
 
 /* ========== SETTLEMENT MODULE ========== */
 (function(){
-  var API = '../api';
   var currentUserId = <?= $currentUserId ?>;
   var firstName = <?= json_encode($firstName) ?>;
   var fmtMoney = window._expFmtMoney;
@@ -831,7 +881,7 @@ function sortExpenses(arr) {
   window.loadSettlementGroups = async function(){
     if (groupsLoaded) return;
     try {
-      var res = await fetch(API + '/groups/user_groups.php').then(function(r){return r.json();});
+      var res = await get(API + '/groups/user_groups.php');
       if (res.ok) {
         $groupSelect.innerHTML = '<option value="">\u2014 Choose a group \u2014</option>' +
           res.groups.map(function(g){ return '<option value="' + g.id + '">' + escHtml(g.name) + '</option>'; }).join('');
@@ -852,8 +902,8 @@ function sortExpenses(arr) {
     $content.classList.add('hidden');
     try {
       var results = await Promise.all([
-        fetch(API + '/settlements/calculate.php?group_id=' + groupId).then(function(r){return r.json();}),
-        fetch(API + '/settlements/history.php?group_id=' + groupId).then(function(r){return r.json();})
+        get(API + '/settlements/calculate.php?group_id=' + groupId),
+        get(API + '/settlements/history.php?group_id=' + groupId)
       ]);
       var calcRes = results[0], histRes = results[1];
       $loading.classList.add('hidden');
@@ -1042,7 +1092,7 @@ function sortExpenses(arr) {
     $downloadPdf.classList.add('hidden'); $downloadPdf.style.display = 'none';
     lastDetailData = null;
     try {
-      var res = await fetch(API + '/settlements/details.php?group_id=' + groupId + '&start=' + start + '&end=' + end).then(function(r){return r.json();});
+      var res = await get(API + '/settlements/details.php?group_id=' + groupId + '&start=' + start + '&end=' + end);
       if (!res.ok) { $detailContent.innerHTML = '<p style="color:#ef4444;">Failed to load details.</p>'; return; }
       if (!res.expenses.length) { $detailContent.innerHTML = '<p style="color:#666;text-align:center;">No expenses found for this period.</p>'; return; }
       lastDetailData = { expenses: res.expenses, total: res.total, start: start, end: end };
@@ -1139,9 +1189,9 @@ function sortExpenses(arr) {
     $settleBtn.disabled = true;
     $settleBtn.textContent = 'Confirming\u2026';
     try {
-      var fd = new FormData();
-      fd.append('group_id', currentGroupId);
-      var res = await fetch(API + '/settlements/confirm.php', {method:'POST', body:fd}).then(function(r){return r.json();});
+      var res = await post(API + '/settlements/confirm.php', {
+        group_id: currentGroupId
+      });
       if (res.ok) {
         // Reload settlement data to reflect updated confirmation state
         await loadSettlement(currentGroupId);
@@ -1175,7 +1225,7 @@ function sortExpenses(arr) {
     if (!groupId) return;
 
     try {
-      var res = await fetch(API + '/settlements/post_calculate.php?group_id=' + groupId).then(function(r){return r.json();});
+      var res = await get(API + '/settlements/post_calculate.php?group_id=' + groupId);
       if (!res.ok || !res.has_expenses) return;
 
       $psCard.classList.remove('hidden');
@@ -1276,9 +1326,9 @@ function sortExpenses(arr) {
     $psBtn.disabled = true;
     $psBtn.textContent = 'Confirming\u2026';
     try {
-      var fd = new FormData();
-      fd.append('group_id', currentGroupId);
-      var res = await fetch(API + '/settlements/post_confirm.php', {method:'POST', body:fd}).then(function(r){return r.json();});
+      var res = await post(API + '/settlements/post_confirm.php', {
+        group_id: currentGroupId
+      });
       if (res.ok) {
         await loadPostSettlement(currentGroupId);
         // If all settled, also reload main settlement

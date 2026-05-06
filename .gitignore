@@ -1,22 +1,79 @@
-# Environment / IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-Thumbs.db
-.DS_Store
+# ============================================================
+# ExpMgWEB .gitignore — Repository Exclusions
+# ============================================================
 
-# Environment files and local secrets
+# ========== ENVIRONMENT & SECRETS ==========
+# .env contains DB credentials, Redis passwords, API keys
 .env
 .env.*
 !.env.example
 
-# Runtime data and logs
-data/
+# config/db.php has hardcoded DB credentials (host, user, pass)
+# Use env.php + .env for environment-based config instead.
+config/db.php
+
+# ========== DEPENDENCIES ==========
+# Composer-managed packages — rebuild with: composer install
+vendor/
+composer.lock
+
+# ========== RUNTIME & LOG FILES ==========
+# Application logs and runtime data directories
 logs/
+!logs/.gitkeep
+data/
 *.log
 
-# Local troubleshooting artifacts
-git_status.txt
+# ========== TEST ARTIFACTS ==========
+# Test run results and validation outputs
+test_output.txt
+test_cross_check.txt
+content.txt
+
+# ========== SEED DATA ==========
+# Contains test user bcrypt hashes and demo data
+# (keep schema.sql; exclude seed.sql with user passwords)
+seed.sql
+
+# ========== LOCAL DEVELOPMENT TRACKING ==========
+# Files generated during local development/debugging
 modified_files.txt
+git_status.txt
 scratch_cleanup.php
+
+# ========== IDE & EDITOR FILES ==========
+# VS Code
+.vscode/
+
+# Cursor IDE
+.cursor/
+
+# PhpStorm / IntelliJ
+.idea/
+
+# Vim temporary files
+*.swp
+*.swo
+
+# ========== OPERATING SYSTEM FILES ==========
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# ========== MIGRATION RUNTIME ==========
+migrations/*.lock
+migrations/tmp/
+
+# ========== SHOULD BE COMMITTED ==========
+# - README.md, DISTRIBUTED_ARCHITECTURE.md, QUICK_START_INTEGRATION.md
+# - RATE_LIMITING_DOCUMENTATION.md
+# - schema.sql, migration_v*.sql
+# - composer.json (not composer.lock — lock is platform-specific)
+# - config/env.php (safe — contains only loader logic and safe defaults)
+# - config/idempotency.php
+# - api/, pages/, public/, scripts/, tests/, partials/
+# - .env.example
+
