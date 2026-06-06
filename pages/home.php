@@ -70,41 +70,20 @@
 <div id="expenseModal" class="modal-overlay hidden">
   <div class="auth-card" style="max-width:440px; position:relative;">
     <button id="modalClose" class="btn btn-icon" style="position:absolute;top:1rem;right:1rem;">✕</button>
-    <h2 id="modalTitle" style="font-size:1.25rem; font-weight:700; margin-bottom:1rem;">Add Expense</h2>
+    <h2 id="modalTitle" style="font-size:1.25rem; font-weight:700; margin-bottom:0.75rem;">Add Expense</h2>
+
+    <!-- Expense Type Tab Switcher (pill style, no label) -->
+    <div class="modal-type-tabs" id="expTypeTabs">
+      <button type="button" class="modal-type-tab active" data-type="personal">Personal</button>
+      <button type="button" class="modal-type-tab" data-type="group">Group</button>
+    </div>
 
     <form id="expenseForm">
       <input type="hidden" id="expId" name="id" value="" />
       <input type="hidden" id="expDate" name="expense_date" value="" />
+      <input type="hidden" id="expTypeValue" name="type" value="personal" />
 
-      <div class="form-group">
-        <label for="expAmount">Amount</label>
-        <input type="number" step="0.01" min="0.01" id="expAmount" name="amount" class="form-input" placeholder="0.00" required />
-      </div>
-
-      <div class="form-group">
-        <label for="expCategory">Category</label>
-        <select id="expCategory" name="category_id" class="form-input" required>
-          <option value="">General</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="expNote">Note</label>
-        <input type="text" id="expNote" name="note" class="form-input" placeholder="Short description" maxlength="255" />
-      </div>
-
-      <div class="form-group">
-        <label>Expense Type</label>
-        <div class="flex gap-1 mt-1">
-          <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;">
-            <input type="radio" name="type" value="personal" checked /> Personal
-          </label>
-          <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;">
-            <input type="radio" name="type" value="group" /> Group
-          </label>
-        </div>
-      </div>
-
+      <!-- Group Select (Group tab only, shown first) -->
       <div class="form-group hidden" id="groupSelectWrap">
         <label for="expGroup">Group</label>
         <select id="expGroup" name="group_id" class="form-input">
@@ -112,6 +91,27 @@
         </select>
       </div>
 
+      <!-- Description (was Note) -->
+      <div class="form-group">
+        <label for="expNote">Description</label>
+        <input type="text" id="expNote" name="note" class="form-input" placeholder="Short description" maxlength="255" />
+      </div>
+
+      <!-- Amount -->
+      <div class="form-group">
+        <label for="expAmount">Amount</label>
+        <input type="number" step="0.01" min="0.01" id="expAmount" name="amount" class="form-input" placeholder="0.00" required />
+      </div>
+
+      <!-- Category -->
+      <div class="form-group">
+        <label for="expCategory">Category</label>
+        <select id="expCategory" name="category_id" class="form-input">
+          <option value="">General</option>
+        </select>
+      </div>
+
+      <!-- Paid By (Group tab only, shown last) -->
       <div class="form-group hidden" id="paidByWrap">
         <label for="expPaidBy">Paid By</label>
         <select id="expPaidBy" name="paid_by" class="form-input">
@@ -286,6 +286,37 @@
   .cal-day.selected .dot-group    { background: #a8dfc4; }
   .cal-day.today .dot-settled,
   .cal-day.selected .dot-settled  { background: #ddd; }
+
+  /* Modal expense type tab switcher (pill style) */
+  .modal-type-tabs {
+    display: flex;
+    background: #efefef;
+    border-radius: 0.75rem;
+    padding: 0.25rem;
+    margin-bottom: 1rem;
+    gap: 0.25rem;
+  }
+  .modal-type-tab {
+    flex: 1;
+    padding: 0.55rem 1rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    border-radius: 0.55rem;
+    transition: background 0.25s, color 0.25s, box-shadow 0.25s;
+    background: transparent;
+    color: #888;
+    font-family: inherit;
+  }
+  .modal-type-tab.active {
+    background: #fff;
+    color: #000;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  .modal-type-tab:not(.active):hover {
+    color: #555;
+  }
 
   /* Modal overlay */
   .modal-overlay {
