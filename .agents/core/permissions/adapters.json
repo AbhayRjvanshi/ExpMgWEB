@@ -1,0 +1,16 @@
+{
+  "skill_type": "adapter",
+  "description": "Runtime-specific adapter files.",
+  "may_write_to": [
+    ".agents/adapters/staging/"
+  ],
+  "may_read_from": [
+    ".agents/core/",
+    ".agents/orchestration/phase.json"
+  ],
+  "may_NOT_write_to": [
+    ".agents/skills/",
+    ".agents/core/validators/",
+    ".agents/core/contracts/"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "type": "object",
+  "required": [
+    "generated_skills",
+    "next_phase",
+    "capability_tags"
+  ],
+  "properties": {
+    "generated_skills": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_phase": {
+      "type": "string",
+      "enum": [
+        "PHASE_3_DESIGN",
+        "PHASE_4_CODE",
+        "PHASE_ERROR"
+      ]
+    },
+    "capability_tags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "skill_name",
+          "tags"
+        ],
+        "properties": {
+          "skill_name": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

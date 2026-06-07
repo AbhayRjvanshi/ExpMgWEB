@@ -1,0 +1,50 @@
+{
+  "type": "object",
+  "required": [
+    "recommended_mcps",
+    "source",
+    "error_message"
+  ],
+  "properties": {
+    "recommended_mcps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "package",
+          "reasoning"
+        ],
+        "properties": {
+          "package": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "env_requirements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "cache",
+        "live"
+      ]
+    },
+    "error_message": {
+      "type": "string"
+    }
+  }
+}

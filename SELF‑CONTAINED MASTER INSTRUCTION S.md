@@ -543,6 +543,8 @@ markdown
 
 - Before any file write operation, read the relevant permission file in .agents/core/permissions/ for the current skill type. Verify the target path falls under may_write_to. If the path appears in may_NOT_write_to or is not listed in may_write_to, halt immediately and report a permission violation. Do not proceed until the violation is resolved by human intervention.
 
+- Network access is prohibited for all skills except `design-system-planner`, which requires network access as its core function. `design-system-planner` may make network requests only when `.agents/.allow_network` exists. All other skills must never make network requests regardless of whether `.allow_network` is present.
+
 ---
 
 ### 6.2 Example `phase.json` (create as a template)

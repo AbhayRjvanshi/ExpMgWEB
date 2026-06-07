@@ -1,0 +1,25 @@
+{
+  "project_type": "LAMP Stack (PHP/MySQL/Redis)",
+  "required_skills": [
+    {
+      "skill_name": "php-clean-code-mastery",
+      "justification": "Project uses procedural PHP with strict security and architectural patterns."
+    },
+    {
+      "skill_name": "vanilla-js-best-practices",
+      "justification": "Frontend is built with vanilla JS and custom helper wrappers."
+    },
+    {
+      "skill_name": "sql-performance-tuning",
+      "justification": "Complex schema with 13 tables and durable outbox requires optimized queries."
+    },
+    {
+      "skill_name": "domain-settlement-rules",
+      "justification": "Core business logic for debt-minimization and settlement locks is highly specific."
+    },
+    {
+      "skill_name": "distributed-resilience-architect",
+      "justification": "Handles async notifications and idempotency via a custom durable outbox."
+    }
+  ]
+}

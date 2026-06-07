@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "required": [
+    "project_type",
+    "required_skills"
+  ],
+  "properties": {
+    "project_type": {
+      "type": "string"
+    },
+    "required_skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "skill_name",
+          "justification"
+        ],
+        "properties": {
+          "skill_name": {
+            "type": "string"
+          },
+          "justification": {
+            "type": "string"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

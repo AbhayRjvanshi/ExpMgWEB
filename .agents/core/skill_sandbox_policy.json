@@ -1,0 +1,35 @@
+{
+  "sandbox_policy_metadata": {
+    "version": "1.0.0",
+    "policy_type": "skill_sandbox_policy"
+  },
+  "sandbox_rules": {
+    "restricted_skills_require_sandbox": true,
+    "untrusted_skills_require_sandbox": true,
+    "sandbox_prevents_global_writes": true,
+    "sandbox_prevents_skill_modification": true,
+    "sandbox_prevents_shell_execution_without_approval": true
+  },
+  "sandbox_permissions": {
+    "allowed": [
+      "read_local_files",
+      "read_project_files",
+      "write_staging_files"
+    ],
+    "blocked": [
+      "modify_existing_skills",
+      "delete_system_files",
+      "write_global_files_without_approval",
+      "run_shell_commands_without_approval",
+      "network_access_without_approval"
+    ]
+  },
+  "sandbox_write_locations": [
+    ".agents/staging/",
+    ".agents/temp/"
+  ],
+  "sandbox_validation": {
+    "require_permission_check_before_execution": true,
+    "require_human_approval_for_escalation": true
+  }
+}

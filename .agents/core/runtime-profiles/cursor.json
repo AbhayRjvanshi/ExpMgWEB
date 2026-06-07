@@ -1,0 +1,19 @@
+{
+  "runtime": "cursor",
+  "supports_auto_context_loading": true,
+  "context_file": ".cursorrules",
+  "supports_file_write": true,
+  "supports_shell_execution": true,
+  "supports_structured_human_input": false,
+  "human_input_tool": "inline_editor_prompt",
+  "supports_exit_code_validation": true,
+  "notes": "Human input via inline editor prompt.",
+  "tool_mappings": {
+    "list_directory": "integrated find",
+    "read_file": "open in editor",
+    "write_json": "edit file",
+    "ask_human": "inline prompt",
+    "run_validator": "terminal running python",
+    "network_fetch": "terminal curl"
+  }
+}
