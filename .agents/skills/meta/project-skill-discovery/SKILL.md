@@ -1,19 +1,101 @@
 ## POLICY
-Read the project root directory. Use file listing tools to map directory structure.
-Read dependency manifests: package.json, composer.json, go.mod, requirements.txt,
-Cargo.toml, build.gradle, etc. (as many as exist).
-Do NOT read every file. Instead, after reading manifests, select 2–3 representative
-files from each major domain (e.g., one controller, one model, one service, one test
-file) and read them to infer actual architecture patterns (e.g., ORM vs raw SQL,
-framework usage).
-Output a JSON file (see CONTRACTS) to `.agents/orchestration/skill_requirements.json`.
-Then run `python .agents/core/validators/validate_json.py .agents/orchestration/skill_requirements.json .agents/core/contracts/skill_requirements.schema.json`.
-If exit code ≠ 0, halt and report error.
+
+**Step 1 — Map directory structure**
+Read the project root directory. Use file listing tools to build a full map of the
+folder structure. Record top-level directories and their immediate children.
+Do not read file contents yet.
+
+**Step 2 — Read README.md**
+If `README.md` exists at the project root, read it in full.
+Extract and record:
+- What the project does (purpose)
+- Who it is for (audience, if mentioned)
+- Any technology stack explicitly named
+- Any integrations or external services mentioned
+If README.md does not exist, record `readme_found: false` and continue.
+
+**Step 3 — Read environment file**
+Check for `.env` at the project root. If it exists, read it.
+If `.env` does not exist, check for `.env.example`. Read whichever is found.
+Extract and record the names of all environment variable keys (not values).
+Keys reveal external integrations:
+- DB_HOST, DATABASE_URL → database domain
+- MAIL_HOST, SMTP_, SENDGRID_ → email domain
+- STRIPE_, PAYPAL_, RAZORPAY_ → payment domain
+- AWS_KEY, S3_, CLOUDINARY_ → storage domain
+- REDIS_, CACHE_ → caching domain
+- JWT_SECRET, AUTH_ → authentication domain
+Do not record values. Record key names only.
+If neither `.env` nor `.env.example` exists, record `env_file_found: false` and continue.
+
+**Step 4 — Read dependency manifests**
+Read all of the following that exist:
+- `composer.json` (PHP)
+- `package.json` (Node/JS)
+- `requirements.txt` (Python)
+- `go.mod` (Go)
+- `Cargo.toml` (Rust)
+- `build.gradle` (Java)
+
+From each manifest, extract:
+- Language and runtime
+- Framework (Laravel, Symfony, Express, Django, etc.)
+- Database drivers or ORM libraries
+- Authentication libraries
+- Testing libraries
+- Any other notable dependencies
+
+If no manifests exist, record `manifests_found: false`. Set `project_type = "unknown"`.
+Continue — do not halt.
+
+**Step 5 — Sample representative code files**
+Using the directory map from Step 1, identify major domains present
+(e.g., controllers/, models/, services/, tests/, routes/, config/).
+From each domain folder, select 2–3 representative files.
+Read them to infer actual architecture patterns:
+- ORM vs raw SQL
+- MVC vs flat structure
+- REST API vs server-rendered
+- Authentication patterns
+- File upload handling
+- Any external API calls
+
+Stop reading files once total files read reaches 45 (leaving buffer before the 50-file safety cap).
+
+**Step 6 — Compile detected_domains**
+From all evidence gathered in Steps 2–5, compile a `detected_domains` array.
+Include a domain only if it is supported by at least one piece of evidence
+(env key, manifest dependency, or code pattern). Do not add domains speculatively.
+
+Use only values from this allowed list:
+`database`, `authentication`, `file-management`, `email`, `payment`,
+`api`, `testing`, `caching`, `logging`, `deployment`, `storage`,
+`messaging`, `search`, `media`
+
+**Step 7 — Compile detected_stack**
+From manifests and code samples, record:
+- `language`: primary language detected (e.g., "php", "javascript", "python")
+- `framework`: primary framework detected (e.g., "laravel", "vanilla-php", "express")
+- `database`: database type detected (e.g., "mysql", "postgresql", "sqlite", "none-detected")
+- `package_manager`: package manager detected (e.g., "composer", "npm", "pip")
+
+If any field cannot be determined, set it to `"unknown"`.
+
+**Step 8 — Write output and validate**
+Write all collected data to `.agents/orchestration/skill_requirements.json`.
+The output must include: `project_type`, `detected_domains`, `detected_stack`, `required_skills`.
+Then run:
+python .agents/core/validators/validate_json.py 
+.agents/orchestration/skill_requirements.json 
+.agents/core/contracts/skill_requirements.schema.json
+If exit code ≠ 0, halt and report the error. Do not advance the phase.
 
 ## CONTRACTS
-- Input: none (implicit – current working directory)
+- Input: none (implicit — current working directory)
+- Reads (if present): `README.md`, `.env` or `.env.example`, dependency manifests, sample code files
 - Output: `.agents/orchestration/skill_requirements.json`
   Schema: `.agents/core/contracts/skill_requirements.schema.json`
+  Required fields: `project_type`, `detected_domains`, `detected_stack`, `required_skills`
 - Validator: `python .agents/core/validators/validate_json.py .agents/orchestration/skill_requirements.json .agents/core/contracts/skill_requirements.schema.json`
 
 ## ADAPTER HINTS
@@ -52,10 +134,11 @@ UNLISTED PLATFORM PROTOCOL:
 - Run a validator script: integrated terminal — non-zero exit means halt
 
 ## FAILURE STATES
-- No manifests found → set `project_type = "unknown"`, required_skills empty,
-  but still write and validate the output file.
-- Sampling fails (file read error) → log warning, continue with manifest-only
-  inference. Do not halt.
+- No manifests found → set `project_type = "unknown"`, `detected_stack` fields to "unknown", `detected_domains` to empty array. Still write and validate. Do not halt.
+- README.md not found → record `readme_found: false`, continue with manifests and sampling. Do not halt.
+- No .env or .env.example found → record `env_file_found: false`, continue. Do not halt.
+- File sampling fails (read error on a code file) → log warning, skip that file, continue with remaining files. Do not halt.
+- Validation fails on output → halt. Report exact validation error. Do not advance phase.
 
 ## SAFETY RULES
 - Never read more than 50 files total.
@@ -66,6 +149,7 @@ UNLISTED PLATFORM PROTOCOL:
 None required for this skill. It is fully automated.
 
 ## VERSIONING
-Version: 1.0.0
+Version: 1.1.0
 Compatible with: Gemini CLI, Claude, Cursor
-Last validated: 2026-06-07
+Last validated: 2026-06-10
+Changelog: v1.1.0 — Added README.md and .env reading steps. Added detected_domains and detected_stack to output schema. mcp-plugin-discovery now reads structured categories instead of inferring from text.

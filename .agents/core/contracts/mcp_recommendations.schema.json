@@ -32,6 +32,10 @@
           },
           "reasoning": {
             "type": "string"
+          },
+          "source_registry": {
+            "type": "string",
+            "enum": ["official", "community"]
           }
         }
       }

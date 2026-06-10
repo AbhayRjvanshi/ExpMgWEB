@@ -248,5 +248,19 @@
     "never_install_skills_without_human_approval": true,
     "never_fetch_design_md_without_user_selection": true,
     "never_install_from_design_md_without_user_selection": true
+  },
+  "mcp_search_budget": {
+    "max_total_registry_urls": 10,
+    "max_results_per_category": 3,
+    "max_categories_to_search": 8,
+    "use_fallback_on_empty_category": true,
+    "deduplication": {
+      "enabled": true,
+      "keep_official_over_community": true
+    },
+    "scoring": {
+      "official_registry_score": 1.0,
+      "community_registry_score": 0.7
+    }
   }
 }

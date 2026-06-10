@@ -1,4 +1,11 @@
 {
-  "mcp_registry_url": "https://modelcontextprotocol.io",
-  "mcp_cache_max_age_days": 7
+  "mcp_registry_primary_url": "https://github.com/modelcontextprotocol/servers",
+  "mcp_registry_fallback_url": "https://smithery.ai",
+  "mcp_cache_max_age_days": 7,
+  "mcp_search": {
+    "max_results_per_category": 3,
+    "use_fallback_on_empty_category": true,
+    "primary_registry_label": "official",
+    "fallback_registry_label": "community"
+  }
 }

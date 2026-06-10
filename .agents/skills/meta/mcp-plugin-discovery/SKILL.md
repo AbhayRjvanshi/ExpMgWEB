@@ -1,34 +1,97 @@
 ## POLICY
-Read `.agents/orchestration/skill_requirements.json`.
-Before writing recommendations, read `.agents/orchestration/skill_registry.json`. 
-Do not recommend MCP tooling that directly duplicates functionality already covered by a skill in the registry.
-Check local cache at `.agents/orchestration/mcp_cache.json`. 
-If cache exists and its `last_updated` timestamp is within the number of days specified by `mcp_cache_max_age_days` in `.agents/core/config.json`, use it 
-and set source = "cache".
-If cache is missing or older than the configured age, set source = "cache", output an empty recommendations array, and populate `error_message` with: 
-"Cache is stale or missing. Live registry fetch is not supported in v1.0. 
-Populate `.agents/orchestration/mcp_cache.json` manually with known MCP packages and re-run this skill."
-Do not attempt any network fetch. The `.agents/.allow_network` flag and `mcp_registry_url` in config.json are reserved for v1.1.
+**Version: 1.1 — Live Registry Fetch with Controlled Category Search**
 
-The cache format:
+**Step 1 — Network pre-flight**
+Check for `.agents/.allow_network`.
+If it does not exist, fall back to v1.0 behavior:
+- Check local cache at `.agents/orchestration/mcp_cache.json`.
+- If cache exists and `last_updated` is within `mcp_cache_max_age_days` (from `config.json`), use it and set source = "cache".
+- If cache is missing or stale, output empty `recommended_mcps` array, set source = "cache", populate `error_message` with: "Cache is stale or missing. Network access is disabled (.allow_network not found). Populate mcp_cache.json manually or create .agents/.allow_network to enable live fetch."
+- Skip directly to Step 6.
+
+**Step 2 — Read project requirements**
+Read `.agents/orchestration/skill_requirements.json`.
+Extract all detected domains and categories (e.g., "database", "authentication", "file-management", "testing").
+These detected categories are your search scope. Only search for categories present in this file.
+Do NOT search speculatively for categories not detected in the project.
+
+**Step 3 — Read registry and budget configuration**
+Read `.agents/core/config.json`. Extract:
+- `mcp_registry_primary_url`
+- `mcp_registry_fallback_url`
+- `mcp_search.max_results_per_category`
+- `mcp_search.use_fallback_on_empty_category`
+
+Read `.agents/core/research_limits.json`. Extract `mcp_search_budget` section.
+Record `max_total_registry_urls` as your hard URL cap for this entire search session.
+Initialize a `urls_visited` counter at 0.
+
+**Step 4 — Search registries, one category at a time**
+Process each detected category from Step 2 in order.
+Stop processing new categories if `urls_visited` reaches `max_total_registry_urls`.
+
+For each category:
+
+a. Search the primary registry (`mcp_registry_primary_url`) for MCP packages matching this category.
+   - Count this as 1 URL visit. Increment `urls_visited`.
+   - Record up to `max_results_per_category` results.
+   - For each result record: package name, description, reasoning (why it matches), source_registry: "official".
+
+b. If the primary registry returns 0 results for this category AND `use_fallback_on_empty_category` is true AND `urls_visited` has not reached the cap:
+   - Search the fallback registry (`mcp_registry_fallback_url`) for the same category.
+   - Count this as 1 URL visit. Increment `urls_visited`.
+   - Record up to `max_results_per_category` results with source_registry: "community".
+
+c. If the primary registry returned results for a category, do NOT also search the fallback for that same category.
+
+**Step 5 — Deduplicate and score**
+After all categories are searched:
+- Identify duplicate packages: if the same package name appears from both registries, keep the "official" entry and discard the "community" duplicate.
+- Apply scores: official packages = 1.0, community packages = 0.7.
+- Sort results within each category by score descending.
+
+Write the deduplicated, scored results to `.agents/orchestration/mcp_cache.json`:
+```json
 {
-  "last_updated": "2025-01-01T00:00:00Z",
+  "last_updated": "<current ISO timestamp>",
+  "source": "live",
   "entries": {
-    "database": [{"package": "...", "args": [...], "env_requirements": [...], "reasoning": "..."}],
-    "observability": [...],
-    "testing": [...],
-    "deployment": [...]
+    "<category>": [
+      {
+        "package": "...",
+        "reasoning": "...",
+        "source_registry": "official",
+        "score": 1.0
+      }
+    ]
   }
 }
-From the cache data, select recommendations that match the project's detected gaps (e.g., if project uses a database but no MCP for that DB is present in the cache, recommend it).
+```
 
-Write output to `.agents/orchestration/mcp_recommendations.json` using the schema in CONTRACTS. The output must always include a `source` field set to "cache" and an `error_message` field (empty string if cache was valid and used, populated if cache was missing or stale).
-Run `python .agents/core/validators/validate_json.py .agents/orchestration/mcp_recommendations.json .agents/core/contracts/mcp_recommendations.schema.json`. If validation fails, halt.
+**Step 6 — Filter against existing skills and write recommendations**
+Read `.agents/orchestration/skill_registry.json`.
+Do not recommend any MCP package that directly duplicates functionality already covered by a skill in the registry.
+
+Write final output to `.agents/orchestration/mcp_recommendations.json`:
+- `recommended_mcps`: filtered, ranked list of relevant packages from the cache
+- `source`: "live" if network was used in this session, "cache" if Step 1 fallback was used
+- `error_message`: empty string if successful, error description otherwise
+
+Run:
+python .agents/core/validators/validate_json.py 
+.agents/orchestration/mcp_recommendations.json 
+.agents/core/contracts/mcp_recommendations.schema.json
+
+If exit code ≠ 0, halt and report the error. Do not advance the phase.
 
 ## CONTRACTS
-- Input: .agents/orchestration/skill_requirements.json
-- Output: .agents/orchestration/mcp_recommendations.json with schema mcp_recommendations.schema.json. Note: source is required.
+- Input: `.agents/orchestration/skill_requirements.json`
+- Input: `.agents/core/config.json` (registry URLs and search config)
+- Input: `.agents/core/research_limits.json` (mcp_search_budget)
+- Output: `.agents/orchestration/mcp_cache.json` (live fetch results, written in Step 5)
+- Output: `.agents/orchestration/mcp_recommendations.json` with schema `mcp_recommendations.schema.json`. Note: source and error_message are required.
 - Validator: `python .agents/core/validators/validate_json.py .agents/orchestration/mcp_recommendations.json .agents/core/contracts/mcp_recommendations.schema.json`
+
 
 ## ADAPTER HINTS
 <!--
@@ -62,16 +125,28 @@ UNLISTED PLATFORM PROTOCOL:
 - Run a validator script: integrated terminal — non-zero exit means halt
 
 ## FAILURE STATES
-- Cache missing or stale → output empty recommendations array, set source = "cache", populate error_message with the standard v1.0 message. Do not halt — this is a recoverable state.
+- `.allow_network` missing → fall back to v1.0 cache behavior. Do not halt — recoverable.
+- Cache missing or stale (v1.0 fallback) → output empty recommendations array, set source = "cache", populate error_message. Do not halt — recoverable.
+- Primary registry returns 0 results for all categories → use fallback registry. If fallback also returns 0 for all categories, output empty recommendations, set error_message. Do not halt.
+- `urls_visited` cap reached mid-search → stop searching, proceed with results gathered so far. Log warning in error_message.
+- Validation failure → halt. Do not advance phase.
 
 ## SAFETY RULES
-- Never attempt any network fetch in v1.0. Live registry fetch is deferred to v1.1 pending registry API documentation.
-- The `.allow_network` flag file and `mcp_registry_url` config value are reserved for future use. Do not read or act on them in this version.
+- Never attempt a network fetch unless `.agents/.allow_network` exists.
+- Never search categories not detected in `skill_requirements.json`.
+- Never exceed `max_total_registry_urls` from `mcp_search_budget`.
+- Never search the fallback registry for a category already covered by the primary registry.
+- Never recommend packages that duplicate existing skills in the registry.
+- Never hallucinate package names or invent registry results.
 
 ## HUMAN OVERRIDE RULES
-None — cache is read-only in v1.0. If the cache is missing or stale, the skill outputs an error_message and empty recommendations. The human must manually populate `mcp_cache.json` with known MCP packages.
+- If `.allow_network` does not exist and the cache is missing or stale, the human must either:
+  - Create `.agents/.allow_network` to enable live fetch, or
+  - Manually populate `.agents/orchestration/mcp_cache.json` with known MCP packages and re-run.
+- The human may disable live fetch at any time by deleting `.agents/.allow_network`. The skill will revert to cache behavior automatically.
 
 ## VERSIONING
-Version: 1.0.0
+Version: 1.1.0
 Compatible with: Gemini CLI, Claude, Cursor
-Last validated: 2026-06-07
+Last validated: 2026-06-10
+Changelog: v1.1.0 — Added live registry fetch with two-registry controlled search, category-scoped budgeting, deduplication, and scoring. v1.0.0 cache-only behavior retained as automatic fallback when .allow_network is absent.

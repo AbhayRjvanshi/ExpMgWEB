@@ -2,11 +2,54 @@
   "type": "object",
   "required": [
     "project_type",
-    "required_skills"
+    "required_skills",
+    "detected_domains",
+    "detected_stack"
   ],
   "properties": {
     "project_type": {
       "type": "string"
+    },
+    "detected_domains": {
+      "type": "array",
+      "description": "Functional domains detected in the project. Used by mcp-plugin-discovery to scope registry searches.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "database",
+          "authentication",
+          "file-management",
+          "email",
+          "payment",
+          "api",
+          "testing",
+          "caching",
+          "logging",
+          "deployment",
+          "storage",
+          "messaging",
+          "search",
+          "media"
+        ]
+      }
+    },
+    "detected_stack": {
+      "type": "object",
+      "description": "Technical stack details detected from manifests and code samples.",
+      "properties": {
+        "language": {
+          "type": "string"
+        },
+        "framework": {
+          "type": "string"
+        },
+        "database": {
+          "type": "string"
+        },
+        "package_manager": {
+          "type": "string"
+        }
+      }
     },
     "required_skills": {
       "type": "array",
