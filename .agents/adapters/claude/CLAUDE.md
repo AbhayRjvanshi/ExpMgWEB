@@ -1,7 +1,6 @@
 # Claude Orchestration Adapter
 <!-- adapter-version: 1.0.0 -->
 <!-- last-validated: 2026-06-07 -->
-<!-- conformance-test: adapters/claude/conformance-test.md -->
 
 At the start of every session, read `.agents/orchestration/phase.json`.
 Check `current_phase` and `status`.
