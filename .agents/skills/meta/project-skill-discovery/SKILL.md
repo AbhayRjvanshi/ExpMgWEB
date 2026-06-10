@@ -85,9 +85,7 @@ If any field cannot be determined, set it to `"unknown"`.
 Write all collected data to `.agents/orchestration/skill_requirements.json`.
 The output must include: `project_type`, `detected_domains`, `detected_stack`, `required_skills`.
 Then run:
-python .agents/core/validators/validate_json.py 
-.agents/orchestration/skill_requirements.json 
-.agents/core/contracts/skill_requirements.schema.json
+python .agents/core/validators/validate_json.py .agents/orchestration/skill_requirements.json .agents/core/contracts/skill_requirements.schema.json
 If exit code ≠ 0, halt and report the error. Do not advance the phase.
 
 ## CONTRACTS

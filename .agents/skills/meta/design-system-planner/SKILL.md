@@ -129,11 +129,8 @@ Include:
 - `design_md_path`: path to installed DESIGN.md if Path B was used, otherwise omit this field
 
 **Step 9 — Validation**
-Run `python .agents/core/validators/validate_design_tokens.py 
-.agents/orchestration/design_tokens.json`.
-Then run `python .agents/core/validators/validate_json.py 
-.agents/orchestration/design_tokens.json 
-.agents/core/contracts/design_tokens.schema.json`.
+Run `python .agents/core/validators/validate_design_tokens.py .agents/orchestration/design_tokens.json`.
+Then run `python .agents/core/validators/validate_json.py .agents/orchestration/design_tokens.json .agents/core/contracts/design_tokens.schema.json`.
 
 Both must exit 0. If either fails, halt and report the exact error before doing anything else.
 
@@ -146,11 +143,9 @@ Schema: `.agents/core/contracts/design_tokens.schema.json`
 Session tracking file (internal, not a final output): `.agents/orchestration/design_research_session.json`
 
 Validators (run both in order):
-1. `python .agents/core/validators/validate_design_tokens.py 
-.agents/orchestration/design_tokens.json`
-2. `python .agents/core/validators/validate_json.py 
-.agents/orchestration/design_tokens.json 
-.agents/core/contracts/design_tokens.schema.json`
+1. `python .agents/core/validators/validate_design_tokens.py .agents/orchestration/design_tokens.json`
+2. `python .agents/core/validators/validate_json.py .agents/orchestration/design_tokens.json .agents/core/contracts/design_tokens.schema.json`
+
 Both must exit 0. If either fails, halt.
 
 ## ADAPTER HINTS

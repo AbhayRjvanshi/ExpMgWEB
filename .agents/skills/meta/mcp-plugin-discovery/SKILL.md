@@ -78,10 +78,7 @@ Write final output to `.agents/orchestration/mcp_recommendations.json`:
 - `error_message`: empty string if successful, error description otherwise
 
 Run:
-python .agents/core/validators/validate_json.py 
-.agents/orchestration/mcp_recommendations.json 
-.agents/core/contracts/mcp_recommendations.schema.json
-
+python .agents/core/validators/validate_json.py .agents/orchestration/mcp_recommendations.json .agents/core/contracts/mcp_recommendations.schema.json
 If exit code ≠ 0, halt and report the error. Do not advance the phase.
 
 ## CONTRACTS
