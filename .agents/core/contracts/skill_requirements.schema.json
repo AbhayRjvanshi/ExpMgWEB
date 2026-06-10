@@ -36,6 +36,7 @@
     "detected_stack": {
       "type": "object",
       "description": "Technical stack details detected from manifests and code samples.",
+      "required": ["language", "framework", "database", "package_manager"],
       "properties": {
         "language": {
           "type": "string"

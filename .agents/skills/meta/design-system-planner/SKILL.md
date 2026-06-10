@@ -112,7 +112,7 @@ If the human selects a DESIGN.md file:
 1. Fetch its full content.
 2. Write it to: `.agents/orchestration/design.md`
 3. Extract all structured design information into: `.agents/orchestration/design_md_extracted.json`
-4. Validate the extracted structure using: `python .agents/core/validators/validate_design_md.py design_md_extracted.json`
+4. Validate the extracted structure using: `bash .agents/core/validators/validate_design_md.sh .agents/orchestration/design_md_extracted.json`
 5. Halt immediately if validation fails.
 6. If validation succeeds: extract all design tokens, generate `design_tokens.json`, and summarize all extracted systems to the human.
 
@@ -129,8 +129,12 @@ Include:
 - `design_md_path`: path to installed DESIGN.md if Path B was used, otherwise omit this field
 
 **Step 9 — Validation**
-Run `python .agents/core/validators/validate_design_tokens.py design_tokens.json`.
-Then run `python .agents/core/validators/validate_json.py design_tokens.json .agents/core/contracts/design_tokens.schema.json`.
+Run `python .agents/core/validators/validate_design_tokens.py 
+.agents/orchestration/design_tokens.json`.
+Then run `python .agents/core/validators/validate_json.py 
+.agents/orchestration/design_tokens.json 
+.agents/core/contracts/design_tokens.schema.json`.
+
 Both must exit 0. If either fails, halt and report the exact error before doing anything else.
 
 ## CONTRACTS
@@ -142,8 +146,11 @@ Schema: `.agents/core/contracts/design_tokens.schema.json`
 Session tracking file (internal, not a final output): `.agents/orchestration/design_research_session.json`
 
 Validators (run both in order):
-1. `python .agents/core/validators/validate_design_tokens.py design_tokens.json`
-2. `python .agents/core/validators/validate_json.py design_tokens.json .agents/core/contracts/design_tokens.schema.json`
+1. `python .agents/core/validators/validate_design_tokens.py 
+.agents/orchestration/design_tokens.json`
+2. `python .agents/core/validators/validate_json.py 
+.agents/orchestration/design_tokens.json 
+.agents/core/contracts/design_tokens.schema.json`
 Both must exit 0. If either fails, halt.
 
 ## ADAPTER HINTS
