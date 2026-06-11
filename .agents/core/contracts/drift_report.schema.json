@@ -1,0 +1,221 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "drift_report",
+  "description": "Output of a drift detection run. Written by detect_drift.py when Trigger 3 activates — either via the trigger cascade or manual invocation.",
+  "type": "object",
+  "required": [
+    "report_id",
+    "generated_at",
+    "triggered_by",
+    "trigger_1_findings",
+    "trigger_2_findings",
+    "agent_assessment",
+    "rerun_recommendations",
+    "status"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "description": "Unique identifier for this drift report (e.g. 'drift_20260611_001')"
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp when this report was generated"
+    },
+    "triggered_by": {
+      "type": "string",
+      "enum": ["trigger_1_phase_entry", "trigger_2_commit_weight", "manual"],
+      "description": "What caused this drift report to be generated"
+    },
+    "trigger_1_findings": {
+      "type": "object",
+      "description": "Results of the lightweight Phase 4 entry scan",
+      "required": ["ran", "passed"],
+      "properties": {
+        "ran": {
+          "type": "boolean",
+          "description": "Whether Trigger 1 ran as part of this report"
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "True means Trigger 1 detected one or more signals and drift is suspected — action is needed. False means no signals fired — project looks unchanged."
+        },
+        "new_file_extensions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "File extensions that appear now but were absent from the snapshot"
+        },
+        "new_top_level_directories": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Top-level directories that appear now but were absent from the snapshot"
+        },
+        "stack_files_changed": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Stack-defining files that changed since the snapshot"
+        },
+        "file_count_growth_percent": {
+          "type": ["number", "null"],
+          "description": "Percentage growth in total file count since snapshot. Null if not calculated."
+        },
+        "signals_fired": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Plain-language description of each signal that fired"
+        }
+      }
+    },
+    "trigger_2_findings": {
+      "type": "object",
+      "description": "Results of the commit weight analysis",
+      "required": ["ran", "passed", "accumulated_weight", "weight_threshold"],
+      "properties": {
+        "ran": { "type": "boolean" },
+        "passed": {
+          "type": "boolean",
+          "description": "True means the commit weight threshold was crossed and drift was detected — action is needed. False means weight is still below threshold — no action yet."
+        },
+        "accumulated_weight": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total commit weight accumulated since last snapshot"
+        },
+        "weight_threshold": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Threshold from config.json that was used"
+        },
+        "commits_analyzed": {
+          "type": "array",
+          "description": "Breakdown of commits that contributed weight",
+          "items": {
+            "type": "object",
+            "required": ["commit_hash", "weight", "reason"],
+            "properties": {
+              "commit_hash": { "type": "string" },
+              "weight": { "type": "integer", "minimum": 0 },
+              "reason": {
+                "type": "string",
+                "description": "Plain-language explanation of why this commit received its weight"
+              }
+            }
+          }
+        }
+      }
+    },
+    "agent_assessment": {
+      "type": "object",
+      "description": "Agent interpretation of what changed based on all evidence gathered",
+      "required": ["summary", "suspected_changes"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "Plain-language summary of what the agent believes changed in the project"
+        },
+        "suspected_changes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Specific suspected changes stated plainly (e.g. 'A REST API layer may have been added')"
+        },
+        "skills_possibly_affected": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Names of skills that may need review based on the detected changes"
+        },
+        "mcps_possibly_affected": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Names of MCPs that may need review based on the detected changes"
+        }
+      }
+    },
+    "user_questions": {
+      "type": "array",
+      "description": "Targeted questions presented to the user — one per detected signal",
+      "items": {
+        "type": "object",
+        "required": ["signal", "question", "answered"],
+        "properties": {
+          "signal": {
+            "type": "string",
+            "description": "The specific signal this question addresses"
+          },
+          "question": {
+            "type": "string",
+            "description": "The exact question asked to the user"
+          },
+          "user_answer": {
+            "type": ["string", "null"],
+            "description": "The user's response. Null until answered."
+          },
+          "answered": {
+            "type": "boolean",
+            "description": "Whether the user has responded to this question"
+          }
+        }
+      }
+    },
+    "user_exceptions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Signals the user marked as non-significant. These are excluded from rerun recommendations and the weight counter is reset."
+    },
+    "rerun_recommendations": {
+      "type": "object",
+      "description": "Per-phase rerun recommendations based on drift findings and user responses",
+      "required": ["phase_1", "phase_2", "phase_3", "phase_4"],
+      "properties": {
+        "phase_1": {
+          "type": "object",
+          "required": ["recommended", "reason"],
+          "properties": {
+            "recommended": { "type": "boolean" },
+            "reason": {
+              "type": "string",
+              "description": "Plain-language explanation of why Phase 1 should or should not be rerun"
+            }
+          }
+        },
+        "phase_2": {
+          "type": "object",
+          "required": ["recommended", "reason"],
+          "properties": {
+            "recommended": { "type": "boolean" },
+            "reason": { "type": "string" }
+          }
+        },
+        "phase_3": {
+          "type": "object",
+          "required": ["recommended", "reason"],
+          "properties": {
+            "recommended": { "type": "boolean" },
+            "reason": { "type": "string" }
+          }
+        },
+        "phase_4": {
+          "type": "object",
+          "required": ["recommended", "reason"],
+          "properties": {
+            "recommended": { "type": "boolean" },
+            "reason": { "type": "string" }
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_user_response",
+        "resolved_rerun",
+        "resolved_no_action",
+        "resolved_exceptions_noted"
+      ],
+      "description": "Current state of this drift report. Starts as pending_user_response and resolves once the user answers all questions."
+    },
+    "resolved_at": {
+      "type": ["string", "null"],
+      "description": "ISO 8601 timestamp when the user responded to all questions and the report was resolved. Null until resolved."
+    }
+  }
+}
