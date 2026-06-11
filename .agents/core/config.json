@@ -7,5 +7,54 @@
     "use_fallback_on_empty_category": true,
     "primary_registry_label": "official",
     "fallback_registry_label": "community"
+  },
+  "drift_sensitivity": {
+    "trigger_1": {
+      "file_count_growth_threshold_percent": 40,
+      "new_file_extension_threshold": 1,
+      "new_top_level_directory_triggers": true,
+      "stack_file_changes_trigger": [
+        "composer.json",
+        "package.json",
+        ".env",
+        "docker-compose.yml"
+      ]
+    },
+    "trigger_2": {
+      "weight_threshold": 50,
+      "commit_weights": {
+        "new_file_added": 3,
+        "file_deleted": 3,
+        "new_directory_created": 4,
+        "file_modified_under_10_lines": 0,
+        "file_modified_10_to_50_lines": 1,
+        "file_modified_over_50_lines": 2,
+        "config_file_changed": 5,
+        "new_file_type_first_appearance": 5
+      },
+      "config_files": [
+        "composer.json",
+        "package.json",
+        ".env",
+        "docker-compose.yml",
+        "nginx.conf"
+      ]
+    },
+    "prominence_thresholds": {
+      "high_min": 70,
+      "moderate_min": 40,
+      "low_min": 15,
+      "minimal_min": 0
+    },
+    "phase_rerun": {
+      "frontend_css_growth_threshold_percent": 50,
+      "frontend_new_page_directory_triggers": true,
+      "design_tokens_max_age_days": 90
+    },
+    "staleness": {
+      "skill_justification_failure_triggers_review": true,
+      "auto_retire_on_zero_justifications": false,
+      "retirement_requires_human_confirmation": true
+    }
   }
 }

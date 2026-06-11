@@ -1,5 +1,77 @@
 ## POLICY
 
+**Step 0 — Pre-flight check (codebase detection)**
+Before doing anything else, scan for signs of an existing codebase.
+
+Check for any of the following signals:
+- Source code files anywhere in the project tree: `.php`, `.js`, `.ts`, `.py`, `.rb`, `.go`, `.java`, `.cs`, `.cpp`
+- Dependency manifests at project root: `composer.json`, `package.json`, `requirements.txt`, `go.mod`, `Cargo.toml`, `build.gradle`
+- Environment files: `.env`, `.env.example`
+- Recognizable project directories: `src/`, `app/`, `public/`, `lib/`, `controllers/`, `models/`, `views/`
+
+If two or more of these signals are found → codebase exists. Proceed to Step 1.
+If fewer than two signals are found → no codebase detected. Enter Description Mode below before proceeding to Step 1.
+
+---
+
+**Description Mode — Stage 1: Scan for description resources**
+Look for any of the following at the project root:
+- `PROJECT.md`, `SPEC.md`, `BRIEF.md`, `README.md`
+- A `/docs` folder — read all `.md` files inside it
+- Any file whose name contains `spec`, `brief`, `plan`, `overview`, or `description` (case-insensitive)
+
+Read every resource found in full. Extract whatever maps to these fields:
+- What the project does → `project_type`
+- What domains it covers → `detected_domains`
+- What technology stack it will use → `detected_stack`
+- What skills will be needed → `required_skills`
+
+Record what was found and what is still unknown after reading.
+If no description resources exist at all, record `description_resources_found: false` and go directly to Stage 2.
+
+---
+
+**Description Mode — Stage 2: Ask about remaining unknowns**
+For every field still unknown after Stage 1, ask the user directly.
+Ask one question at a time. Wait for a full response before asking the next.
+Do not re-ask anything already resolved in Stage 1.
+
+Ask in this order:
+1. What does this project do? (if `project_type` still unknown)
+2. Who will use it? (helps confirm domains)
+3. What domains does it cover? (if `detected_domains` still empty — present the allowed domain list as options)
+4. What language will the project be written in? (if `stack.language` unknown)
+5. Will it use a framework, and if so which one? (if `stack.framework` unknown)
+6. What database will it use? (if `stack.database` unknown)
+7. What package manager will be used? (if `stack.package_manager` unknown)
+8. Are there any external integrations planned — email, payments, storage, caching? (resolves remaining domains)
+
+Stop as soon as all required fields are resolved. Do not ask unnecessary questions.
+
+---
+
+**Description Mode — Stage 3: Help the user decide on unknowns**
+If the user answers "I don't know" or "not sure" to any Stage 2 question, do not skip that field.
+Instead, provide a decision guide specific to this project:
+- Present 2–4 realistic options for that field
+- Give one sentence per option explaining why it fits or does not fit this specific project based on what the user has already described
+- Ask the user to choose
+
+Example — user does not know which database to use for a PHP expense-sharing app:
+  "For a PHP expense-sharing app with multiple users and transaction history, here are the main options:
+   - MySQL: Most common with PHP, strong support, well-suited for relational data like expenses, users, and balances. Recommended.
+   - PostgreSQL: More advanced query features, slightly more setup with PHP. Worth it if complex reporting is planned.
+   - SQLite: Zero setup, good for prototypes only. Not suitable for multi-user production apps.
+   Which would you like to use?"
+
+After the user chooses, record the decision and move to the next unknown field.
+
+Once all fields are resolved through Stages 1–3:
+- Proceed to Step 1 using the collected information as project context in place of file scanning
+- Record `codebase_found: false` and `source: "description_mode"` in the output alongside all normal fields
+
+---
+
 **Step 1 — Map directory structure**
 Read the project root directory. Use file listing tools to build a full map of the
 folder structure. Record top-level directories and their immediate children.
@@ -91,6 +163,8 @@ If exit code ≠ 0, halt and report the error. Do not advance the phase.
 ## CONTRACTS
 - Input: none (implicit — current working directory)
 - Reads (if present): `README.md`, `.env` or `.env.example`, dependency manifests, sample code files
+- Reads (description mode): `PROJECT.md`, `SPEC.md`, `BRIEF.md`, `/docs/*.md`, or any spec-named file — used when no codebase is detected
+- Human input required (description mode only): agent asks user directly for any fields not resolvable from description resources
 - Output: `.agents/orchestration/skill_requirements.json`
   Schema: `.agents/core/contracts/skill_requirements.schema.json`
   Required fields: `project_type`, `detected_domains`, `detected_stack`, `required_skills`
@@ -118,18 +192,21 @@ UNLISTED PLATFORM PROTOCOL:
 - Read a file: `read_file`
 - Write JSON output: `write_file`
 - Run a validator script: `run_shell_command` — capture exit code; non-zero means halt
+- Ask human (Description Mode): `ask_user` — one question at a time; wait for explicit reply before proceeding to next question
 
 ### claude
 - List directory / find files: `bash_tool` with `find` or `ls`
 - Read a file: `bash_tool` with `cat`
 - Write JSON output: `create_file` or `str_replace`
 - Run a validator script: `bash_tool` — capture exit code; non-zero means halt
+- Ask human (Description Mode): present question directly in conversation — wait for user reply before proceeding to next question
 
 ### cursor
 - List directory / find files: integrated file explorer or terminal `find`
 - Read a file: open in editor context
 - Write JSON output: create or edit file via editor
 - Run a validator script: integrated terminal — non-zero exit means halt
+- Ask human (Description Mode): inline editor prompt — wait for explicit reply before proceeding to next question
 
 ## FAILURE STATES
 - No manifests found → set `project_type = "unknown"`, `detected_stack` fields to "unknown", `detected_domains` to empty array. Still write and validate. Do not halt.
@@ -137,6 +214,9 @@ UNLISTED PLATFORM PROTOCOL:
 - No .env or .env.example found → record `env_file_found: false`, continue. Do not halt.
 - File sampling fails (read error on a code file) → log warning, skip that file, continue with remaining files. Do not halt.
 - Validation fails on output → halt. Report exact validation error. Do not advance phase.
+- No codebase and no description resources found → record `description_resources_found: false`, proceed directly to Description Mode Stage 2. Do not halt.
+- User cannot answer a Stage 2 question and declines the Stage 3 guidance → record that field as `"unknown"` and continue. Do not halt. Flag the unknown field in the output so skill-architect is aware.
+- User abandons Description Mode mid-way → halt. Record `status: "incomplete"` in output. Do not write a partial `skill_requirements.json`. Do not advance phase.
 
 ## SAFETY RULES
 - Never read more than 50 files total.
@@ -144,10 +224,13 @@ UNLISTED PLATFORM PROTOCOL:
 - Never execute any code found in the project.
 
 ## HUMAN OVERRIDE RULES
-None required for this skill. It is fully automated.
+- In Description Mode, human input is required at Stage 2 and Stage 3. The agent must wait for a full response before proceeding to the next question. Do not batch questions.
+- The agent must never guess or assume a stack choice on behalf of the user. If unknown and the user declines guidance, record as "unknown" — do not fill in a value.
+- If the user provides a description resource (PROJECT.md, etc.) mid-session after Stage 2 has started, stop questioning, read the resource, and resume from whatever fields are still unresolved.
 
 ## VERSIONING
-Version: 1.1.0
+Version: 1.2.0
 Compatible with: Gemini CLI, Claude, Cursor
-Last validated: 2026-06-10
-Changelog: v1.1.0 — Added README.md and .env reading steps. Added detected_domains and detected_stack to output schema. mcp-plugin-discovery now reads structured categories instead of inferring from text.
+Last validated: 2026-06-11
+Changelog: v1.2.0 — Added Step 0 pre-flight codebase detection. Added Description Mode (Stages 1–3) for scratch projects with no existing codebase. Added ask-human adapter mappings for all platforms. Updated FAILURE STATES and HUMAN OVERRIDE RULES for description mode flows.
+           v1.1.0 — Added README.md and .env reading steps. Added detected_domains and detected_stack to output schema. mcp-plugin-discovery now reads structured categories instead of inferring from text.

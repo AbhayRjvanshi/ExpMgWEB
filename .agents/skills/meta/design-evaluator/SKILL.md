@@ -26,7 +26,7 @@ The `design-evaluator` skill is responsible for evaluating, scoring, ranking, an
 ## CONTRACTS
 - Input: `.agents/orchestration/design_research_session.json`, `.agents/core/research_limits.json`
 - Output: `.agents/orchestration/design_evaluation_report.json`
-- - Validator: `python -m json.tool .agents/orchestration/design_evaluation_report.json` (syntax-only check — upgrade to schema validation once `.agents/core/contracts/design_evaluation_report.schema.json` is created).
+- Validator: `python -m json.tool .agents/orchestration/design_evaluation_report.json` (syntax-only check — upgrade to schema validation once `.agents/core/contracts/design_evaluation_report.schema.json` is created).
 
 ## ADAPTER HINTS
 <!--
