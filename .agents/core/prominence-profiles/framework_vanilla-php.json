@@ -1,0 +1,25 @@
+{
+  "tag": "framework:vanilla-php",
+  "display_name": "Vanilla PHP (no framework)",
+  "evidence_strategies": {
+    "direct_usage": {
+      "code_patterns": ["$_GET", "$_POST", "$_SESSION", "header(", "session_start(", "require_once", "json_encode(", "http_response_code("],
+      "string_patterns": [],
+      "file_extensions": [".php"]
+    },
+    "architectural": {
+      "exception_patterns": ["catch (", "throw new"]
+    },
+    "dependency": {
+      "composer_packages": [],
+      "npm_packages": [],
+      "pip_packages": []
+    },
+    "configuration": {
+      "env_key_patterns": [],
+      "env_value_patterns": [],
+      "docker_service_names": ["apache", "nginx", "php"]
+    },
+    "commit_keywords": ["endpoint", "api", "session", "header", "procedural"]
+  }
+}

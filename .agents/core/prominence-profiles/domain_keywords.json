@@ -1,0 +1,23 @@
+{
+  "description": "Shared keyword lists for domain:<name> tags. Used when no dedicated domain_<name>.json profile file exists. Keywords are matched with word boundaries, case-insensitive, to avoid noisy substring hits.",
+  "file_extensions": [".php", ".js", ".mjs", ".py", ".ts", ".sql"],
+  "domains": {
+    "database": ["database", "query", "table", "schema", "migration", "record", "column", "transaction"],
+    "authentication": ["auth", "login", "logout", "session", "csrf", "token", "password", "register"],
+    "api": ["api", "endpoint", "route", "request", "response", "rest", "webhook"],
+    "caching": ["cache", "redis", "memcache", "ttl", "invalidate"],
+    "testing": ["test", "spec", "assert", "mock", "fixture", "phpunit", "jest", "pytest"],
+    "logging": ["log", "logger", "debug", "monolog", "sentry"],
+    "messaging": ["queue", "worker", "job", "event", "listener", "outbox", "dispatch"],
+    "email": ["email", "mail", "smtp", "mailer", "sendgrid", "mailgun"],
+    "payment": ["payment", "charge", "invoice", "billing", "stripe", "paypal", "razorpay"],
+    "storage": ["storage", "upload", "bucket", "s3", "filesystem", "attachment"],
+    "search": ["search", "elasticsearch", "algolia", "filter", "full-text"],
+    "media": ["image", "video", "audio", "thumbnail", "resize", "ffmpeg"],
+    "deployment": ["deploy", "docker", "kubernetes", "pipeline", "release"],
+    "finance": ["expense", "budget", "amount", "balance", "currency", "transaction", "payment", "settlement"],
+    "settlement": ["settle", "settlement", "debt", "owe", "balance", "payer", "payee", "creditor", "debtor", "confirmation"],
+    "async": ["async", "queue", "worker", "retry", "outbox", "idempotency", "idempotent", "cron", "dispatch"],
+    "notifications": ["notification", "notify", "toast", "alert", "unread"]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "tag": "language:javascript",
+  "display_name": "JavaScript Language",
+  "evidence_strategies": {
+    "direct_usage": {
+      "code_patterns": ["addEventListener", "querySelector", "getElementById", "document.", "window.", "fetch(", "console.log", "=> {", "module.exports", "export default"],
+      "string_patterns": [],
+      "file_extensions": [".js", ".mjs"]
+    },
+    "architectural": {
+      "exception_patterns": [".catch(", "try {", "catch ("]
+    },
+    "dependency": {
+      "composer_packages": [],
+      "npm_packages": ["*"],
+      "pip_packages": []
+    },
+    "configuration": {
+      "env_key_patterns": ["NODE_ENV", "NODE_"],
+      "env_value_patterns": [],
+      "docker_service_names": ["node", "nodejs"]
+    },
+    "commit_keywords": ["javascript", "js", "frontend", "dom", "fetch", "ajax", "ui", "script"]
+  }
+}
