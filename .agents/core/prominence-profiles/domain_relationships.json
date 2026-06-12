@@ -1,0 +1,15 @@
+{
+  "description": "Architectural neighbourhood map used by detect_drift.py affected-skill matching. When a drift signal implicates a domain, the listed related domains are also considered possibly affected. Expansion is deliberately ONE hop - deeper propagation inflates the 'possibly affected' lists and causes review fatigue. Keeps semantic knowledge separate from orchestration mechanism; detect_drift.py carries a built-in fallback copy for portability when this file is absent.",
+  "relationships": {
+    "api": ["authentication", "caching", "messaging", "logging"],
+    "database": ["caching"],
+    "messaging": ["caching", "async", "notifications"],
+    "async": ["messaging", "caching"],
+    "authentication": ["api"],
+    "payment": ["finance", "api"],
+    "notifications": ["messaging"],
+    "deployment": ["logging"],
+    "finance": ["database", "settlement"],
+    "settlement": ["finance", "notifications"]
+  }
+}

@@ -10,6 +10,7 @@
   },
   "drift_sensitivity": {
     "trigger_1": {
+      "exception_expiry_days": 30,
       "file_count_growth_threshold_percent": 40,
       "new_file_extension_threshold": 1,
       "new_top_level_directory_triggers": true,
@@ -22,6 +23,11 @@
     },
     "trigger_2": {
       "weight_threshold": 50,
+      "severity_multipliers": {
+        "moderate_min": 1.5,
+        "high_min": 2.5,
+        "critical_min": 4.0
+      },
       "commit_weights": {
         "new_file_added": 3,
         "file_deleted": 3,

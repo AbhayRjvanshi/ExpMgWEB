@@ -33,3 +33,16 @@ To verify which method your runtime supports: attempt `activate_skill` on any
 SKILL.md path. If the command is not recognized, use `read_file` for all
 subsequent skill loading. Note which method works and use it consistently for
 the entire session.
+
+## Drift Detection
+On every entry into PHASE_4_CODE, before writing any implementation code:
+run `run_shell_command` → `python .agents/core/validators/detect_drift.py`
+and capture the exit code.
+- Exit 0 → proceed with coding normally. Do not mention drift to the user.
+- Exit 2 → halt coding. Use `read_file` on
+  `.agents/orchestration/drift_report.json`, present Sections 1–4 in order,
+  and ask the targeted questions one at a time via `ask_user` — wait for each
+  response payload before the next question.
+- Exit 1 → report the error to the user. Do not proceed silently.
+When the user asks for a drift check directly, run with `--mode manual`.
+Follow the resolution rules in `.agents/core/global-policy.md` (Drift Detection section).
