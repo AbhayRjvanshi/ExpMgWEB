@@ -1,0 +1,19 @@
+{
+  "skill_type": "meta",
+  "description": "The four system meta-skills.",
+  "may_write_to": [
+    ".agents/orchestration/",
+    ".agents/skills/generated/"
+  ],
+  "may_read_from": [
+    ".agents/orchestration/",
+    ".agents/core/",
+    ".agents/skills/meta/"
+  ],
+  "may_NOT_write_to": [
+    ".agents/skills/meta/",
+    ".agents/core/validators/",
+    ".agents/core/contracts/",
+    ".agents/adapters/"
+  ]
+}

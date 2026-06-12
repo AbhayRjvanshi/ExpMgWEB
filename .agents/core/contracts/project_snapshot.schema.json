@@ -1,0 +1,165 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "project_snapshot",
+  "description": "Baseline snapshot of project state captured at end of Phase 2 by skill-architect. Used by drift detection to identify changes over time.",
+  "type": "object",
+  "required": [
+    "captured_at",
+    "captured_by_phase",
+    "source",
+    "file_counts",
+    "total_file_count",
+    "top_directories",
+    "domains",
+    "stack",
+    "skill_justifications",
+    "mcp_justifications",
+    "accumulated_commit_weight",
+    "drift_check_count"
+  ],
+  "properties": {
+    "captured_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp when this snapshot was taken"
+    },
+    "captured_by_phase": {
+      "type": "string",
+      "enum": ["PHASE_2_ARCHITECT"],
+      "description": "Always written at end of Phase 2"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["codebase_scan", "description_mode"],
+      "description": "Whether project data came from scanning an existing codebase or from Description Mode"
+    },
+    "file_counts": {
+      "type": "object",
+      "description": "Count of files by extension at snapshot time. Keys must be extensions including the dot (e.g. '.php', '.js'). Keys without a leading dot are rejected.",
+      "patternProperties": {
+        "^\\..+$": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "total_file_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of files in the project at snapshot time"
+    },
+    "top_directories": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Names of top-level directories present at snapshot time"
+    },
+    "domains": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Detected domains copied from skill_requirements.json at Phase 1"
+    },
+    "stack": {
+      "type": "object",
+      "required": ["language", "framework", "database", "package_manager"],
+      "properties": {
+        "language": { "type": "string" },
+        "framework": { "type": "string" },
+        "database": { "type": "string" },
+        "package_manager": { "type": "string" }
+      }
+    },
+    "skill_justifications": {
+      "type": "object",
+      "description": "Per-skill two-layer justification record. Key is the skill name.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["discovery_evidence", "confirmed_by_human"],
+        "properties": {
+          "discovery_evidence": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Tags from Phase 1 that caused this skill to be generated (e.g. 'database:MySQL', 'file_type:.sql')"
+          },
+          "human_confirmed_reason": {
+            "type": "string",
+            "description": "Plain-language reason the user confirmed this skill is needed"
+          },
+          "confirmed_by_human": {
+            "type": "boolean",
+            "description": "Whether the user explicitly confirmed this skill at Phase 2"
+          },
+          "confirmed_at": {
+            "type": ["string", "null"],
+            "description": "ISO 8601 timestamp of human confirmation. Null if not yet confirmed."
+          },
+          "prominence_score": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Latest prominence score from Layer 1 detection. Null until first drift check runs."
+          },
+          "prominence_verdict": {
+            "type": ["string", "null"],
+            "enum": ["HIGH", "MODERATE", "LOW", "MINIMAL", null],
+            "description": "Latest prominence verdict. Null until first drift check runs."
+          },
+          "last_checked_at": {
+            "type": ["string", "null"],
+            "description": "ISO 8601 timestamp of the last drift check for this skill. Null if never checked."
+          }
+        }
+      }
+    },
+    "mcp_justifications": {
+      "type": "object",
+      "description": "Per-MCP two-layer justification record. Key is the MCP name.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["discovery_evidence", "confirmed_by_human"],
+        "properties": {
+          "discovery_evidence": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Tags from Phase 1 that caused this MCP to be recommended"
+          },
+          "human_confirmed_reason": {
+            "type": "string",
+            "description": "Plain-language reason the user confirmed this MCP is needed"
+          },
+          "confirmed_by_human": {
+            "type": "boolean"
+          },
+          "confirmed_at": {
+            "type": ["string", "null"]
+          },
+          "prominence_score": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 100
+          },
+          "prominence_verdict": {
+            "type": ["string", "null"],
+            "enum": ["HIGH", "MODERATE", "LOW", "MINIMAL", null]
+          },
+          "last_checked_at": {
+            "type": ["string", "null"]
+          }
+        }
+      }
+    },
+    "last_drift_check": {
+      "type": ["string", "null"],
+      "description": "ISO 8601 timestamp of the last drift check run against this snapshot. Null if never checked."
+    },
+    "accumulated_commit_weight": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Running total of commit weights accumulated since this snapshot was written. Resets to 0 when snapshot is regenerated."
+    },
+    "drift_check_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How many drift checks have been run against this snapshot total"
+    }
+  }
+}

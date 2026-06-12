@@ -1,0 +1,26 @@
+{
+  "runtimes": {
+    "gemini-cli": {
+      "filesystem_access": true,
+      "shell_execution": true,
+      "internet_access": true,
+      "validator_execution": true,
+      "persistent_orchestration_state": true
+    },
+    "claude": {
+      "filesystem_access": true,
+      "shell_execution": true,
+      "internet_access": true,
+      "validator_execution": true,
+      "persistent_orchestration_state": true,
+      "notes": "These apply when running as Claude Code or Claude Desktop."
+    },
+    "cursor": {
+      "filesystem_access": true,
+      "shell_execution": true,
+      "internet_access": true,
+      "validator_execution": true,
+      "persistent_orchestration_state": true
+    }
+  }
+}

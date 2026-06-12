@@ -1,0 +1,18 @@
+{
+  "skill_type": "external",
+  "description": "Externally sourced skills (e.g. cavecrew, graphify). Read-only for most, restricted writes.",
+  "may_write_to": [
+    ".agents/skills/external/"
+  ],
+  "may_read_from": [
+    ".agents/orchestration/",
+    ".agents/core/"
+  ],
+  "may_NOT_write_to": [
+    ".agents/skills/meta/",
+    ".agents/skills/generated/",
+    ".agents/core/",
+    ".agents/adapters/",
+    ".agents/orchestration/"
+  ]
+}

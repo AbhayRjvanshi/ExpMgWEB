@@ -10,6 +10,7 @@
   let selectedDate = null;       // 'YYYY-MM-DD'
   let categories = [];
   let userGroups = [];
+  let categoriesLoadPromise = null;
   let monthExpenseDates = new Set(); // dates that have expenses (for dots)
 
   // ------ Helpers (shared from helpers.js; only local extras here) ------
@@ -35,8 +36,8 @@
       get(`${API}/expenses/categories.php`),
       get(`${API}/groups/user_groups.php`)
     ]);
-    if (catRes.ok) categories = catRes.categories;
-    if (grpRes.ok) userGroups = grpRes.groups;
+    if (catRes.ok && Array.isArray(catRes.categories)) categories = catRes.categories;
+    if (grpRes.ok && Array.isArray(grpRes.groups)) userGroups = grpRes.groups;
 
     populateCategoryDropdown();
     populateGroupDropdown();
@@ -261,11 +262,39 @@
   }
 
   // ------ Modal ------
+  async function ensureCategoriesLoaded() {
+    if (Array.isArray(categories) && categories.length) {
+      return true;
+    }
+
+    if (!categoriesLoadPromise) {
+      categoriesLoadPromise = (async () => {
+        const catRes = await get(`${API}/expenses/categories.php`);
+        if (catRes.ok && Array.isArray(catRes.categories)) {
+          categories = catRes.categories;
+        }
+      })().finally(() => {
+        categoriesLoadPromise = null;
+      });
+    }
+
+    await categoriesLoadPromise;
+    populateCategoryDropdown();
+    return Array.isArray(categories) && categories.length > 0;
+  }
+
   function populateCategoryDropdown() {
     const sel = $('#expCategory');
     if (!sel) return;
     sel.innerHTML = '';
 
+    if (!Array.isArray(categories) || !categories.length) {
+      sel.disabled = true;
+      sel.innerHTML = '<option value="" selected disabled>Loading categories...</option>';
+      return;
+    }
+
+    sel.disabled = false;
     var list = categories.slice();
     var generalIndex = list.findIndex(function(c) { return (c.name || '').toLowerCase() === 'general'; });
     if (generalIndex > 0) {
@@ -276,11 +305,6 @@
       var selected = index === 0 ? ' selected' : '';
       sel.innerHTML += `<option value="${c.id}"${selected}>${escapeHTML(c.name)}</option>`;
     });
-
-    if (!list.length) {
-      sel.innerHTML = '<option value="">General</option>';
-      return;
-    }
 
     if (generalIndex === -1) {
       sel.selectedIndex = 0;
@@ -315,8 +339,28 @@
     }
   }
 
-  function openAddModal() {
+  function switchModalType(type) {
+    const tabs = $$('#expTypeTabs .modal-type-tab');
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.type === type));
+    const typeInput = $('#expTypeValue');
+    if (typeInput) typeInput.value = type;
+    if (type === 'group') {
+      show($('#groupSelectWrap'));
+      const gid = $('#expGroup').value;
+      if (gid) {
+        populatePaidByDropdown(gid);
+        show($('#paidByWrap'));
+      }
+    } else {
+      hide($('#groupSelectWrap'));
+      hide($('#paidByWrap'));
+    }
+  }
+
+  async function openAddModal() {
     const modal = $('#expenseModal');
+    const hasCategories = await ensureCategoriesLoaded();
+
     $('#modalTitle').textContent = 'Add Expense';
     $('#expId').value = '';
     $('#expDate').value = selectedDate;
@@ -335,14 +379,19 @@
     $('#expNote').value = '';
     const grpSel = $('#expGroup');
     if (grpSel) grpSel.value = '';
-    document.querySelector('input[name="type"][value="personal"]').checked = true;
-    hide($('#groupSelectWrap'));
-    hide($('#paidByWrap'));
+    switchModalType('personal');
     hide($('#expError'));
     const paidBySel = $('#expPaidBy');
     if (paidBySel) paidBySel.innerHTML = '<option value="">Select who paid…</option>';
+
+    if (!hasCategories) {
+      const errEl = $('#expError');
+      errEl.textContent = 'Unable to load categories. Please refresh the page and ensure the database is running.';
+      show(errEl);
+    }
+
     show(modal);
-    $('#expAmount').focus();
+    $('#expNote').focus();
   }
 
   function openEditModal(id, expenses) {
@@ -355,10 +404,9 @@
     $('#expAmount').value = parseFloat(e.amount);
     $('#expCategory').value = e.category_id;
     $('#expNote').value = e.note || '';
-    document.querySelector(`input[name="type"][value="${e.type}"]`).checked = true;
+    switchModalType(e.type);
 
     if (e.type === 'group') {
-      show($('#groupSelectWrap'));
       $('#expGroup').value = e.group_id || '';
       // Load paid_by members for this group, then select the payer
       const gid = e.group_id;
@@ -369,9 +417,6 @@
         });
         show($('#paidByWrap'));
       }
-    } else {
-      hide($('#groupSelectWrap'));
-      hide($('#paidByWrap'));
     }
     hide($('#expError'));
     show(modal);
@@ -387,7 +432,19 @@
     const errEl = $('#expError');
     hide(errEl);
 
-    const isGroup = document.querySelector('input[name="type"]:checked').value === 'group';
+    // Retry category load once if options are missing.
+    if (!Array.isArray(categories) || !categories.length) {
+      await ensureCategoriesLoaded();
+    }
+
+    const categoryEl = $('#expCategory');
+    if (!categoryEl || !categoryEl.value) {
+      errEl.textContent = 'Please select a category.';
+      show(errEl);
+      return;
+    }
+
+    const isGroup = ($('#expTypeValue') ? $('#expTypeValue').value : 'personal') === 'group';
     const id = $('#expId').value;
 
     // Client-side: ensure paid_by dropdown is visible for group expenses
@@ -496,23 +553,10 @@
       if (e.target === overlay) closeModal();
     });
 
-    // Expense type toggle (show/hide group dropdown + paid_by)
-    $$('input[name="type"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        const wrap = $('#groupSelectWrap');
-        const paidByWrap = $('#paidByWrap');
-        if (radio.value === 'group' && radio.checked) {
-          show(wrap);
-          // If group already selected, show paid_by
-          const gid = $('#expGroup').value;
-          if (gid) {
-            populatePaidByDropdown(gid);
-            show(paidByWrap);
-          }
-        } else {
-          hide(wrap);
-          hide(paidByWrap);
-        }
+    // Expense type tab switcher (pill buttons)
+    $$('#expTypeTabs .modal-type-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        switchModalType(tab.dataset.type);
       });
     });
 

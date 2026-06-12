@@ -1,0 +1,17 @@
+# Cursor Orchestration Adapter
+# adapter-version: 1.0.0
+# last-validated: 2026-06-07
+# conformance-test: adapters/cursor/conformance-test.md
+
+# At session start, read .agents/orchestration/phase.json.
+# If status is ERROR_HALTED, stop and notify user.
+# If current_phase is not PHASE_4_CODE, do not write implementation code.
+# Human input: use inline editor prompt; wait for confirmation before generating any diff.
+# Validation: run validator scripts via terminal; treat non-zero exit as failure.
+
+# Activating Skills
+# To use a meta-skill: open .agents/skills/meta/<skill-name>/SKILL.md
+# To use a generated skill: open .agents/skills/generated/<skill-name>/SKILL.md
+# Read POLICY section first. Follow its instructions exactly.
+# Consult ADAPTER HINTS for Cursor-specific tool mappings.
+# Always read the relevant skill file before beginning any phase task.

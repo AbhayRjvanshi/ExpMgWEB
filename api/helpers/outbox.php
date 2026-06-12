@@ -122,30 +122,6 @@ SQL;
             $stmt->close();
         }
 
-        // Backward-compatible column migrations for existing deployments.
-        $alterStatements = [
-            'ALTER TABLE `outbox_events` MODIFY COLUMN status ENUM("pending","processing","retryable","sent","dead") NOT NULL DEFAULT "pending"',
-            'ALTER TABLE `outbox_events` ADD COLUMN retry_count INT UNSIGNED NOT NULL DEFAULT 0',
-            'ALTER TABLE `outbox_events` ADD COLUMN next_attempt_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
-            'ALTER TABLE `outbox_events` ADD COLUMN processing_since TIMESTAMP NULL DEFAULT NULL',
-            'UPDATE `outbox_events` SET status = "retryable" WHERE status = "failed"',
-        ];
-        foreach ($alterStatements as $alterSql) {
-            if (method_exists($conn, 'execute_query')) {
-                try {
-                    $conn->execute_query($alterSql);
-                } catch (Throwable $ignore) {
-                    // Ignore duplicate-column errors during best-effort migration.
-                }
-            } else {
-                $alterStmt = $conn->prepare($alterSql);
-                if ($alterStmt) {
-                    $alterStmt->execute();
-                    $alterStmt->close();
-                }
-            }
-        }
-
         $initialized[$connectionKey] = true;
         return true;
     } catch (Throwable $e) {

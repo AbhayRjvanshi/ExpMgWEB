@@ -1,0 +1,12 @@
+# Project Issues and Problems
+
+## Environment & Infrastructure
+- [ ] **Database Connection Failure (Critical)**: `run_tests.php` and `db_check.php` fail with `mysqli_sql_exception: No connection could be made because the target machine actively refused it`. MySQL is either not running on `127.0.0.1:3306` or rejecting the connection with current credentials.
+
+## Features & Logic
+- [x] **Inconsistent Configuration (Fixed)**: All API endpoints and core components now use `config/db.php` which has been refactored to use the `env()` helper and `.env` variables via `config/env.php`.
+- [x] **JavaScript Split-Brain (Fixed)**: `pages/lists.php` massive inline `<script>` block has been removed and replaced with a link to the external (and improved) `public/assets/js/lists.js`.
+- [x] **Durable Outbox Schema Risks (Fixed)**: `api/helpers/outbox.php` no longer attempts brute-force `ALTER TABLE` migrations on every call. The logic relies on `schema.sql` and the `static` initialization cache is retained for request-level safety.
+
+## Testing
+- [ ] **Incomplete Test Coverage**: `tests/run_tests.php` is failing immediately due to DB issues, so the actual logic coverage cannot be verified yet.
