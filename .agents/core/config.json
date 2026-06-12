@@ -46,6 +46,11 @@
       "low_min": 15,
       "minimal_min": 0
     },
+    "prominence": {
+      "commit_history_days": 45,
+      "max_files_to_scan": 2000,
+      "max_file_size_bytes": 500000
+    },
     "phase_rerun": {
       "frontend_css_growth_threshold_percent": 50,
       "frontend_new_page_directory_triggers": true,

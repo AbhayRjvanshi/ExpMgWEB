@@ -1,0 +1,25 @@
+{
+  "tag": "file_type:.php",
+  "display_name": "PHP Files",
+  "evidence_strategies": {
+    "direct_usage": {
+      "code_patterns": [],
+      "string_patterns": [],
+      "file_extensions": [".php"]
+    },
+    "architectural": {
+      "exception_patterns": []
+    },
+    "dependency": {
+      "composer_packages": [],
+      "npm_packages": [],
+      "pip_packages": []
+    },
+    "configuration": {
+      "env_key_patterns": [],
+      "env_value_patterns": [],
+      "docker_service_names": []
+    },
+    "commit_keywords": ["php"]
+  }
+}
