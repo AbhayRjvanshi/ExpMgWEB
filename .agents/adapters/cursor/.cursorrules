@@ -19,3 +19,15 @@ To use a skill: open the `SKILL.md` file at the relevant path in the editor cont
 Treat the POLICY section as binding instructions for the duration of that task.
 Consult the ADAPTER HINTS section for Cursor-specific tool mappings.
 Do not begin a phase task without first reading the relevant skill file.
+
+## Drift Detection
+On every entry into PHASE_4_CODE, before writing any implementation code:
+run `python .agents/core/validators/detect_drift.py` in the integrated terminal
+and capture the exit code.
+- Exit 0 → proceed with coding normally. Do not mention drift to the user.
+- Exit 2 → halt coding. Open `.agents/orchestration/drift_report.json` in the
+  editor context, present Sections 1–4 in order, and ask the targeted questions
+  one at a time via inline editor prompts — wait for each explicit reply.
+- Exit 1 → report the error to the user. Do not proceed silently.
+When the user asks for a drift check directly, run with `--mode manual`.
+Follow the resolution rules in `.agents/core/global-policy.md` (Drift Detection section).

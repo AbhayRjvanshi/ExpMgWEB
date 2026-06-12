@@ -30,13 +30,13 @@
     "trigger_1_findings": {
       "type": "object",
       "description": "Results of the lightweight Phase 4 entry scan",
-      "required": ["ran", "passed"],
+      "required": ["ran", "triggered"],
       "properties": {
         "ran": {
           "type": "boolean",
           "description": "Whether Trigger 1 ran as part of this report"
         },
-        "passed": {
+        "triggered": {
           "type": "boolean",
           "description": "True means Trigger 1 detected one or more signals and drift is suspected — action is needed. False means no signals fired — project looks unchanged."
         },
@@ -69,12 +69,17 @@
     "trigger_2_findings": {
       "type": "object",
       "description": "Results of the commit weight analysis",
-      "required": ["ran", "passed", "accumulated_weight", "weight_threshold"],
+      "required": ["ran", "triggered", "accumulated_weight", "weight_threshold"],
       "properties": {
         "ran": { "type": "boolean" },
-        "passed": {
+        "triggered": {
           "type": "boolean",
           "description": "True means the commit weight threshold was crossed and drift was detected — action is needed. False means weight is still below threshold — no action yet."
+        },
+        "severity": {
+          "type": ["string", "null"],
+          "enum": ["LOW_DRIFT", "MODERATE_DRIFT", "HIGH_DRIFT", "CRITICAL_DRIFT", null],
+          "description": "Escalation intensity derived from accumulated_weight as a multiple of weight_threshold (multipliers configured in config.json drift_sensitivity.trigger_2.severity_multipliers). Null when the threshold was not crossed."
         },
         "accumulated_weight": {
           "type": "integer",
@@ -139,7 +144,7 @@
         "properties": {
           "signal": {
             "type": "string",
-            "description": "The specific signal this question addresses"
+            "description": "The specific signal this question addresses. Signal keys follow the stable 'type:value' grammar (e.g. 'new_top_level_directory:api', 'new_file_extension:.py', 'stack_file_changed:composer.json', 'file_count_growth'). This grammar is a CONTRACT - user_exceptions and acknowledged_signals reference these keys, so any change to the grammar must be treated as a schema migration."
           },
           "question": {
             "type": "string",
@@ -159,7 +164,33 @@
     "user_exceptions": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Signals the user marked as non-significant. These are excluded from rerun recommendations and the weight counter is reset."
+      "description": "Signal keys (user_questions[].signal values, 'type:value' grammar) the user marked as non-significant. These are excluded from rerun recommendations, the weight counter is reset, and future runs within the same snapshot lineage and expiry window suppress them from escalation."
+    },
+    "acknowledged_signals": {
+      "type": "array",
+      "description": "Signals that fired in this run but were suppressed because the user previously acknowledged them as exceptions in an earlier resolved report (within the current snapshot lineage and expiry window). Makes suppression explicit: these appear in trigger_1_findings but generate no questions and do not drive escalation.",
+      "items": {
+        "type": "object",
+        "required": ["signal", "acknowledged_in"],
+        "properties": {
+          "signal": {
+            "type": "string",
+            "description": "The suppressed signal key ('type:value' grammar)"
+          },
+          "acknowledged_in": {
+            "type": ["string", "null"],
+            "description": "report_id of the resolved report where the user marked this signal as an exception"
+          },
+          "acknowledged_at": {
+            "type": ["string", "null"],
+            "description": "generated_at timestamp of that report"
+          },
+          "note": {
+            "type": ["string", "null"],
+            "description": "Plain-language explanation of the suppression"
+          }
+        }
+      }
     },
     "rerun_recommendations": {
       "type": "object",
