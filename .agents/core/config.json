@@ -9,6 +9,11 @@
     "fallback_registry_label": "community"
   },
   "drift_sensitivity": {
+    "drift_extensions": [
+      ".php", ".js", ".mjs", ".ts", ".tsx", ".jsx", ".py", ".rb", ".go",
+      ".java", ".cs", ".cpp", ".c", ".vue", ".html", ".htm", ".sql", ".sh",
+      ".css", ".scss", ".sass", ".less", ".rs", ".kt", ".swift", ".dart"
+    ],
     "trigger_1": {
       "exception_expiry_days": 30,
       "file_count_growth_threshold_percent": 40,

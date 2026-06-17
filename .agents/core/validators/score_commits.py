@@ -477,6 +477,17 @@ def main():
         )
         snapshot['last_analyzed_commit'] = last_good_commit
         save_json(snapshot_path, snapshot)
+        
+        # Post-write schema validation
+        validate_json_script = os.path.join(project_root, '.agents', 'core', 'validators', 'validate_json.py')
+        snapshot_schema = os.path.join(project_root, '.agents', 'core', 'contracts', 'project_snapshot.schema.json')
+        if os.path.isfile(validate_json_script) and os.path.isfile(snapshot_schema):
+            proc = subprocess.run([sys.executable, validate_json_script, snapshot_path, snapshot_schema],
+                                  capture_output=True, text=True, timeout=15)
+            if proc.returncode != 0:
+                result['error'] = f"Post-write snapshot schema validation failed: {proc.stdout.strip() or proc.stderr.strip()}"
+                print(json.dumps(result, indent=2))
+                sys.exit(1)
     elif commits_errored:
         # No commits succeeded at all
         result['error'] = (

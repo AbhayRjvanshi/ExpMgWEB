@@ -10,7 +10,7 @@
           "minimum_version": "1.0.0"
         },
         {
-          "name": "validate_design_md.sh",
+          "name": "validate_design_md.py",
           "type": "validator",
           "required": true
         },

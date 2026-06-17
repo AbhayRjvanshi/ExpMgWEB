@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "design_evaluation_report",
+  "description": "JSON schema for the design evaluation output file (design_evaluation_report.json)",
+  "type": "object",
+  "required": [
+    "evaluated_at",
+    "scores",
+    "strengths",
+    "weaknesses",
+    "conflicts_detected",
+    "recommendation_summary"
+  ],
+  "properties": {
+    "evaluated_at": {
+      "type": "string"
+    },
+    "scores": {
+      "type": "object",
+      "required": [
+        "accessibility",
+        "readability",
+        "mobile_adaptability",
+        "audience_fit",
+        "implementation_complexity",
+        "design_consistency",
+        "scalability"
+      ],
+      "properties": {
+        "accessibility": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "readability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "mobile_adaptability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "audience_fit": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "implementation_complexity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "design_consistency": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "scalability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "strengths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "weaknesses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "conflicts_detected": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommendation_summary": {
+      "type": "string"
+    }
+  }
+}

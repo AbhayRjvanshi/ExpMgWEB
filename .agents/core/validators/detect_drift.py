@@ -112,11 +112,18 @@ SKIP_DIRS = frozenset([
 # Code + code-adjacent extensions considered for drift. Superset of
 # gather_evidence.py SCANNABLE_EXTENSIONS plus frontend/style and
 # emerging-language extensions so a genuinely new stack still registers.
-DRIFT_EXTENSIONS = frozenset([
+_DRIFT_EXTENSIONS_FALLBACK = frozenset([
     '.php', '.js', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.rb', '.go',
     '.java', '.cs', '.cpp', '.c', '.vue', '.html', '.htm', '.sql', '.sh',
     '.css', '.scss', '.sass', '.less', '.rs', '.kt', '.swift', '.dart'
 ])
+
+def load_drift_extensions(config):
+    """Return drift extensions from config, falling back to built-in set."""
+    exts = config.get('drift_sensitivity', {}).get('drift_extensions')
+    if exts and isinstance(exts, list):
+        return frozenset(e.strip().lower() for e in exts if isinstance(e, str))
+    return _DRIFT_EXTENSIONS_FALLBACK
 
 PAGE_DIR_NAMES = frozenset(['pages', 'views', 'templates', 'screens'])
 
@@ -217,8 +224,8 @@ def parse_args(argv):
 
 # ------------------------- Trigger 1 -------------------------
 
-def scan_current_state(project_root):
-    """One tree walk. Counts only DRIFT_EXTENSIONS files so assets,
+def scan_current_state(project_root, drift_extensions):
+    """One tree walk. Counts only drift_extensions files so assets,
     docs and generated artifacts cannot inflate drift signals."""
     ext_counts = {}
     top_dirs = set()
@@ -232,7 +239,7 @@ def scan_current_state(project_root):
             top_dirs.update(dirnames)
         for filename in filenames:
             ext = os.path.splitext(filename)[1].lower()
-            if ext not in DRIFT_EXTENSIONS:
+            if ext not in drift_extensions:
                 continue
             ext_counts[ext] = ext_counts.get(ext, 0) + 1
             total += 1
@@ -295,11 +302,11 @@ def stack_files_changed_since(project_root, snapshot, stack_files):
     return sorted(changed)
 
 
-def run_trigger_1(project_root, snapshot, t1_config):
+def run_trigger_1(project_root, snapshot, t1_config, drift_extensions):
     """Lightweight phase-entry scan. Returns (findings, fired, ext_counts).
     findings matches drift_report.schema.json trigger_1_findings.
     fired carries internal booleans for downstream builders."""
-    ext_counts, top_dirs, total = scan_current_state(project_root)
+    ext_counts, top_dirs, total = scan_current_state(project_root, drift_extensions)
 
     snap_exts = set(snapshot.get('file_counts', {}).keys())
     new_exts = sorted(e for e in ext_counts if e not in snap_exts)
@@ -932,6 +939,8 @@ def main():
     severity_cfg = t2_cfg.get('severity_multipliers', {})
     phase_rerun_cfg = drift_cfg.get('phase_rerun', {})
 
+    drift_extensions = load_drift_extensions(config)
+
     try:
         snapshot = load_json(snapshot_path)
     except FileNotFoundError:
@@ -941,7 +950,7 @@ def main():
         fail('Cannot parse project_snapshot.json: {0}'.format(e))
 
     # -- Triggers 1 and 2: BOTH always run (v1.1 ungated cascade) --
-    t1, fired, ext_counts = run_trigger_1(project_root, snapshot, t1_cfg)
+    t1, fired, ext_counts = run_trigger_1(project_root, snapshot, t1_cfg, drift_extensions)
     t2, t2_error = run_trigger_2(
         project_root, weight_threshold, severity_cfg)
     if t2_error:

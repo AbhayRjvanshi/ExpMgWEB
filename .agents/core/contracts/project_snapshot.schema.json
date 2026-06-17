@@ -80,6 +80,10 @@
             "items": { "type": "string" },
             "description": "Tags from Phase 1 that caused this skill to be generated (e.g. 'database:MySQL', 'file_type:.sql')"
           },
+          "discovery_justification": {
+            "type": "string",
+            "description": "The plain-text justification string for generating this skill, copied from Phase 1's skill_requirements.json"
+          },
           "human_confirmed_reason": {
             "type": "string",
             "description": "Plain-language reason the user confirmed this skill is needed"
@@ -122,6 +126,10 @@
             "items": { "type": "string" },
             "description": "Tags from Phase 1 that caused this MCP to be recommended"
           },
+          "discovery_justification": {
+            "type": "string",
+            "description": "The plain-text justification string for recommending this MCP, copied from Phase 1 recommendations"
+          },
           "human_confirmed_reason": {
             "type": "string",
             "description": "Plain-language reason the user confirmed this MCP is needed"
@@ -160,6 +168,10 @@
       "type": "integer",
       "minimum": 0,
       "description": "How many drift checks have been run against this snapshot total"
+    },
+    "last_analyzed_commit": {
+      "type": ["string", "null"],
+      "description": "Git commit hash of HEAD when the snapshot was taken, used as a reference anchor for commit weight"
     }
   }
 }

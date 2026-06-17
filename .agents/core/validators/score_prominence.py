@@ -61,6 +61,7 @@ ROADMAP (deferred deliberately):
 import json
 import os
 import sys
+import subprocess
 from datetime import datetime, timezone
 
 DEFAULT_THRESHOLDS = {
@@ -467,6 +468,25 @@ def main():
     save_json(snapshot_path, snapshot)
     save_json(output_path, output)
     append_history(history_path, now, output)
+
+    # Post-write schema validations
+    validate_json_script = os.path.join(project_root, '.agents', 'core', 'validators', 'validate_json.py')
+    snapshot_schema = os.path.join(project_root, '.agents', 'core', 'contracts', 'project_snapshot.schema.json')
+    prominence_schema = os.path.join(project_root, '.agents', 'core', 'contracts', 'prominence_report.schema.json')
+    
+    if os.path.isfile(validate_json_script):
+        if os.path.isfile(snapshot_schema):
+            proc = subprocess.run([sys.executable, validate_json_script, snapshot_path, snapshot_schema],
+                                  capture_output=True, text=True, timeout=15)
+            if proc.returncode != 0:
+                print(json.dumps({'error': f"Post-write snapshot schema validation failed: {proc.stdout.strip() or proc.stderr.strip()}"}))
+                sys.exit(1)
+        if os.path.isfile(prominence_schema):
+            proc = subprocess.run([sys.executable, validate_json_script, output_path, prominence_schema],
+                                  capture_output=True, text=True, timeout=15)
+            if proc.returncode != 0:
+                print(json.dumps({'error': f"Post-write prominence report schema validation failed: {proc.stdout.strip() or proc.stderr.strip()}"}))
+                sys.exit(1)
 
     print(json.dumps({
         'status': 'success',

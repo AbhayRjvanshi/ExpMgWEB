@@ -51,23 +51,29 @@ repeat reports.
 - Exit 1 → report the error to the user. Do not proceed silently.
 
 Resolution rules (apply after all questions are answered):
-- If the user confirms changes are significant → present the report's
-  `rerun_recommendations`, set `status = "resolved_rerun"`.
-- If the user marks signals as temporary → add their signal keys (the
-  `user_questions[].signal` values) to `user_exceptions`, reset
-  `accumulated_commit_weight` to 0 in `project_snapshot.json`,
-  set `status = "resolved_exceptions_noted"`. No rerun.
-- If nothing significant changed → set `status = "resolved_no_action"`.
-Always set `resolved_at` when leaving `pending_user_response`. Apply the
-same resolution edits to the archived copy in
-`.agents/orchestration/drift_reports/` so the audit trail stays accurate.
+To execute the resolution mechanically, run:
+`python .agents/core/validators/resolve_drift.py --status <STATUS> [--exceptions <comma-separated-signals>]`
+Where STATUS is one of:
+- `resolved_rerun` — if the user confirms changes are significant:
+  1. Read and present the report's `rerun_recommendations` section to the user.
+  2. Confirm with the user which phases will be re-run before proceeding.
+  3. Then run: resolve_drift.py --status resolved_rerun
+- `resolved_exceptions_noted` — if changes are temporary and should be suppressed:
+  1. Add their signal keys (the `user_questions[].signal` values) to `user_exceptions`.
+  2. Run: resolve_drift.py --status resolved_exceptions_noted --exceptions <comma-separated-signals>
+  This will reset `accumulated_commit_weight` to 0 in `project_snapshot.json`.
+- `resolved_no_action` — if no action is required and no exceptions are noted:
+  1. Run: resolve_drift.py --status resolved_no_action
 
-After applying resolution edits, run:
-`python .agents/core/validators/validate_drift_resolution.py`
-Exit 0 confirms a consistent resolution (all questions answered, valid
-status, `resolved_at` set, archive and latest copies identical). Any other
-exit code means the resolution is incomplete — fix the reported issues
-before continuing Phase 4.
+The resolve_drift.py script will automatically:
+1. Validate all questions are answered and user answers are not empty.
+2. Validate that `--exceptions` correspond to signals in the report.
+3. Validate that `--exceptions` is only used with `resolved_exceptions_noted` or `resolved_rerun`.
+4. Set the resolution timestamp.
+5. Save the report and its archive copy.
+6. Validate the resolved report against `validate_drift_resolution.py` with a 30s timeout, halting immediately on failure.
+7. Reset `accumulated_commit_weight` to 0 in `project_snapshot.json` only if STATUS is `resolved_exceptions_noted`.
+8. Validate the project snapshot against its JSON schema using `validate_json.py` with a 15s timeout if the snapshot was mutated.
 
 Manual invocation: when the user asks for a drift check, run with
 `--mode manual`. This always produces a full report regardless of

@@ -1,0 +1,236 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "impact_brief_report",
+  "description": "JSON schema for the staleness and impact brief output file (impact_brief_report.json)",
+  "type": "object",
+  "required": [
+    "generated_at",
+    "candidates"
+  ],
+  "properties": {
+    "generated_at": {
+      "type": "string"
+    },
+    "candidates": {
+      "type": "object",
+      "required": [
+        "skills",
+        "mcps"
+      ],
+      "properties": {
+        "skills": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "prominence_score",
+              "prominence_verdict",
+              "usage_map",
+              "original_justification",
+              "cost_of_removal",
+              "options"
+            ],
+            "properties": {
+              "prominence_score": {
+                "type": "number"
+              },
+              "prominence_verdict": {
+                "type": "string",
+                "enum": [
+                  "LOW",
+                  "MINIMAL"
+                ]
+              },
+              "usage_map": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "original_justification": {
+                "type": "string"
+              },
+              "cost_of_removal": {
+                "type": "object",
+                "required": [
+                  "difficulty",
+                  "description",
+                  "metrics"
+                ],
+                "properties": {
+                  "difficulty": {
+                    "type": "string",
+                    "enum": [
+                      "MINIMAL",
+                      "LOW",
+                      "MEDIUM"
+                    ]
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "metrics": {
+                    "type": "object",
+                    "required": [
+                      "files_impacted",
+                      "match_count",
+                      "in_core_logic",
+                      "dependencies_found",
+                      "config_signals_found"
+                    ],
+                    "properties": {
+                      "files_impacted": {
+                        "type": "integer"
+                      },
+                      "match_count": {
+                        "type": "integer"
+                      },
+                      "in_core_logic": {
+                        "type": "boolean"
+                      },
+                      "dependencies_found": {
+                        "type": "integer"
+                      },
+                      "config_signals_found": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              },
+              "options": {
+                "type": "object",
+                "required": [
+                  "A",
+                  "B",
+                  "C",
+                  "D"
+                ],
+                "properties": {
+                  "A": {
+                    "type": "string"
+                  },
+                  "B": {
+                    "type": "string"
+                  },
+                  "C": {
+                    "type": "string"
+                  },
+                  "D": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "mcps": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "prominence_score",
+              "prominence_verdict",
+              "usage_map",
+              "original_justification",
+              "cost_of_removal",
+              "options"
+            ],
+            "properties": {
+              "prominence_score": {
+                "type": "number"
+              },
+              "prominence_verdict": {
+                "type": "string",
+                "enum": [
+                  "LOW",
+                  "MINIMAL"
+                ]
+              },
+              "usage_map": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "original_justification": {
+                "type": "string"
+              },
+              "cost_of_removal": {
+                "type": "object",
+                "required": [
+                  "difficulty",
+                  "description",
+                  "metrics"
+                ],
+                "properties": {
+                  "difficulty": {
+                    "type": "string",
+                    "enum": [
+                      "MINIMAL",
+                      "LOW",
+                      "MEDIUM"
+                    ]
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "metrics": {
+                    "type": "object",
+                    "required": [
+                      "files_impacted",
+                      "match_count",
+                      "in_core_logic",
+                      "dependencies_found",
+                      "config_signals_found"
+                    ],
+                    "properties": {
+                      "files_impacted": {
+                        "type": "integer"
+                      },
+                      "match_count": {
+                        "type": "integer"
+                      },
+                      "in_core_logic": {
+                        "type": "boolean"
+                      },
+                      "dependencies_found": {
+                        "type": "integer"
+                      },
+                      "config_signals_found": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              },
+              "options": {
+                "type": "object",
+                "required": [
+                  "A",
+                  "B",
+                  "C",
+                  "D"
+                ],
+                "properties": {
+                  "A": {
+                    "type": "string"
+                  },
+                  "B": {
+                    "type": "string"
+                  },
+                  "C": {
+                    "type": "string"
+                  },
+                  "D": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

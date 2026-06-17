@@ -68,7 +68,7 @@ Path B: DESIGN.md search — the agent searches for existing DESIGN.md files fro
 Do not proceed until the human makes a choice.
 
 **Step 6 — PATH A: Deep design research**
-Initialize a session tracking file at `.agents/orchestration/design_research_session.json` (see Stage 3 for reset).
+Initialize a session tracking file at `.agents/orchestration/design_research_session.json` (see Stage 3 for reset). This file must be overwritten entirely (not appended) on initialization.
 
 Research the following source categories in sequence. For each source visited, record the URL in `visited_urls` before fetching its content:
 a. Design principle and guideline resources — search for design system documentation, UX principle references, accessibility guidelines, and visual design standards relevant to the project type and audience.
@@ -112,7 +112,7 @@ If the human selects a DESIGN.md file:
 1. Fetch its full content.
 2. Write it to: `.agents/orchestration/design.md`
 3. Extract all structured design information into: `.agents/orchestration/design_md_extracted.json`
-4. Validate the extracted structure using: `bash .agents/core/validators/validate_design_md.sh .agents/orchestration/design_md_extracted.json`
+4. Validate the extracted structure using: `python .agents/core/validators/validate_design_md.py .agents/orchestration/design_md_extracted.json`
 5. Halt immediately if validation fails.
 6. If validation succeeds: extract all design tokens, generate `design_tokens.json`, and summarize all extracted systems to the human.
 
@@ -140,7 +140,7 @@ Input (optional): Project `README.md` at project root
 Input (conditional): `.agents/orchestration/design.md` if Path B installs one
 Output: `.agents/orchestration/design_tokens.json`
 Schema: `.agents/core/contracts/design_tokens.schema.json`
-Session tracking file (internal, not a final output): `.agents/orchestration/design_research_session.json`
+Session tracking file (internal, not a final output; must be written by overwriting completely, never appending): `.agents/orchestration/design_research_session.json`
 
 Validators (run both in order):
 1. `python .agents/core/validators/validate_design_tokens.py .agents/orchestration/design_tokens.json`

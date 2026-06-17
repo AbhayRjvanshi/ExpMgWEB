@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "phase",
+  "description": "JSON schema for the phase orchestration state file (phase.json)",
+  "type": "object",
+  "required": [
+    "current_phase",
+    "status",
+    "last_error",
+    "retry_count",
+    "max_retries"
+  ],
+  "properties": {
+    "current_phase": {
+      "type": "string",
+      "enum": [
+        "PHASE_1_DISCOVERY",
+        "PHASE_2_ARCHITECT",
+        "PHASE_3_DESIGN",
+        "PHASE_4_CODE"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "PARTIAL_RECOVERY",
+        "ERROR_HALTED"
+      ]
+    },
+    "last_error": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "retry_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_retries": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
