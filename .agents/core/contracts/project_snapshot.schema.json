@@ -24,12 +24,17 @@
     },
     "captured_by_phase": {
       "type": "string",
-      "enum": ["PHASE_2_ARCHITECT"],
+      "enum": [
+        "PHASE_2_ARCHITECT"
+      ],
       "description": "Always written at end of Phase 2"
     },
     "source": {
       "type": "string",
-      "enum": ["codebase_scan", "description_mode"],
+      "enum": [
+        "codebase_scan",
+        "description_mode"
+      ],
       "description": "Whether project data came from scanning an existing codebase or from Description Mode"
     },
     "file_counts": {
@@ -50,22 +55,39 @@
     },
     "top_directories": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Names of top-level directories present at snapshot time"
     },
     "domains": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Detected domains copied from skill_requirements.json at Phase 1"
     },
     "stack": {
       "type": "object",
-      "required": ["language", "framework", "database", "package_manager"],
+      "required": [
+        "language",
+        "framework",
+        "database",
+        "package_manager"
+      ],
       "properties": {
-        "language": { "type": "string" },
-        "framework": { "type": "string" },
-        "database": { "type": "string" },
-        "package_manager": { "type": "string" }
+        "language": {
+          "type": "string"
+        },
+        "framework": {
+          "type": "string"
+        },
+        "database": {
+          "type": "string"
+        },
+        "package_manager": {
+          "type": "string"
+        }
       }
     },
     "skill_justifications": {
@@ -73,11 +95,16 @@
       "description": "Per-skill two-layer justification record. Key is the skill name.",
       "additionalProperties": {
         "type": "object",
-        "required": ["discovery_evidence", "confirmed_by_human"],
+        "required": [
+          "discovery_evidence",
+          "confirmed_by_human"
+        ],
         "properties": {
           "discovery_evidence": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Tags from Phase 1 that caused this skill to be generated (e.g. 'database:MySQL', 'file_type:.sql')"
           },
           "discovery_justification": {
@@ -93,22 +120,40 @@
             "description": "Whether the user explicitly confirmed this skill at Phase 2"
           },
           "confirmed_at": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "ISO 8601 timestamp of human confirmation. Null if not yet confirmed."
           },
           "prominence_score": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "minimum": 0,
             "maximum": 100,
             "description": "Latest prominence score from Layer 1 detection. Null until first drift check runs."
           },
           "prominence_verdict": {
-            "type": ["string", "null"],
-            "enum": ["HIGH", "MODERATE", "LOW", "MINIMAL", null],
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "HIGH",
+              "MODERATE",
+              "LOW",
+              "MINIMAL",
+              null
+            ],
             "description": "Latest prominence verdict. Null until first drift check runs."
           },
           "last_checked_at": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "ISO 8601 timestamp of the last drift check for this skill. Null if never checked."
           }
         }
@@ -119,11 +164,16 @@
       "description": "Per-MCP two-layer justification record. Key is the MCP name.",
       "additionalProperties": {
         "type": "object",
-        "required": ["discovery_evidence", "confirmed_by_human"],
+        "required": [
+          "discovery_evidence",
+          "confirmed_by_human"
+        ],
         "properties": {
           "discovery_evidence": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Tags from Phase 1 that caused this MCP to be recommended"
           },
           "discovery_justification": {
@@ -138,25 +188,46 @@
             "type": "boolean"
           },
           "confirmed_at": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "prominence_score": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "minimum": 0,
             "maximum": 100
           },
           "prominence_verdict": {
-            "type": ["string", "null"],
-            "enum": ["HIGH", "MODERATE", "LOW", "MINIMAL", null]
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "HIGH",
+              "MODERATE",
+              "LOW",
+              "MINIMAL",
+              null
+            ]
           },
           "last_checked_at": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       }
     },
     "last_drift_check": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "ISO 8601 timestamp of the last drift check run against this snapshot. Null if never checked."
     },
     "accumulated_commit_weight": {
@@ -170,7 +241,10 @@
       "description": "How many drift checks have been run against this snapshot total"
     },
     "last_analyzed_commit": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Git commit hash of HEAD when the snapshot was taken, used as a reference anchor for commit weight"
     }
   }

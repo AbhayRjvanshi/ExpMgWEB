@@ -1,0 +1,17 @@
+{
+  "detected_stack": {
+    "language": "php",
+    "framework": "vanilla-php",
+    "database": "mysql",
+    "package_manager": "composer"
+  },
+  "source": "codebase_scan",
+  "detected_domains": [
+    "database",
+    "api",
+    "settlement",
+    "notifications",
+    "caching"
+  ],
+  "required_skills": []
+}
