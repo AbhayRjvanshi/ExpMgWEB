@@ -294,3 +294,58 @@ See `.mcp.json` (project root) and `.cursor/mcp.json` for configuration.
 | Add shared JS utility | `public/assets/js/helpers.js` — loaded before `app.js` |
 | Run all tests | `php run_tests.php` from project root |
 | Check app health | `GET /api/system/health.php` |
+
+---
+
+## Deferred File Activation Protocol
+
+### Context
+27 files for L8.5, L9.5, and L10.5 advanced extensions are documented in
+`file_activation_manifest.json` but not yet created. They are created on demand
+when activation rules are met, with user approval at every step.
+
+### Key Files
+- `.agents/core/meta-cognition/governance-sovereignty/file_activation_manifest.json`
+  — Master manifest of all 27 deferred files (path, structured activation rules,
+  initial content or template references, creation instructions, validator update
+  required)
+- `.agents/core/meta-cognition/governance-sovereignty/pending_activations.json`
+  — Runtime queue of files awaiting user permission (starts empty, entries
+  added by evaluate_file_activation_criteria() or direct user request)
+- `.agents/core/meta-cognition/governance-sovereignty/governance_state_controller.py`
+  — Provides evaluate_file_activation_criteria() which evaluates structured
+  activation_rules against system state and populates the pending queue
+
+### Three-Phase Flow
+
+**Phase 1 — Initial Population:**
+The first time activation rules are met (or user requests a file), the agent:
+1. Reads `file_activation_manifest.json` and collects current system state
+2. Presents full context: which file(s), why (which rule matched), where
+   the file will be created, what initial content will be written or what
+   template will be used, what validator changes are required
+3. Asks explicit permission before creating anything
+
+**Phase 2 — Permission Gate:**
+The agent never creates a file or modifies a validator without explicit user
+approval. Each step is presented independently.
+
+**Phase 3 — Criteria-Driven (after first activation):**
+- `governance_state_controller.py --evaluate-criteria` evaluates all structured
+  activation rules against current system state
+- If any rules match, entries are added to `pending_activations.json`
+- The agent reads this queue at session start and follows the protocol below
+
+### Session Protocol
+1. At session start, read `pending_activations.json`
+2. If any entries have `status: "awaiting_permission"`:
+   a. Present each entry with full context from `file_activation_manifest.json`
+      — what file, why (which rule matched), where, initial content or template
+   b. Ask explicit permission to create the file
+   c. On approval: create file with exact `initial_content` from manifest,
+      or copy template file to target path
+   d. Show the user what was created
+   e. Ask: "Shall I update the validator to track this file?"
+   f. On approval: make the edit to the validator's REQUIRED_STATE_FILES list
+   g. Move entry from pending to resolved
+3. Never proceed to the next step without user confirmation
