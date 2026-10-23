@@ -609,3 +609,43 @@ input[type="checkbox"] {
   .auth-card { padding: 2rem 1.25rem; }
   .page-content { padding: 1rem; }
 }
+
+/* ---------- Layout Grids (promoted from inline styles on the Expenses page) ---------- */
+.exp-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.exp-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.settlement-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+/* ---------- Tablet & Desktop (>=768px): balanced multi-column layouts
+   instead of a single stretched mobile column ---------- */
+@media (min-width: 768px) {
+  .exp-summary-grid { gap: 1.25rem; }
+  .exp-charts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+
+  /* Home: calendar left, selected-day panel right (single column until a
+     day is selected — :has() falls back to one column if unsupported). */
+  .home-two-col { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; }
+  .home-two-col:has(#dayPanel:not(.hidden)) { grid-template-columns: 1.1fr 0.9fr; }
+  .home-two-col > * { min-width: 0; }
+
+  /* Lists & Groups: master-detail split view when a detail panel is open
+     (class toggled by setDetailView()/setGroupDetailView()). */
+  .master-detail-grid { display: grid; grid-template-columns: 340px 1fr; gap: 1.25rem; align-items: start; }
+  .master-detail-grid > * { min-width: 0; }
+  .master-detail-grid #listDetail,
+  .master-detail-grid #groupDetail { position: sticky; top: 1rem; }
+}

@@ -5,6 +5,9 @@
  */
 ?>
 
+<!-- ===== Home two-column wrapper (desktop >=768px: calendar left, day panel right) ===== -->
+<div class="home-two-col">
+
 <!-- ===== Calendar Section ===== -->
 <div class="card mb-2" id="calendarCard">
   <div class="flex justify-between items-center mb-1">
@@ -65,6 +68,8 @@
   </p>
   </div>
 </div>
+
+</div><!-- /home-two-col -->
 
 <!-- ===== Add / Edit Expense Modal ===== -->
 <div id="expenseModal" class="modal-overlay hidden">

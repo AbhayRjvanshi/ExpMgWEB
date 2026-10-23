@@ -71,7 +71,7 @@ $firstName = explode(' ', $currentUsername)[0];
 </div>
 
 <!-- Summary Cards Row -->
-<div id="expSummaryRow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.75rem;margin-bottom:1.25rem;">
+<div id="expSummaryRow" class="exp-summary-grid">
   <div class="card is-hidden-monthly" id="expTotalSpentCard" style="padding:1.25rem;">
     <div style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;margin-bottom:0.35rem;">Total Spent</div>
     <div id="expTotalSpent" style="font-size:1.6rem;font-weight:700;color:#000;">&mdash;</div>
@@ -96,7 +96,7 @@ $firstName = explode(' ', $currentUsername)[0];
 </div>
 
 <!-- Charts Row -->
-<div id="expChartsRow" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1.25rem;">
+<div id="expChartsRow" class="exp-charts-grid">
   <div class="card" style="padding:1.25rem;">
     <div style="font-size:0.82rem;font-weight:600;margin-bottom:0.75rem;">By Category</div>
     <div style="position:relative;max-width:220px;margin:0 auto;">
@@ -181,7 +181,7 @@ $firstName = explode(' ', $currentUsername)[0];
 <div id="settlContent" class="hidden">
 
   <!-- Summary Cards Row (3 columns) -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1rem;">
+  <div class="settlement-kpi-grid">
     <div class="card" style="padding:1.1rem;text-align:center;">
       <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;margin-bottom:0.3rem;">Total Group Spend</div>
       <div id="settlTotalSpend" style="font-size:1.35rem;font-weight:700;color:#000;">&mdash;</div>
@@ -404,24 +404,24 @@ var ICON_GROUP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height=
   function updateLabel(){ $label.textContent = monthNames[curMonth] + ' ' + curYear; }
 
   var chartColorMap = {
-    'General': '#6b7280',
-    'Food/Groceries': '#84cc16',
-    'Food': '#84cc16',
-    'Groceries': '#84cc16',
-    'Transport': '#14b8a6',
-    'Utilities': '#a3a33a',
-    'Bills': '#166534',
-    'Shopping': '#6ee7b7',
-    'Education': '#22d3ee',
-    'Health': '#10b981',
-    'Others': '#4d7c0f'
+    'Food/Groceries': '#2d6a4f',
+    'Food': '#2d6a4f',
+    'Groceries': '#2d6a4f',
+    'Shopping': '#3b82f6',
+    'Bills': '#f59e0b',
+    'Utilities': '#8b5cf6',
+    'Transport': '#06b6d4',
+    'Health': '#ec4899',
+    'Education': '#6366f1',
+    'General': '#10b981',
+    'Others': '#64748b'
   };
 
   function categoryColor(name, index) {
     var key = (name || '').trim();
     if (chartColorMap[key]) return chartColorMap[key];
 
-    var fallbackPalette = ['#6b7280', '#84cc16', '#14b8a6', '#a3a33a', '#166534', '#6ee7b7', '#22d3ee', '#10b981', '#4d7c0f'];
+    var fallbackPalette = ['#2d6a4f', '#3b82f6', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#6366f1', '#10b981', '#64748b'];
     return fallbackPalette[index % fallbackPalette.length];
   }
 
@@ -500,10 +500,27 @@ var ICON_GROUP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height=
       var values = d.by_category.map(function(c){return c.total;});
       var colors = d.by_category.map(function(c, i){ return categoryColor(c.name, i); });
       if(catChart) catChart.destroy();
+      var catTotal = values.reduce(function(a, v){ return a + (Math.abs(Number(v)) || 0); }, 0);
       catChart = new Chart($catCanvas, {
         type: 'doughnut',
         data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
-        options: { cutout:'60%', plugins:{ legend:{ display:true, position:'bottom', labels:{ color:'#000', font:{size:11}, padding:10 } }, tooltip:{ callbacks:{ label: function(ctx){ return ctx.label + ': ' + fmtMoney(ctx.parsed); } } } } }
+        options: { cutout:'60%', plugins:{ legend:{ display:true, position:'bottom', labels:{ color:'#000', font:{size:11}, padding:10, generateLabels: function(chart){
+          var ds = chart.data.datasets[0] || {};
+          var data = ds.data || [];
+          return chart.data.labels.map(function(label, i){
+            var val = Math.abs(Number(data[i])) || 0;
+            var pct = catTotal > 0 ? ' (' + Math.round((val / catTotal) * 100) + '%)' : ' (0%)';
+            return {
+              text: label + ' \u2014 ' + fmtMoney(val) + pct,
+              fillStyle: (ds.backgroundColor && ds.backgroundColor[i]) ? ds.backgroundColor[i] : '#ccc',
+              strokeStyle: '#fff',
+              lineWidth: 0,
+              hidden: !chart.getDataVisibility(i),
+              index: i,
+              datasetIndex: 0
+            };
+          });
+        } } }, tooltip:{ callbacks:{ label: function(ctx){ return ctx.label + ': ' + fmtMoney(ctx.parsed); } } } } }
       });
     } else {
       $catEmpty.classList.remove('hidden'); $catCanvas.style.display = 'none';
@@ -531,8 +548,8 @@ var ICON_GROUP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height=
         data: {
           labels: dayLabels,
           datasets: [
-            { label:'Personal', data: personalValues, borderColor:'#3b82f6', backgroundColor:'#3b82f6', pointRadius:0, pointHoverRadius:0, pointHitRadius:6, tension:0.35, borderWidth:2, fill:false },
-            { label:'Group', data: groupValues, borderColor:'#52b788', backgroundColor:'#52b788', pointRadius:0, pointHoverRadius:0, pointHitRadius:6, tension:0.35, borderWidth:2, fill:false }
+            { label:'Personal', data: personalValues, borderColor:'#3b82f6', backgroundColor:'#3b82f6', pointRadius:0, pointHoverRadius:0, pointHitRadius:6, cubicInterpolationMode:'monotone', borderWidth:2, fill:false },
+            { label:'Group', data: groupValues, borderColor:'#52b788', backgroundColor:'#52b788', pointRadius:0, pointHoverRadius:0, pointHitRadius:6, cubicInterpolationMode:'monotone', borderWidth:2, fill:false }
           ]
         },
         options: { responsive:true, scales:{ x:{ ticks:{ color:'#000', font:{size:10} }, grid:{ display:false } }, y:{ ticks:{ color:'#000', font:{size:10}, callback: function(v){return '\u20B9'+v;} }, grid:{ color:'rgba(0,0,0,0.08)' }, beginAtZero:true } }, plugins:{ legend:{ display:true, position:'bottom', labels:{ color:'#000', font:{size:11}, usePointStyle:true, pointStyle:'circle' } }, tooltip:{ callbacks:{ label: function(ctx){ return ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y); } } } } }

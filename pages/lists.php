@@ -11,6 +11,9 @@
   <button class="btn" id="btnMakeList" style="padding:0.45rem 1rem; font-size:0.85rem;">+ Make a List</button>
 </div>
 
+<!-- Master-detail wrapper (desktop >=768px: split view while a detail panel is open) -->
+<div id="listsMasterDetail">
+
 <!-- List cards container -->
 <div id="listContainer" style="display:flex; flex-direction:column; gap:0.75rem;"></div>
 <p id="listsEmpty" class="hidden" style="text-align:center; color:#666; font-size:0.9rem; padding:2rem 0;">
@@ -45,6 +48,7 @@
          (with modal confirmation) so it no longer sits under the item checkboxes. -->
   </div>
 </div>
+</div><!-- /listsMasterDetail -->
 
 <!-- ===== Create List Modal ===== -->
 <div id="createListModal" class="modal-overlay hidden">

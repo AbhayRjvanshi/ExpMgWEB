@@ -14,6 +14,9 @@
   </div>
 </div>
 
+<!-- Master-detail wrapper (desktop >=768px: split view while a detail panel is open) -->
+<div id="groupsMasterDetail">
+
 <!-- Group list container -->
 <div id="groupList" style="display:flex; flex-direction:column; gap:0.75rem;">
   <p style="text-align:center; color:var(--celadon); padding:2rem 0;">Loading groups…</p>
@@ -58,6 +61,7 @@
     <div class="flex gap-1 mt-2" id="gdActions"></div>
   </div>
 </div>
+</div><!-- /groupsMasterDetail -->
 
 <!-- ===== Create Group Modal ===== -->
 <div id="createGroupModal" class="modal-overlay hidden">
@@ -149,6 +153,13 @@
   // detail panel is scrolled smoothly into view.
   function setGroupDetailView(isOpen, opts) {
     const panel = $('#groupDetail');
+    const wrapper = document.getElementById('groupsMasterDetail');
+    if (wrapper) {
+      // Desktop (>=768px) master-detail split view; no-op on mobile where
+      // the class is media-scoped.
+      if (isOpen) wrapper.classList.add('master-detail-grid');
+      else wrapper.classList.remove('master-detail-grid');
+    }
     document.querySelectorAll('#groupList .group-card.is-selected')
       .forEach(el => el.classList.remove('is-selected'));
     if (isOpen) {

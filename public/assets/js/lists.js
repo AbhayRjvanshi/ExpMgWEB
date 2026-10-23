@@ -51,6 +51,13 @@
   // and the detail panel is scrolled smoothly into view.
   function setDetailView(isOpen, opts) {
     const panel = $('#listDetail');
+    const wrapper = document.getElementById('listsMasterDetail');
+    if (wrapper) {
+      // Desktop (>=768px) master-detail split view; no-op on mobile where
+      // the class is media-scoped.
+      if (isOpen) wrapper.classList.add('master-detail-grid');
+      else wrapper.classList.remove('master-detail-grid');
+    }
     document.querySelectorAll('#listContainer .list-card.is-selected')
       .forEach(el => el.classList.remove('is-selected'));
     if (isOpen) {
