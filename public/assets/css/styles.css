@@ -173,6 +173,86 @@ select.form-input option { background: #fff; color: #000; }
   cursor: pointer;
 }
 
+/* ---------- Shared Components: Modals, Expense Rows, Badges ---------- */
+/* Promoted from page-scoped <style> blocks (home.php, expenses.php, lists.php,
+   groups.php) so every page renders modals, expense rows, badges, and PDF
+   buttons consistently. z-index scale: bottom-nav 1000 < notif panel 3000
+   < .modal-overlay 5000 < cooldown banner 10000. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000;
+  padding: 1rem;
+}
+.modal-x {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+.expense-item {
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  transition: background var(--t-fast);
+}
+.expense-item:hover { background: rgba(0, 0, 0, 0.06); }
+.expense-item .exp-left { flex: 1; }
+.expense-item .exp-amount { font-size: 1.1rem; font-weight: 700; color: #000; }
+.expense-item .exp-cat { font-size: 0.78rem; color: #666; }
+.expense-item .exp-note { font-size: 0.85rem; margin-top: 0.15rem; color: #333; }
+/* Unscoped on purpose: .exp-badge is also used standalone on group details
+   and list cards, not only inside .expense-item rows. */
+.exp-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.badge-personal { background: rgba(82, 183, 136, 0.15); color: var(--sea-green); }
+.badge-group { background: rgba(116, 198, 157, 0.15); color: var(--dark-emerald); }
+.expense-item .exp-actions { display: flex; gap: 0.4rem; margin-top: 0.35rem; }
+.expense-item .exp-actions button {
+  background: none;
+  border: 1px solid #ccc;
+  color: #555;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.expense-item .exp-actions button:hover { border-color: var(--mint-leaf); color: #000; }
+.expense-item .exp-actions .btn-del:hover { border-color: #ef4444; color: #ef4444; }
+.exp-pdf-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 0.35rem;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+  color: #555;
+  transition: background 0.2s, border-color 0.2s;
+  line-height: 1;
+}
+.exp-pdf-btn:hover {
+  background: rgba(82, 183, 136, 0.1);
+  border-color: var(--mint-leaf);
+  color: var(--mint-leaf);
+}
+
 /* ---------- Bottom Navigation ---------- */
 .bottom-nav {
   position: fixed;

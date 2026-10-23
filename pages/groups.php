@@ -89,10 +89,7 @@
 
 <!-- ===== Extra CSS for groups ===== -->
 <style>
-  .modal-x {
-    position:absolute;top:1rem;right:1rem;background:none;border:none;
-    color:#666;font-size:1.4rem;cursor:pointer;
-  }
+  /* .modal-x moved to public/assets/css/styles.css (shared components) */
   .group-card {
     background: #fff;
     border: 1px solid #e0e0e0;

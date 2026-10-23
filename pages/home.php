@@ -318,46 +318,9 @@
     color: #555;
   }
 
-  /* Modal overlay */
-  .modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.55);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 2000;
-    padding: 1rem;
-  }
-
-  /* Expense cards in day list */
-  .expense-item {
-    background: rgba(0,0,0,0.03);
-    border-radius: 0.75rem;
-    padding: 0.85rem 1rem;
-    display: flex;
-    gap: 0.75rem;
-    align-items: flex-start;
-    transition: background var(--t-fast);
-  }
-  .expense-item:hover { background: rgba(0,0,0,0.06); }
-  .expense-item .exp-left { flex: 1; }
-  .expense-item .exp-amount { font-size: 1.1rem; font-weight: 700; color: #000; }
-  .expense-item .exp-cat { font-size: 0.78rem; color: #666; }
-  .expense-item .exp-note { font-size: 0.85rem; margin-top: 0.15rem; color: #333; }
-  .expense-item .exp-badge {
-    font-size: 0.7rem;
-    padding: 0.15rem 0.45rem;
-    border-radius: 999px;
-    font-weight: 600;
-  }
-  .badge-personal { background: rgba(82,183,136,0.15); color: var(--sea-green); }
-  .badge-group    { background: rgba(116,198,157,0.15); color: var(--dark-emerald); }
-  .expense-item .exp-actions { display: flex; gap: 0.4rem; margin-top: 0.35rem; }
-  .expense-item .exp-actions button {
-    background: none; border: 1px solid #ccc;
-    color: #555; font-size: 0.75rem; padding: 0.2rem 0.5rem;
-    border-radius: 0.35rem; cursor: pointer; transition: all var(--t-fast);
-  }
-  .expense-item .exp-actions button:hover { border-color: var(--mint-leaf); color: #000; }
-  .expense-item .exp-actions .btn-del:hover { border-color: #ef4444; color: #ef4444; }
+  /* .modal-overlay, .expense-item rows, .exp-badge, .badge-personal/.badge-group
+     and .exp-pdf-btn now live in public/assets/css/styles.css (shared components)
+     so Lists, Groups, and Expenses pages render them consistently. */
 
   /* Expense status dots */
   .exp-status-dot {

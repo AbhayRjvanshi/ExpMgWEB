@@ -229,10 +229,7 @@
   .pr-mod   { color: var(--sea-green); }
   .pr-low   { color: #666; }
 
-  .modal-x {
-    position:absolute;top:1rem;right:1rem;background:none;border:none;
-    color:#666;font-size:1.4rem;cursor:pointer;
-  }
+  /* .modal-x moved to public/assets/css/styles.css (shared components) */
 </style>
 
 <!-- ===== Lists JS ===== -->

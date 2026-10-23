@@ -1486,23 +1486,7 @@ function sortExpenses(arr) {
   gap: 0.4rem;
   color: #333;
 }
-.exp-pdf-btn {
-  margin-left: auto;
-  background: none;
-  border: 1px solid rgba(0,0,0,0.12);
-  border-radius: 0.35rem;
-  padding: 0.15rem 0.4rem;
-  font-size: 0.72rem;
-  cursor: pointer;
-  color: #555;
-  transition: background 0.2s, border-color 0.2s;
-  line-height: 1;
-}
-.exp-pdf-btn:hover {
-  background: rgba(82,183,136,0.1);
-  border-color: var(--mint-leaf);
-  color: var(--mint-leaf);
-}
+/* .exp-pdf-btn (and :hover) moved to public/assets/css/styles.css (shared components) */
 .exp-col-dot {
   width: 8px;
   height: 8px;
