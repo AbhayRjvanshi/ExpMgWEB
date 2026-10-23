@@ -405,3 +405,48 @@ window.addEventListener('expmg:cooldown-end', () => {
   const banner = document.getElementById('expmgCooldownBanner');
   if (banner) banner.classList.add('hidden');
 });
+
+// ============================================================
+// showConfirmModal — reusable destructive-action confirmation.
+// Backed by the global .modal-overlay styles (z-index 5000).
+// Returns a Promise<boolean>: true = confirmed, false = dismissed
+// (Cancel click, overlay click, or Escape). Drop-in replacement for
+// native confirm() in delete flows across the app.
+// ============================================================
+function showConfirmModal(opts) {
+  const options = Object.assign(
+    { title: 'Are you sure?', message: '', confirmLabel: 'Confirm', cancelLabel: 'Cancel', danger: false },
+    opts || {}
+  );
+  return new Promise((resolve) => {
+    let overlay = document.getElementById('expmgConfirmModal');
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement('div');
+    overlay.id = 'expmgConfirmModal';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML =
+      '<div style="width:100%;max-width:380px;padding:1.5rem;position:relative;background:#fff;color:#000;border-radius:0.75rem;box-shadow:0 15px 35px rgba(0,0,0,0.2);">' +
+        '<h3 style="font-size:1.05rem;font-weight:700;margin-bottom:0.5rem;">' + escapeHTML(options.title) + '</h3>' +
+        '<p style="font-size:0.88rem;color:#444;margin-bottom:1.25rem;">' + escapeHTML(options.message) + '</p>' +
+        '<div style="display:flex;gap:0.5rem;">' +
+          '<button type="button" data-expmg-confirm="0" style="flex:1;padding:0.55rem 1rem;border:none;border-radius:0.5rem;background:#e5e7eb;color:#000;font-weight:600;font-size:0.88rem;cursor:pointer;">' + escapeHTML(options.cancelLabel) + '</button>' +
+          '<button type="button" data-expmg-confirm="1" style="flex:1;padding:0.55rem 1rem;border:none;border-radius:0.5rem;' + (options.danger ? 'background:#dc2626;' : 'background:var(--mint-leaf);') + 'color:#fff;font-weight:600;font-size:0.88rem;cursor:pointer;">' + escapeHTML(options.confirmLabel) + '</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    const done = (result) => {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    };
+    const onKey = (ev) => { if (ev.key === 'Escape') done(false); };
+    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) done(false); });
+    overlay.querySelector('[data-expmg-confirm="0"]').addEventListener('click', () => done(false));
+    overlay.querySelector('[data-expmg-confirm="1"]').addEventListener('click', () => done(true));
+    document.addEventListener('keydown', onKey);
+    const confirmBtn = overlay.querySelector('[data-expmg-confirm="1"]');
+    if (confirmBtn) confirmBtn.focus();
+  });
+}

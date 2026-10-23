@@ -24,6 +24,9 @@
       <h3 id="ldName" style="font-size:1.1rem; font-weight:700;"></h3>
       <div class="flex gap-1">
         <button class="btn" id="ldAddItem" style="padding:0.3rem 0.7rem; font-size:0.8rem;">+ Add Item</button>
+        <button class="btn btn-icon" id="ldDeleteList" title="Delete this list" style="background:transparent;border:1px solid #fecaca;color:#dc2626;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        </button>
         <button class="btn btn-icon" id="ldClose">✕</button>
       </div>
     </div>
@@ -38,10 +41,8 @@
       This list is empty. Add items to get started.
     </p>
 
-    <!-- Delete list -->
-    <div class="mt-2">
-      <button class="btn-danger btn" id="ldDeleteList" style="padding:0.4rem 0.9rem; font-size:0.83rem;">Delete List</button>
-    </div>
+    <!-- Delete List moved to the detail header as a subtle outlined danger icon
+         (with modal confirmation) so it no longer sits under the item checkboxes. -->
   </div>
 </div>
 

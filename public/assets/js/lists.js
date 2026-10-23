@@ -2,6 +2,10 @@
   'use strict';
   const esc = escapeHTML; // alias for brevity
 
+  // Inline SVG icon constants (replace platform emoji in UI chrome)
+  const ICON_LOCK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  const ICON_GROUP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>';
+
   let categories = [];
   let userGroups = [];
   let currentListId = null;
@@ -39,14 +43,37 @@
     }
   }
 
-  function renderListDetailCoolingDown(listId) {
-    const cached = listDetailCache.get(String(listId)) || null;
+  // ---- Master-detail state helper ----
+  // Every show/hide of the list detail panel routes through here so that
+  // background refreshes (timer expiry, add-item success, cooldown retry)
+  // never desync visibility or cause jarring scroll jumps. On initial card
+  // selection (opts.scroll === true) the active summary card is highlighted
+  // and the detail panel is scrolled smoothly into view.
+  function setDetailView(isOpen, opts) {
     const panel = $('#listDetail');
-    if (cached) {
+    document.querySelectorAll('#listContainer .list-card.is-selected')
+      .forEach(el => el.classList.remove('is-selected'));
+    if (isOpen) {
       show(panel);
-      renderListDetail(cached);
+      if (currentListId !== null && currentListId !== undefined) {
+        const activeCard = document.querySelector('#listContainer .list-card[data-id="' + currentListId + '"]');
+        if (activeCard) activeCard.classList.add('is-selected');
+      }
+      if (opts && opts.scroll) {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
     } else {
       hide(panel);
+    }
+  }
+
+  function renderListDetailCoolingDown(listId) {
+    const cached = listDetailCache.get(String(listId)) || null;
+    if (cached) {
+      setDetailView(true);
+      renderListDetail(cached);
+    } else {
+      setDetailView(false);
     }
   }
 
@@ -185,7 +212,7 @@
   function renderListCards(container, lists) {
     container.innerHTML = lists.map(l => {
       const pct = l.item_count > 0 ? Math.round((l.checked_count / l.item_count) * 100) : 0;
-      const typeLabel = l.group_id ? `📋 ${esc(l.group_name)}` : '🔒 Personal';
+      const typeLabel = l.group_id ? `${ICON_GROUP_SVG} ${esc(l.group_name)}` : `${ICON_LOCK_SVG} Personal`;
       return `
         <div class="list-card" data-id="${l.id}">
           <div class="flex justify-between items-center">
@@ -199,30 +226,29 @@
     }).join('');
 
     container.querySelectorAll('.list-card').forEach(card => {
-      card.addEventListener('click', () => openListDetail(card.dataset.id));
+      card.addEventListener('click', () => openListDetail(card.dataset.id, { scroll: true }));
     });
   }
 
   // ---- List detail ----
-  async function openListDetail(listId) {
+  async function openListDetail(listId, opts) {
     currentListId = listId;
-    const panel = $('#listDetail');
     const cooldownRemaining = window.ExpMgStatus && typeof window.ExpMgStatus.getRateLimitRemainingSeconds === 'function'
       ? window.ExpMgStatus.getRateLimitRemainingSeconds()
       : 0;
     if (cooldownRemaining > 0) {
       const cached = listDetailCache.get(String(listId)) || null;
       if (cached) {
-        show(panel);
+        setDetailView(true);
         renderListDetail(cached);
       } else {
-        hide(panel);
+        setDetailView(false);
       }
       reportIssue({ _status: 429, _retry_after: cooldownRemaining, error: 'Too many requests. Please wait before retrying.' }, 'list-detail', () => openListDetail(listId));
       return;
     }
 
-    show(panel);
+    setDetailView(true, opts);
     listDetailLoading = true;
     $('#ldItems').innerHTML = '<p style="text-align:center;color:var(--celadon);padding:1rem;">Loading…</p>';
     hide($('#ldItemsEmpty'));
@@ -236,7 +262,7 @@
           reportIssue(res, 'list-detail', () => openListDetail(listId));
           return;
         }
-        hide(panel);
+        setDetailView(false);
         reportIssue(res, 'list-detail', () => openListDetail(listId));
         alert(window.ExpMgStatus ? window.ExpMgStatus.getRequestErrorMessage(res, 'Failed to load list details.') : (res.error || 'Failed to load list details.'));
         return;
@@ -256,7 +282,7 @@
     const l = res.list;
     currentListGroupId = l.group_id || null;
     $('#ldName').textContent = l.name;
-    $('#ldType').textContent = l.group_id ? `📋 ${l.group_name}` : '🔒 Personal';
+    $('#ldType').innerHTML = l.group_id ? `${ICON_GROUP_SVG} ${esc(l.group_name)}` : `${ICON_LOCK_SVG} Personal`;
     $('#ldType').className = 'exp-badge ' + (l.group_id ? 'badge-group' : 'badge-personal');
     $('#ldCreator').textContent = `Created by ${l.created_by}`;
 
@@ -271,9 +297,15 @@
 
     // Delete list button
     $('#ldDeleteList').onclick = async () => {
-      if (!confirm('Delete this list and all its items?')) return;
+      const confirmed = await showConfirmModal({
+        title: 'Delete this list?',
+        message: 'This will permanently delete the list and all its items. This action cannot be undone.',
+        confirmLabel: 'Delete List',
+        danger: true
+      });
+      if (!confirmed) return;
       const r = await post(`${API}/lists/delete.php`, { list_id: currentListId });
-      if (r.ok) { hide(panel); currentListId = null; loadLists(); }
+      if (r.ok) { setDetailView(false); currentListId = null; loadLists(); }
       else {
         reportIssue(r, 'lists-delete', () => $('#ldDeleteList').click());
         alert(r.error);
@@ -289,9 +321,9 @@
 
     let html = '';
     const labels = {
-      high:     '<div class="priority-label pl-high">🔴 High Priority</div>',
-      moderate: '<div class="priority-label pl-mod">🟡 Moderate Priority</div>',
-      low:      '<div class="priority-label pl-low">🟢 Low Priority</div>'
+      high:     '<div class="priority-label pl-high"><span class="dot dot-high"></span> High Priority</div>',
+      moderate: '<div class="priority-label pl-mod"><span class="dot dot-moderate"></span> Moderate Priority</div>',
+      low:      '<div class="priority-label pl-low"><span class="dot dot-low"></span> Low Priority</div>'
     };
 
     ['high', 'moderate', 'low'].forEach(p => {
@@ -310,7 +342,7 @@
           const tenMin = 10 * 60 * 1000;
           if (elapsedMs >= tenMin) {
             isLocked = true;
-            lockInfo = `<span class="li-lock" title="Locked — cannot uncheck after 10 minutes">🔒</span>`;
+            lockInfo = `<span class="li-lock" title="Locked — cannot uncheck after 10 minutes">${ICON_LOCK_SVG}</span>`;
           } else {
             const secsLeft = Math.ceil((tenMin - elapsedMs) / 1000);
             lockInfo = `<span class="li-timer" data-expires="${checkedMs + tenMin}" title="Time remaining to uncheck">${fmtTimer(secsLeft)}</span>`;
@@ -397,7 +429,7 @@
   // ---- Events ----
   function bindEvents() {
     // Close detail
-    $('#ldClose').addEventListener('click', () => { hide($('#listDetail')); currentListId = null; });
+    $('#ldClose').addEventListener('click', () => { setDetailView(false); currentListId = null; });
 
     // Add item button
     $('#ldAddItem').addEventListener('click', () => {

@@ -31,6 +31,19 @@ $firstName = explode(' ', $currentUsername)[0];
   <button id="expDateClearBtn" class="exp-date-clear hidden" title="Clear">&#10005;</button>
 </div>
 
+<!-- Custom Range Active Banner (shown only while a custom date range is applied) -->
+<div id="expCustomRangeBanner" class="hidden" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;background:#f0fdf4;border:1px solid var(--mint-leaf);border-radius:0.55rem;padding:0.55rem 0.85rem;margin-bottom:1rem;">
+  <span id="expCustomRangeLabel" style="font-size:0.85rem;font-weight:600;color:#1b4332;"></span>
+  <button id="expCustomRangeReset" style="border:none;background:#ef4444;color:#fff;border-radius:0.4rem;padding:0.3rem 0.75rem;font-size:0.78rem;font-weight:600;cursor:pointer;">Reset &times;</button>
+</div>
+
+<!-- Month Selector (primary period control — governs budget, breakdown, charts, and lists) -->
+<div id="expMonthNav" style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1.25rem;">
+  <button id="expPrevMonth" class="btn btn-icon" aria-label="Previous month">&#8592;</button>
+  <h2 id="expMonthLabel" style="font-size:1.15rem;font-weight:700;min-width:160px;text-align:center;"></h2>
+  <button id="expNextMonth" class="btn btn-icon" aria-label="Next month">&#8594;</button>
+</div>
+
 <!-- Monthly Budget Card -->
 <div class="card" id="budgetCard" style="padding:1.25rem;margin-bottom:1rem;">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.6rem;">
@@ -57,16 +70,9 @@ $firstName = explode(' ', $currentUsername)[0];
   </div>
 </div>
 
-<!-- Month Selector -->
-<div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1.25rem;">
-  <button id="expPrevMonth" class="btn btn-icon" aria-label="Previous month">&#8592;</button>
-  <h2 id="expMonthLabel" style="font-size:1.15rem;font-weight:700;min-width:160px;text-align:center;"></h2>
-  <button id="expNextMonth" class="btn btn-icon" aria-label="Next month">&#8594;</button>
-</div>
-
 <!-- Summary Cards Row -->
 <div id="expSummaryRow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.75rem;margin-bottom:1.25rem;">
-  <div class="card" style="padding:1.25rem;">
+  <div class="card is-hidden-monthly" id="expTotalSpentCard" style="padding:1.25rem;">
     <div style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;margin-bottom:0.35rem;">Total Spent</div>
     <div id="expTotalSpent" style="font-size:1.6rem;font-weight:700;color:#000;">&mdash;</div>
   </div>
@@ -126,7 +132,7 @@ $firstName = explode(' ', $currentUsername)[0];
     <div class="exp-col">
       <div class="exp-col-header">
         <span class="exp-col-dot exp-col-dot--personal"></span> Personal Expenses
-        <button id="expPersonalPdf" class="exp-pdf-btn" title="Download PDF">&#128196;</button>
+        <button id="expPersonalPdf" class="exp-pdf-btn" title="Download PDF"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg> PDF</button>
       </div>
       <div id="expPersonalList" class="exp-col-body"></div>
       <p id="expPersonalEmpty" class="hidden exp-col-empty">No personal expenses.</p>
@@ -134,7 +140,7 @@ $firstName = explode(' ', $currentUsername)[0];
     <div class="exp-col">
       <div class="exp-col-header">
         <span class="exp-col-dot exp-col-dot--group"></span> Group Expenses
-        <button id="expGroupPdf" class="exp-pdf-btn" title="Download PDF">&#128196;</button>
+        <button id="expGroupPdf" class="exp-pdf-btn" title="Download PDF"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg> PDF</button>
       </div>
       <div id="expGroupList" class="exp-col-body"></div>
       <p id="expGroupEmpty" class="hidden exp-col-empty">No group expenses.</p>
@@ -339,6 +345,10 @@ function parseSafeDate(d) {
   return isNaN(parsed.getTime()) ? null : parsed;
 }
 
+/* Inline SVG icon constants (replace platform emoji in UI chrome) */
+var ICON_LOCK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+var ICON_GROUP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>';
+
 /* ========== MY EXPENSES MODULE ========== */
 (function(){
   var now = new Date();
@@ -415,7 +425,22 @@ function parseSafeDate(d) {
     return fallbackPalette[index % fallbackPalette.length];
   }
 
+  // Monthly mode: hide the custom-range banner, show stepper + budget card,
+  // and hide the standalone Total Spent card (the budget card already shows
+  // the identical figure for the selected month).
+  function enterMonthlyMode() {
+    var banner = document.getElementById('expCustomRangeBanner');
+    var nav = document.getElementById('expMonthNav');
+    var budgetCard = document.getElementById('budgetCard');
+    var totalCard = document.getElementById('expTotalSpentCard');
+    if (banner) banner.classList.add('hidden');
+    if (nav) nav.classList.remove('hidden');
+    if (budgetCard) budgetCard.classList.remove('hidden');
+    if (totalCard) totalCard.classList.add('is-hidden-monthly');
+  }
+
   async function loadMonth(){
+    enterMonthlyMode();
     updateLabel();
     var mk = monthKey();
     try {
@@ -650,6 +675,7 @@ function sortExpenses(arr) {
 
   $dateFilterBtn.onclick = function(){ applyDateFilter(); };
   $dateClearBtn.onclick  = function(){ clearDateFilter(); loadMonth(); };
+  document.getElementById('expCustomRangeReset').onclick = function(){ clearDateFilter(); loadMonth(); };
 
   async function applyDateFilter(){
     var s = $startDate.value, e = $endDate.value;
@@ -657,6 +683,14 @@ function sortExpenses(arr) {
     if(s > e){ alert('Start date must be before end date.'); return; }
     dateRangeActive = true;
     $dateClearBtn.classList.remove('hidden');
+    // Custom-range mode: the month stepper and Monthly Budget card do not
+    // apply to this view — hide them, show the range banner and the
+    // standalone Total Spent card.
+    document.getElementById('expCustomRangeLabel').textContent = 'Custom date range: ' + s + ' to ' + e;
+    document.getElementById('expCustomRangeBanner').classList.remove('hidden');
+    document.getElementById('expMonthNav').classList.add('hidden');
+    document.getElementById('budgetCard').classList.add('hidden');
+    document.getElementById('expTotalSpentCard').classList.remove('is-hidden-monthly');
     $label.textContent = s + ' \u2014 ' + e;
     try {
       var listRes = await get(API + '/expenses/list.php?start=' + encodeURIComponent(s) + '&end=' + encodeURIComponent(e));
@@ -734,8 +768,8 @@ function sortExpenses(arr) {
 
       $container.innerHTML = items.map(function(it){
         var src = it.group_id
-          ? '<span class="unpriced-src">\uD83D\uDCCB ' + escHtml(it.group_name || 'Group') + '</span>'
-          : '<span class="unpriced-src">\uD83D\uDD12 Personal</span>';
+          ? '<span class="unpriced-src">' + ICON_GROUP_SVG + ' ' + escHtml(it.group_name || 'Group') + '</span>'
+          : '<span class="unpriced-src">' + ICON_LOCK_SVG + ' Personal</span>';
         var paidByHtml = '';
         if (it.group_id) {
           paidByHtml = '<select class="unpriced-paidby-select form-input" data-group="' + it.group_id + '" style="font-size:0.8rem;padding:0.35rem 0.5rem;min-width:100px;">'
@@ -1457,7 +1491,26 @@ function sortExpenses(arr) {
 @media (max-width: 640px) {
   #expSummaryRow,
   #expChartsRow { grid-template-columns: 1fr !important; }
-  #panelSettlement [style*="grid-template-columns:repeat(3"] { grid-template-columns: 1fr !important; }
+  /* Keep the 3 settlement KPI metrics in one compact row on mobile instead of
+     stacking them into 3 full-width cards that push Settlement Breakdown
+     below the fold. (.settlement-kpi-grid is the class-based form.) */
+  #panelSettlement [style*="grid-template-columns:repeat(3"],
+  #panelSettlement .settlement-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.4rem !important;
+  }
+  #panelSettlement [style*="grid-template-columns:repeat(3"] > .card,
+  #panelSettlement .settlement-kpi-grid > .card {
+    padding: 0.75rem 0.5rem !important;
+  }
+  #panelSettlement [style*="grid-template-columns:repeat(3"] > .card > div:first-child,
+  #panelSettlement .settlement-kpi-grid > .card > div:first-child {
+    font-size: 0.62rem !important;
+  }
+  #settlTotalSpend, #settlPerPerson, #settlMyContrib {
+    font-size: 1rem !important;
+    word-break: break-word;
+  }
   .unpriced-row { flex-direction: column; align-items: flex-start; }
   .unpriced-action { width: 100%; }
   .exp-two-col { flex-direction: column; }

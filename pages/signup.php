@@ -69,7 +69,7 @@ if (isset($_SESSION['user_id'])) {
         <button type="submit" class="btn w-full mt-1">Sign Up</button>
       </form>
 
-      <p class="text-center mt-2" style="font-size:0.9rem; color:var(--celadon);">
+      <p class="text-center mt-2" style="font-size:0.9rem; color:#475569;">
         Already have an account? <a href="login.php">Sign In</a>
       </p>
     </div>

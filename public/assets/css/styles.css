@@ -53,6 +53,19 @@ body {
 a { color: var(--light-mint); text-decoration: none; }
 a:hover { color: var(--celadon); }
 
+/* Light-surface links: dark emerald for WCAG AA contrast on white cards.
+   Dark surfaces (bottom nav, header) keep the global light-mint default. */
+.card a:not(.btn):not(.exp-pdf-btn),
+.auth-card a:not(.btn) {
+  color: var(--dark-emerald);
+  font-weight: 600;
+  text-decoration: none;
+}
+.card a:not(.btn):not(.exp-pdf-btn):hover,
+.auth-card a:not(.btn):hover {
+  text-decoration: underline;
+}
+
 /* ---------- Cards ---------- */
 .card {
   background: #ffffff;
@@ -168,6 +181,14 @@ select.form-input {
 }
 select.form-input option { background: #fff; color: #000; }
 
+/* Brand accent for native radio buttons and checkboxes
+   (previously default OS blue). */
+input[type="radio"],
+input[type="checkbox"] {
+  accent-color: var(--dark-emerald);
+  cursor: pointer;
+}
+
 /* ---------- Date Range Filter (modal) ---------- */
 #dateFilterModal .form-input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
@@ -222,6 +243,19 @@ select.form-input option { background: #fff; color: #000; }
 }
 .badge-personal { background: rgba(82, 183, 136, 0.15); color: var(--sea-green); }
 .badge-group { background: rgba(116, 198, 157, 0.15); color: var(--dark-emerald); }
+/* Selected master card state (Lists & Groups master-detail flows) */
+.list-card.is-selected,
+.group-card.is-selected {
+  border-color: var(--mint-leaf);
+  background: rgba(82, 183, 136, 0.08);
+  transform: none;
+}
+/* Flat status dots (priority tier indicators, shared — replaces emoji dots) */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; vertical-align: middle; }
+.dot-high { background: #d97706; }
+.dot-moderate { background: var(--sea-green); }
+.dot-low { background: #666; }
+.priority-label .dot { margin-right: 0.3rem; }
 .expense-item .exp-actions { display: flex; gap: 0.4rem; margin-top: 0.35rem; }
 .expense-item .exp-actions button {
   background: none;
@@ -568,6 +602,7 @@ select.form-input option { background: #fff; color: #000; }
 .justify-between { justify-content: space-between; }
 .w-full { width: 100%; }
 .hidden { display: none !important; }
+.is-hidden-monthly { display: none !important; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {

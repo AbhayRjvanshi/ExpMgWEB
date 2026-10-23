@@ -26,11 +26,11 @@
 
   <div class="cal-legend-wrap">
     <div class="cal-legend">
-      <span class="cal-legend-item">🔵 Personal</span>
+      <span class="cal-legend-item"><span class="dot dot-personal"></span> Personal</span>
       <span class="cal-legend-sep">|</span>
-      <span class="cal-legend-item">🟢 Group (Active)</span>
+      <span class="cal-legend-item"><span class="dot dot-group"></span> Group (Active)</span>
       <span class="cal-legend-sep">|</span>
-      <span class="cal-legend-item">⚪ Group (Settled)</span>
+      <span class="cal-legend-item"><span class="dot dot-settled"></span> Group (Settled)</span>
     </div>
   </div>
 </div>

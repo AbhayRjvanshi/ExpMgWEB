@@ -27,7 +27,12 @@
   <div class="card">
     <div class="flex justify-between items-center mb-1">
       <h3 id="gdName" style="font-size:1.1rem; font-weight:700;"></h3>
-      <button class="btn btn-icon" id="gdClose">✕</button>
+      <div class="flex gap-1">
+        <button class="btn btn-icon" id="gdDeleteGroup" title="Delete this group" style="display:none;background:transparent;border:1px solid #fecaca;color:#dc2626;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        </button>
+        <button class="btn btn-icon" id="gdClose">✕</button>
+      </div>
     </div>
     <div class="flex gap-1 items-center mb-2" style="flex-wrap:wrap;">
       <span id="gdCode" style="background:#f5f5f5; padding:0.3rem 0.7rem; border-radius:0.4rem; font-family:monospace; font-size:0.9rem; letter-spacing:1px; color:#000;"></span>
@@ -44,7 +49,7 @@
     <!-- Past Expenses -->
     <div class="flex justify-between items-center" style="margin-bottom:0.5rem;">
       <h4 style="font-size:0.9rem; font-weight:600; color:#333;">Past Group Expenses</h4>
-      <button class="exp-pdf-btn" id="gdExpPdf" title="Download PDF" style="display:none;">⬇ PDF</button>
+      <button class="exp-pdf-btn" id="gdExpPdf" title="Download PDF" style="display:none;"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg> PDF</button>
     </div>
     <div id="gdExpenses" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
     <p id="gdExpEmpty" class="hidden" style="text-align:center; color:#666; font-size:0.85rem; padding:1rem 0;">No expenses yet.</p>
@@ -135,6 +140,33 @@
 (function() {
   'use strict';
   const esc = escapeHTML; // alias for brevity
+  let currentGroupId = null;
+
+  // ---- Master-detail state helper ----
+  // All show/hide of the group detail panel routes through here so refreshes
+  // (remove-member) never desync visibility. On initial card selection
+  // (opts.scroll === true) the active summary card is highlighted and the
+  // detail panel is scrolled smoothly into view.
+  function setGroupDetailView(isOpen, opts) {
+    const panel = $('#groupDetail');
+    document.querySelectorAll('#groupList .group-card.is-selected')
+      .forEach(el => el.classList.remove('is-selected'));
+    if (isOpen) {
+      show(panel);
+      if (currentGroupId !== null) {
+        const activeCard = document.querySelector('#groupList .group-card[data-id="' + currentGroupId + '"]');
+        if (activeCard) activeCard.classList.add('is-selected');
+      }
+      if (opts && opts.scroll) {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    } else {
+      hide(panel);
+    }
+  }
+
+  // Inline SVG icon constants (replace platform emoji in UI chrome)
+  const ICON_CROWN_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M3 17l1-10 5 5 3-7 3 7 5-5 1 10z"/></svg>';
 
   // ---- Load groups ----
   async function loadGroups() {
@@ -153,31 +185,31 @@
     container.innerHTML = res.groups.map(g => `
       <div class="group-card" data-id="${g.id}">
         <div class="gc-name">${esc(g.name)}</div>
-        <div class="gc-meta">Role: ${g.role === 'admin' ? '👑 Admin' : 'Member'}</div>
+        <div class="gc-meta">Role: ${g.role === 'admin' ? ICON_CROWN_SVG + ' Admin' : 'Member'}</div>
       </div>
     `).join('');
 
     container.querySelectorAll('.group-card').forEach(card => {
-      card.addEventListener('click', () => openGroupDetail(card.dataset.id));
+      card.addEventListener('click', () => openGroupDetail(card.dataset.id, { scroll: true }));
     });
   }
 
   // ---- Group detail ----
-  async function openGroupDetail(groupId) {
-    const panel = $('#groupDetail');
-    show(panel);
+  async function openGroupDetail(groupId, opts) {
+    currentGroupId = groupId;
+    setGroupDetailView(true, opts);
     $('#gdMembers').innerHTML = '<p style="color:var(--celadon);font-size:0.85rem;">Loading…</p>';
     $('#gdExpenses').innerHTML = '';
     hide($('#gdExpEmpty'));
     $('#gdActions').innerHTML = '';
 
     const res = await get(`${API}/groups/details.php?group_id=${groupId}`);
-    if (!res.ok) { hide(panel); alert(res.error); return; }
+    if (!res.ok) { setGroupDetailView(false); alert(res.error); return; }
 
     const g = res.group;
     $('#gdName').textContent = g.name;
     $('#gdCode').textContent = g.join_code;
-    $('#gdRole').textContent = res.my_role === 'admin' ? '👑 Admin' : 'Member';
+    $('#gdRole').innerHTML = res.my_role === 'admin' ? ICON_CROWN_SVG + ' Admin' : 'Member';
     $('#gdRole').className = 'exp-badge ' + (res.my_role === 'admin' ? 'badge-personal' : 'badge-group');
     $('#gdMemberCount').textContent = `(${res.members.length}/${g.max_members})`;
 
@@ -188,7 +220,7 @@
           <span class="mr-name">${esc(m.username)}</span>
         </div>
         <div class="member-actions">
-          <span class="mr-role">${m.role === 'admin' ? '👑 Admin' : 'Member'}</span>
+          <span class="mr-role">${m.role === 'admin' ? ICON_CROWN_SVG + ' Admin' : 'Member'}</span>
           ${res.my_role === 'admin' && m.role !== 'admin'
             ? `<button class="btn-remove-member" data-member-id="${m.user_id}" data-member-name="${esc(m.username)}">Remove</button>`
             : ''}
@@ -232,40 +264,33 @@
       $('#gdExpenses').innerHTML = res.expenses.map(e => `
         <div class="expense-item">
           <div class="exp-left">
-            <div class="flex items-center gap-1">
-              <span class="exp-amount">${parseFloat(e.amount).toFixed(2)}</span>
-              <span class="exp-cat">${esc(e.category_name)}</span>
-            </div>
-            ${e.note ? `<div class="exp-note">${esc(e.note)}</div>` : ''}
-            <div style="font-size:0.75rem; color:#666; margin-top:0.15rem;">${e.expense_date} · paid by ${esc(e.payer_username || e.added_by)}</div>
+            <div class="exp-note" style="font-weight:600;">${esc(e.note || e.category_name || '—')}</div>
+            <div class="exp-cat">${e.expense_date} · ${esc(e.category_name)} · paid by ${esc(e.payer_username || e.added_by)}</div>
           </div>
+          <div class="exp-amount">₹${Number(e.amount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
         </div>
       `).join('');
     }
 
-    // Actions
+    // Actions — Leave Group (members) stays at the bottom; Delete Group moved
+    // to the header icon (admin only, bound once at init to avoid stacking).
     let actionsHtml = '';
-    if (res.my_role === 'admin') {
-      actionsHtml += `<button class="btn-danger btn" id="gdDeleteGroup" data-id="${g.id}" style="padding:0.4rem 0.9rem; font-size:0.85rem;">Delete Group</button>`;
-    } else {
+    if (res.my_role !== 'admin') {
       actionsHtml += `<button class="btn btn-compact" id="gdLeaveGroup" data-id="${g.id}">Leave Group</button>`;
     }
     $('#gdActions').innerHTML = actionsHtml;
 
-    // Bind action buttons
     const delBtn = $('#gdDeleteGroup');
-    if (delBtn) delBtn.addEventListener('click', async () => {
-      if (!confirm('Delete this group and all its data? This cannot be undone.')) return;
-      const r = await post(`${API}/groups/delete.php`, { group_id: delBtn.dataset.id });
-      if (r.ok) { hide(panel); loadGroups(); }
-      else alert(r.error);
-    });
+    if (delBtn) {
+      delBtn.dataset.id = g.id;
+      delBtn.style.display = res.my_role === 'admin' ? '' : 'none';
+    }
 
     const leaveBtn = $('#gdLeaveGroup');
     if (leaveBtn) leaveBtn.addEventListener('click', async () => {
       if (!confirm('Leave this group?')) return;
       const r = await post(`${API}/groups/leave.php`, { group_id: leaveBtn.dataset.id });
-      if (r.ok) { hide(panel); loadGroups(); }
+      if (r.ok) { setGroupDetailView(false); currentGroupId = null; loadGroups(); }
       else alert(r.error);
     });
 
@@ -323,7 +348,26 @@
   }
 
   // ---- Close detail ----
-  $('#gdClose').addEventListener('click', () => hide($('#groupDetail')));
+  $('#gdClose').addEventListener('click', () => { setGroupDetailView(false); currentGroupId = null; });
+
+  // ---- Delete group (admin) — header icon, bound once; operates on the
+  // currently open group via data-id. Routes through the reusable
+  // showConfirmModal() instead of a permanently visible red button. ----
+  const gdDeleteBtn = $('#gdDeleteGroup');
+  if (gdDeleteBtn) gdDeleteBtn.addEventListener('click', async () => {
+    const groupId = gdDeleteBtn.dataset.id;
+    if (!groupId) return;
+    const confirmed = await showConfirmModal({
+      title: 'Delete this group?',
+      message: 'This will permanently delete the group and all its data (expenses, settlements, lists). This action cannot be undone.',
+      confirmLabel: 'Delete Group',
+      danger: true
+    });
+    if (!confirmed) return;
+    const r = await post(`${API}/groups/delete.php`, { group_id: groupId });
+    if (r.ok) { setGroupDetailView(false); currentGroupId = null; loadGroups(); }
+    else alert(r.error);
+  });
 
   // ---- Create group ----
   $('#btnCreateGroup').addEventListener('click', () => {
