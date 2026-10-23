@@ -327,6 +327,18 @@ function switchExpTab(tab) {
   }
 }
 
+/* ========== SHARED DATE HELPER ========== */
+/* Safely parse MySQL DATE ("YYYY-MM-DD") or DATETIME ("YYYY-MM-DD HH:MM:SS")
+   values. Strips the time portion before constructing a local Date so
+   DATETIME strings never produce Invalid Date / "undefined NaN, NaN" output. */
+function parseSafeDate(d) {
+  if (!d || typeof d !== 'string') return null;
+  var datePart = d.trim().split(/[ T]/)[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return null;
+  var parsed = new Date(datePart + 'T00:00:00');
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
 /* ========== MY EXPENSES MODULE ========== */
 (function(){
   var now = new Date();
@@ -734,7 +746,7 @@ function sortExpenses(arr) {
           + '<div class="unpriced-name">' + escHtml(it.description) + '</div>'
           + '<div class="unpriced-meta">'
           + (it.category_name ? escHtml(it.category_name) + ' &middot; ' : '')
-          + 'Checked ' + formatCheckedDate(it.checked_at)
+          + 'Checked ' + (formatCheckedDate(it.checked_at) || 'recently')
           + ' &middot; ' + src
           + '</div>'
           + '</div>'
@@ -803,8 +815,8 @@ function sortExpenses(arr) {
   };
 
   function formatCheckedDate(d) {
-    if (!d) return '\u2014';
-    var dt = new Date(d + 'T00:00:00');
+    var dt = parseSafeDate(d);
+    if (!dt) return '';
     var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return months[dt.getMonth()] + ' ' + dt.getDate() + ', ' + dt.getFullYear();
   }
@@ -1068,9 +1080,19 @@ function sortExpenses(arr) {
     }
     $historyEmpty.classList.add('hidden');
     $historyList.innerHTML = settlements.map(function(s){
+      // Equal-contribution marker row (payer === payee, amount 0.00) is the
+      // settlement-lock record for the period. Render it as a period closure,
+      // never as "<User> paid <User> — ₹0.00". The DB row must stay untouched.
+      var isMarker = Number(s.amount) === 0 && String(s.payer_id) === String(s.payee_id);
+      var titleHtml = isMarker
+        ? 'Settled Period (Equal Contributions)'
+        : escHtml(s.payer_name) + ' paid ' + escHtml(s.payee_name);
+      var amountHtml = isMarker
+        ? 'No balance transfer required (' + fmtMoney(s.amount) + ')'
+        : 'Amount: <strong>' + fmtMoney(s.amount) + '</strong>';
       return '<div style="padding:0.75rem 0;border-bottom:1px solid rgba(0,0,0,0.08);">'
-        + '<div style="font-size:0.85rem;font-weight:500;">' + escHtml(s.payer_name) + ' paid ' + escHtml(s.payee_name) + '</div>'
-        + '<div style="font-size:0.82rem;color:#000;margin-top:0.15rem;">Amount: <strong>' + fmtMoney(s.amount) + '</strong></div>'
+        + '<div style="font-size:0.85rem;font-weight:500;">' + titleHtml + '</div>'
+        + '<div style="font-size:0.82rem;color:#000;margin-top:0.15rem;">' + amountHtml + '</div>'
         + '<div style="font-size:0.72rem;color:#666;margin-top:0.1rem;">Period: ' + formatDate(s.period_start) + ' \u2013 ' + formatDate(s.period_end) + '</div>'
         + '<button class="btn-outline" style="margin-top:0.5rem;padding:0.25rem 0.6rem;font-size:0.72rem;border-radius:0.4rem;" onclick="viewSettlementDetail(' + s.id + ',' + groupId + ',\'' + s.period_start + '\',\'' + s.period_end + '\')">View More Details</button>'
         + '</div>';
@@ -1078,8 +1100,8 @@ function sortExpenses(arr) {
   }
 
   function formatDate(d) {
-    if (!d) return '\u2014';
-    var dt = new Date(d + 'T00:00:00');
+    var dt = parseSafeDate(d);
+    if (!dt) return '\u2014';
     var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return months[dt.getMonth()] + ' ' + dt.getDate() + ', ' + dt.getFullYear();
   }
@@ -1245,7 +1267,7 @@ function sortExpenses(arr) {
           + res.expenses.map(function(e){
             return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid rgba(0,0,0,0.06);font-size:0.82rem;">'
               + '<div style="flex:1;min-width:0;"><span style="font-weight:500;">' + escHtml(e.note || '\u2014') + '</span> <span style="font-size:0.7rem;color:#666;">paid by ' + escHtml(e.payer_username || e.added_by) + '</span></div>'
-              + '<div style="font-size:0.72rem;color:#666;">' + e.expense_date + '</div>'
+              + '<div style="font-size:0.72rem;color:#666;">' + (e.expense_date === '1970-01-01' ? 'Date unrecorded' : e.expense_date) + '</div>'
               + '<div style="font-weight:600;white-space:nowrap;">' + fmtMoney(e.amount) + '</div>'
               + '</div>';
           }).join('');

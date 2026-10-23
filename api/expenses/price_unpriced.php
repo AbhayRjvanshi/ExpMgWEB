@@ -26,7 +26,7 @@ if ($price <= 0)  { echo json_encode(['ok' => false, 'error' => 'Price must be g
 
 // Fetch the unpriced item
 $stmt = $conn->prepare(
-    'SELECT li.id, li.description, li.category_id, li.checked_at, li.is_checked,
+    'SELECT li.id, li.description, li.category_id, li.checked_at, li.created_at, li.is_checked,
             li.expense_created, li.list_id,
             l.user_id AS list_owner, l.group_id
      FROM list_items li
@@ -59,8 +59,17 @@ if ($groupId) {
     }
 }
 
-// Use checked_at date as the expense date (the date the item was completed)
-$expDate    = date('Y-m-d', strtotime($item['checked_at']));
+// Use checked_at date as the expense date (the date the item was completed).
+// Guard against NULL/invalid checked_at so the expense never receives the
+// Unix-epoch fallback date 1970-01-01 (strtotime(null) === false):
+// fall back to created_at first, then to today's date.
+$rawTimestamp = !empty($item['checked_at']) ? strtotime($item['checked_at']) : false;
+if ($rawTimestamp === false || $rawTimestamp <= 0) {
+    $rawTimestamp = !empty($item['created_at']) ? strtotime($item['created_at']) : false;
+}
+$expDate = ($rawTimestamp !== false && $rawTimestamp > 0)
+    ? date('Y-m-d', $rawTimestamp)
+    : date('Y-m-d');
 $expCatId   = $item['category_id'] ? (int)$item['category_id'] : 8; // default to 'Others'
 $expNote    = $item['description'];
 $expType    = $groupId ? 'group' : 'personal';
