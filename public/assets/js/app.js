@@ -168,7 +168,7 @@
     selectedDate = date;
     dateLabel.textContent = formatDateNice(date);
     show(panel);
-    list.innerHTML = '<p style="text-align:center;color:var(--celadon);padding:1rem;">Loading…</p>';
+    list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:1rem;">Loading…</p>';
     hide(empty);
 
     try {
@@ -651,7 +651,7 @@
 
   // ---- Load notifications ----
   async function loadNotifications() {
-    list.innerHTML = '<p style="text-align:center;color:var(--celadon);padding:1rem;font-size:0.85rem;">Loading…</p>';
+    list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:1rem;font-size:0.85rem;">Loading…</p>';
     hide(empty);
 
     try {

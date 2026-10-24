@@ -426,12 +426,12 @@ function showConfirmModal(opts) {
     overlay.id = 'expmgConfirmModal';
     overlay.className = 'modal-overlay';
     overlay.innerHTML =
-      '<div style="width:100%;max-width:380px;padding:1.5rem;position:relative;background:#fff;color:#000;border-radius:0.75rem;box-shadow:0 15px 35px rgba(0,0,0,0.2);">' +
-        '<h3 style="font-size:1.05rem;font-weight:700;margin-bottom:0.5rem;">' + escapeHTML(options.title) + '</h3>' +
-        '<p style="font-size:0.88rem;color:#444;margin-bottom:1.25rem;">' + escapeHTML(options.message) + '</p>' +
+      '<div style="width:100%;max-width:380px;padding:1.5rem;position:relative;background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--border-soft);border-radius:16px;box-shadow:var(--shadow-popover);">' +
+        '<h3 style="font-size:1.05rem;font-weight:700;margin-bottom:0.5rem;color:var(--text-primary);">' + escapeHTML(options.title) + '</h3>' +
+        '<p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:1.25rem;">' + escapeHTML(options.message) + '</p>' +
         '<div style="display:flex;gap:0.5rem;">' +
-          '<button type="button" data-expmg-confirm="0" style="flex:1;padding:0.55rem 1rem;border:none;border-radius:0.5rem;background:#e5e7eb;color:#000;font-weight:600;font-size:0.88rem;cursor:pointer;">' + escapeHTML(options.cancelLabel) + '</button>' +
-          '<button type="button" data-expmg-confirm="1" style="flex:1;padding:0.55rem 1rem;border:none;border-radius:0.5rem;' + (options.danger ? 'background:#dc2626;' : 'background:var(--mint-leaf);') + 'color:#fff;font-weight:600;font-size:0.88rem;cursor:pointer;">' + escapeHTML(options.confirmLabel) + '</button>' +
+          '<button type="button" data-expmg-confirm="0" style="flex:1;padding:0.55rem 1rem;border:none;border-radius:10px;background:var(--bg-subtle);color:var(--text-primary);font-weight:600;font-size:0.88rem;cursor:pointer;">' + escapeHTML(options.cancelLabel) + '</button>' +
+          '<button type="button" data-expmg-confirm="1" style="flex:1;padding:0.55rem 1rem;border:none;border-radius:10px;' + (options.danger ? 'background:var(--danger-600);' : 'background:var(--accent-primary);') + 'color:#ffffff;font-weight:600;font-size:0.88rem;cursor:pointer;">' + escapeHTML(options.confirmLabel) + '</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(overlay);

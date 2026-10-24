@@ -52,6 +52,7 @@
   /* Semantic status tokens (light defaults) */
   --amber-500: #d97706;
   --amber-800: #92400e;
+  --amber-50: #fffbeb;
   --danger-600: #e11d48;
   --danger-50: #fff1f2;
   --success-600: #15803d;
@@ -140,6 +141,7 @@ body.theme-dark {
 
   /* Semantic status tokens (dark) */
   --amber-800: #fbbf24;
+  --amber-50: rgba(251, 191, 36, 0.14);
   --danger-600: #f43f5e;
   --danger-50: rgba(244, 63, 94, 0.14);
   --success-600: #4ade80;
@@ -219,29 +221,6 @@ body.theme-dark[data-palette="cobalt"] {
   --border-soft: #1e334d;
   --border-medium: #2b486b;
   --border-strong: #38bdf8;
-}
-
-/* ---------- Legacy token shims (TEMPORARY — removed in Phase 2 / T2.5) ----------
-   Old token names resolve to the new system so page-scoped styles and
-   unswept inline styles keep rendering while the sweep proceeds. */
-:root {
-  --evergreen: var(--text-primary);
-  --pine-teal: var(--accent-primary);
-  --dark-emerald: var(--accent-primary);
-  --sea-green: var(--accent-primary);
-  --mint-leaf: var(--accent-primary);
-  --light-mint: var(--accent-primary);
-  --celadon: var(--text-secondary);
-  --pale-mint: var(--success-600);
-  --frosted-mint: var(--accent-primary);
-  --grad-bg: var(--bg-canvas);
-  --grad-card: var(--bg-subtle);
-  --grad-btn: var(--accent-primary);
-  --grad-btn-hover: var(--accent-primary-hover);
-  --grad-soft: var(--bg-subtle);
-  --shadow-sm: var(--shadow-card);
-  --shadow-md: var(--shadow-popover);
-  --shadow-lg: var(--shadow-popover);
 }
 
 /* ---------- Base ---------- */
@@ -555,6 +534,7 @@ input[type="checkbox"] {
   padding: 4px;
   border: 1px solid var(--border-soft);
   border-radius: 11px;
+  margin-bottom: 1rem;
 }
 .segmented-tabs button,
 .exp-tab {

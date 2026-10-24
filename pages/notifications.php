@@ -7,13 +7,13 @@
 
 <div class="card mb-2">
   <div class="flex justify-between items-center mb-1">
-    <h2 style="font-size:1.15rem; font-weight:700; color:#000;">Notification History</h2>
-    <span style="font-size:0.78rem; color:#888;">Last 7 days</span>
+    <h2 style="font-size:1.15rem; font-weight:700; color:var(--text-primary);">Notification History</h2>
+    <span style="font-size:0.78rem; color:var(--text-muted);">Last 7 days</span>
   </div>
   <div id="notifHistoryList">
-    <p style="text-align:center;color:var(--celadon);padding:1.5rem;font-size:0.85rem;">Loading…</p>
+    <p style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.85rem;">Loading…</p>
   </div>
-  <p id="notifHistoryEmpty" class="hidden" style="text-align:center;color:#666;font-size:0.9rem;padding:2rem 1rem;">
+  <p id="notifHistoryEmpty" class="hidden" style="text-align:center;color:var(--text-muted);font-size:0.9rem;padding:2rem 1rem;">
     No notifications in the last 7 days.
   </p>
 </div>
@@ -26,11 +26,11 @@
   .nh-date-label {
     font-size: 0.78rem;
     font-weight: 600;
-    color: #888;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.03em;
     padding-bottom: 0.4rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-soft);
     margin-bottom: 0.5rem;
   }
   .nh-item {
@@ -41,12 +41,12 @@
     border-radius: 0.6rem;
     transition: background 0.15s;
   }
-  .nh-item:hover { background: rgba(0,0,0,0.03); }
+  .nh-item:hover { background: var(--bg-subtle); }
   .nh-icon {
     flex-shrink: 0;
     width: 34px; height: 34px;
     border-radius: 50%;
-    background: rgba(82,183,136,0.12);
+    background: var(--accent-soft);
     display: flex; align-items: center; justify-content: center;
     font-size: 1rem;
   }
@@ -54,11 +54,11 @@
   .nh-msg {
     font-size: 0.85rem;
     line-height: 1.4;
-    color: #111;
+    color: var(--text-primary);
   }
   .nh-meta {
     font-size: 0.72rem;
-    color: #888;
+    color: var(--text-muted);
     margin-top: 0.15rem;
     display: flex;
     align-items: center;
@@ -69,8 +69,8 @@
     padding: 0.1rem 0.4rem;
     border-radius: 999px;
     font-weight: 600;
-    background: rgba(82,183,136,0.12);
-    color: var(--sea-green);
+    background: var(--accent-soft);
+    color: var(--accent-primary);
   }
   .nh-item.nh-read { opacity: 0.55; }
 </style>

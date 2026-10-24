@@ -32,9 +32,9 @@ $firstName = explode(' ', $currentUsername)[0];
 </div>
 
 <!-- Custom Range Active Banner (shown only while a custom date range is applied) -->
-<div id="expCustomRangeBanner" class="hidden" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;background:#f0fdf4;border:1px solid var(--mint-leaf);border-radius:0.55rem;padding:0.55rem 0.85rem;margin-bottom:1rem;">
-  <span id="expCustomRangeLabel" style="font-size:0.85rem;font-weight:600;color:#1b4332;"></span>
-  <button id="expCustomRangeReset" style="border:none;background:#ef4444;color:#fff;border-radius:0.4rem;padding:0.3rem 0.75rem;font-size:0.78rem;font-weight:600;cursor:pointer;">Reset &times;</button>
+<div id="expCustomRangeBanner" class="hidden" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:0.55rem;padding:0.55rem 0.85rem;margin-bottom:1rem;">
+  <span id="expCustomRangeLabel" style="font-size:0.85rem;font-weight:600;color:var(--accent-primary);"></span>
+  <button id="expCustomRangeReset" style="border:none;background:var(--danger-600);color:#fff;border-radius:0.4rem;padding:0.3rem 0.75rem;font-size:0.78rem;font-weight:600;cursor:pointer;">Reset &times;</button>
 </div>
 
 <!-- Month Selector (primary period control — governs budget, breakdown, charts, and lists) -->
@@ -48,19 +48,19 @@ $firstName = explode(' ', $currentUsername)[0];
 <div class="card" id="budgetCard" style="padding:1.25rem;margin-bottom:1rem;">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.6rem;">
     <div>
-      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;">Monthly Budget</div>
-      <div id="budgetAmountDisplay" style="font-size:1.4rem;font-weight:700;color:#000;">&mdash;</div>
+      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);">Monthly Budget</div>
+      <div id="budgetAmountDisplay" class="money-lg" style="color:var(--text-primary);">&mdash;</div>
     </div>
     <div style="text-align:right;">
-      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;">Spent</div>
-      <div id="budgetSpentDisplay" style="font-size:1.4rem;font-weight:700;color:#000;">&mdash;</div>
+      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);">Spent</div>
+      <div id="budgetSpentDisplay" class="money-lg" style="color:var(--text-primary);">&mdash;</div>
     </div>
   </div>
   <div id="budgetProgressWrap" style="margin-bottom:0.5rem;">
-    <div style="height:10px;background:rgba(0,0,0,0.08);border-radius:999px;overflow:hidden;">
-      <div id="budgetProgressFill" style="height:100%;border-radius:999px;background:var(--mint-leaf);width:0%;transition:width 0.8s ease;"></div>
+    <div style="height:10px;background:var(--bg-subtle);border-radius:999px;overflow:hidden;">
+      <div id="budgetProgressFill" style="height:100%;border-radius:999px;background:var(--accent-primary);width:0%;transition:width 0.8s ease;"></div>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#666;margin-top:0.3rem;">
+    <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-muted);margin-top:0.3rem;">
       <span id="budgetPctLabel">0% Used</span>
       <span id="budgetRemainingLabel">&#8377;0.00 Remaining</span>
     </div>
@@ -73,23 +73,23 @@ $firstName = explode(' ', $currentUsername)[0];
 <!-- Summary Cards Row -->
 <div id="expSummaryRow" class="exp-summary-grid">
   <div class="card is-hidden-monthly" id="expTotalSpentCard" style="padding:1.25rem;">
-    <div style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;margin-bottom:0.35rem;">Total Spent</div>
-    <div id="expTotalSpent" style="font-size:1.6rem;font-weight:700;color:#000;">&mdash;</div>
+    <div style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:0.35rem;">Total Spent</div>
+    <div id="expTotalSpent" class="money-lg" style="color:var(--text-primary);">&mdash;</div>
   </div>
   <div class="card" style="padding:1.25rem;">
-    <div style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;margin-bottom:0.35rem;">Breakdown</div>
+    <div style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:0.35rem;">Breakdown</div>
     <div style="display:flex;gap:1.5rem;margin-top:0.35rem;flex-wrap:wrap;">
       <div>
-        <div style="font-size:0.72rem;color:#666;">Personal</div>
-        <div id="expPersonal" style="font-size:1.15rem;font-weight:600;color:#000;">&mdash;</div>
+        <div style="font-size:0.72rem;color:var(--text-muted);">Personal</div>
+        <div id="expPersonal" class="money-md" style="color:var(--text-primary);">&mdash;</div>
       </div>
       <div>
-        <div style="font-size:0.72rem;color:#666;">Group</div>
-        <div id="expGroup" style="font-size:1.15rem;font-weight:600;color:#000;">&mdash;</div>
+        <div style="font-size:0.72rem;color:var(--text-muted);">Group</div>
+        <div id="expGroup" class="money-md" style="color:var(--text-primary);">&mdash;</div>
       </div>
       <div id="expShareWrap" class="hidden">
-        <div style="font-size:0.72rem;color:#666;">Your Share</div>
-        <div id="expShare" style="font-size:1.15rem;font-weight:600;color:#000;">&mdash;</div>
+        <div style="font-size:0.72rem;color:var(--text-muted);">Your Share</div>
+        <div id="expShare" class="money-md" style="color:var(--text-primary);">&mdash;</div>
       </div>
     </div>
   </div>
@@ -102,12 +102,12 @@ $firstName = explode(' ', $currentUsername)[0];
     <div style="position:relative;max-width:220px;margin:0 auto;">
       <canvas id="chartCategory"></canvas>
     </div>
-    <p id="chartCatEmpty" class="hidden" style="text-align:center;color:#666;font-size:0.82rem;padding:2rem 0;">No data this month.</p>
+    <p id="chartCatEmpty" class="hidden" style="text-align:center;color:var(--text-muted);font-size:0.82rem;padding:2rem 0;">No data this month.</p>
   </div>
   <div class="card" style="padding:1.25rem;">
     <div style="font-size:0.82rem;font-weight:600;margin-bottom:0.75rem;">Daily Spending</div>
     <canvas id="chartDaily"></canvas>
-    <p id="chartDayEmpty" class="hidden" style="text-align:center;color:#666;font-size:0.82rem;padding:2rem 0;">No data this month.</p>
+    <p id="chartDayEmpty" class="hidden" style="text-align:center;color:var(--text-muted);font-size:0.82rem;padding:2rem 0;">No data this month.</p>
   </div>
 </div>
 
@@ -154,11 +154,11 @@ $firstName = explode(' ', $currentUsername)[0];
     <span style="font-size:0.82rem;font-weight:600;">Unpriced Items</span>
     <span class="unpriced-badge" id="unpricedCount" style="display:none;">0</span>
   </div>
-  <p style="font-size:0.72rem;color:#888;margin-bottom:0.75rem;">
+  <p style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.75rem;">
     Items checked from lists without a price. Add a price to convert them into expenses.
   </p>
   <div id="unpricedListContainer"></div>
-  <p id="unpricedListEmpty" class="hidden" style="text-align:center;color:#666;font-size:0.82rem;padding:1.5rem 0;">No unpriced items pending.</p>
+  <p id="unpricedListEmpty" class="hidden" style="text-align:center;color:var(--text-muted);font-size:0.82rem;padding:1.5rem 0;">No unpriced items pending.</p>
 </div>
 
 </div><!-- /panelMyExpenses -->
@@ -175,7 +175,7 @@ $firstName = explode(' ', $currentUsername)[0];
 </div>
 
 <!-- Settlement Loading -->
-<div id="settlLoading" class="hidden" style="text-align:center;padding:2rem;color:#666;font-size:0.85rem;">Loading settlement data&#8230;</div>
+<div id="settlLoading" class="hidden" style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.85rem;">Loading settlement data&#8230;</div>
 
 <!-- Settlement Content (shown after group selection) -->
 <div id="settlContent" class="hidden">
@@ -183,16 +183,16 @@ $firstName = explode(' ', $currentUsername)[0];
   <!-- Summary Cards Row (3 columns) -->
   <div class="settlement-kpi-grid">
     <div class="card" style="padding:1.1rem;text-align:center;">
-      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;margin-bottom:0.3rem;">Total Group Spend</div>
-      <div id="settlTotalSpend" style="font-size:1.35rem;font-weight:700;color:#000;">&mdash;</div>
+      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:0.3rem;">Total Group Spend</div>
+      <div id="settlTotalSpend" class="money-md" style="color:var(--text-primary);">&mdash;</div>
     </div>
     <div class="card" style="padding:1.1rem;text-align:center;">
-      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;margin-bottom:0.3rem;">Per Person Share</div>
-      <div id="settlPerPerson" style="font-size:1.35rem;font-weight:700;color:#000;">&mdash;</div>
+      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:0.3rem;">Per Person Share</div>
+      <div id="settlPerPerson" class="money-md" style="color:var(--text-primary);">&mdash;</div>
     </div>
     <div class="card" style="padding:1.1rem;text-align:center;">
-      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;margin-bottom:0.3rem;" id="settlMyContribLabel"><?= $firstName ?>'s Contribution</div>
-      <div id="settlMyContrib" style="font-size:1.35rem;font-weight:700;color:#000;">&mdash;</div>
+      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:0.3rem;" id="settlMyContribLabel"><?= $firstName ?>'s Contribution</div>
+      <div id="settlMyContrib" class="money-md" style="color:var(--text-primary);">&mdash;</div>
     </div>
   </div>
 
@@ -200,49 +200,49 @@ $firstName = explode(' ', $currentUsername)[0];
   <div class="card" style="padding:1.25rem;margin-bottom:1rem;">
     <div style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem;">Settlement Breakdown</div>
     <div id="settlBreakdownList"></div>
-    <p id="settlBreakdownEmpty" class="hidden" style="text-align:center;color:#666;font-size:0.82rem;padding:1rem 0;">All members are settled up!</p>
+    <p id="settlBreakdownEmpty" class="hidden" style="text-align:center;color:var(--text-muted);font-size:0.82rem;padding:1rem 0;">All members are settled up!</p>
   </div>
 
   <!-- User Settlement Status Card -->
   <div class="card settl-status-card" style="padding:1.25rem;margin-bottom:1rem;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
       <div style="font-size:0.9rem;font-weight:600;">Your Settlement Status</div>
-      <button id="settlSettleBtn" class="hidden" style="padding:0.35rem 0.9rem;font-size:0.78rem;font-weight:600;border:none;border-radius:0.4rem;background:var(--mint-leaf);color:#fff;cursor:pointer;transition:opacity 0.3s,transform 0.3s;">Settle</button>
+      <button id="settlSettleBtn" class="hidden" style="padding:0.35rem 0.9rem;font-size:0.78rem;font-weight:600;border:none;border-radius:0.4rem;background:var(--accent-primary);color:var(--text-on-accent);cursor:pointer;transition:opacity 0.3s,transform 0.3s;">Settle</button>
     </div>
-    <div id="settlUserPeriod" style="font-size:0.78rem;color:#666;margin-bottom:0.75rem;"></div>
+    <div id="settlUserPeriod" style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.75rem;"></div>
     <div id="settlUserStatus"></div>
     <div id="settlConfirmedMsg" class="hidden" style="text-align:center;padding:1.25rem 0;transition:opacity 0.4s ease;">
       <div id="settlConfirmedIcon" class="hidden" style="margin-bottom:0.75rem;">
-        <svg width="52" height="52" viewBox="0 0 52 52" fill="none" style="display:inline-block;">
-          <circle cx="26" cy="26" r="24" stroke="#22c55e" stroke-width="2.5" fill="none"/>
-          <path d="M16 27l7 7 13-14" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none" style="display:inline-block;color:var(--success-600);">
+          <circle cx="26" cy="26" r="24" stroke="currentColor" stroke-width="2.5" fill="none"/>
+          <path d="M16 27l7 7 13-14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
         </svg>
       </div>
-      <div id="settlConfirmedText" style="font-size:0.88rem;font-weight:600;color:#000;"></div>
-      <div id="settlWaitingText" style="font-size:0.78rem;color:#666;margin-top:0.4rem;"></div>
+      <div id="settlConfirmedText" style="font-size:0.88rem;font-weight:600;color:var(--text-primary);"></div>
+      <div id="settlWaitingText" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.4rem;"></div>
     </div>
-    <p id="settlUserNone" class="hidden" style="text-align:center;color:#666;font-size:0.82rem;padding:1rem 0;">You are all settled up!</p>
+    <p id="settlUserNone" class="hidden" style="text-align:center;color:var(--text-muted);font-size:0.82rem;padding:1rem 0;">You are all settled up!</p>
   </div>
 
   <!-- Late Expenses Settlement Card (post-settlement adjustments) -->
   <div id="postSettlCard" class="card post-settl-card hidden" style="padding:1.25rem;margin-bottom:1rem;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
       <div>
-        <div style="font-size:0.9rem;font-weight:600;color:#b45309;">Late Expenses Settlement</div>
-        <div style="font-size:0.7rem;color:#888;margin-top:0.15rem;">Expenses completed during a settled period but priced afterwards</div>
+        <div style="font-size:0.9rem;font-weight:600;color:var(--amber-800);">Late Expenses Settlement</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.15rem;">Expenses completed during a settled period but priced afterwards</div>
       </div>
-      <button id="postSettlBtn" class="hidden" style="padding:0.35rem 0.9rem;font-size:0.78rem;font-weight:600;border:none;border-radius:0.4rem;background:#f59e0b;color:#fff;cursor:pointer;transition:opacity 0.3s,transform 0.3s;">Settle</button>
+      <button id="postSettlBtn" class="hidden" style="padding:0.35rem 0.9rem;font-size:0.78rem;font-weight:600;border:none;border-radius:0.4rem;background:var(--amber-500);color:#fff;cursor:pointer;transition:opacity 0.3s,transform 0.3s;">Settle</button>
     </div>
 
     <!-- Post-settlement summary -->
     <div id="postSettlSummary" style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
-      <div style="background:#fffbeb;border-radius:0.5rem;padding:0.6rem 0.75rem;">
-        <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.04em;color:#92400e;">Late Total</div>
-        <div id="postSettlTotal" style="font-size:1.1rem;font-weight:700;color:#000;">&mdash;</div>
+      <div style="background:var(--amber-50);border-radius:0.5rem;padding:0.6rem 0.75rem;">
+        <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--amber-800);">Late Total</div>
+        <div id="postSettlTotal" class="money-md" style="color:var(--text-primary);">&mdash;</div>
       </div>
-      <div style="background:#fffbeb;border-radius:0.5rem;padding:0.6rem 0.75rem;">
-        <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.04em;color:#92400e;">Per Person</div>
-        <div id="postSettlPerPerson" style="font-size:1.1rem;font-weight:700;color:#000;">&mdash;</div>
+      <div style="background:var(--amber-50);border-radius:0.5rem;padding:0.6rem 0.75rem;">
+        <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--amber-800);">Per Person</div>
+        <div id="postSettlPerPerson" class="money-md" style="color:var(--text-primary);">&mdash;</div>
       </div>
     </div>
 
@@ -256,13 +256,13 @@ $firstName = explode(' ', $currentUsername)[0];
     <div id="postSettlUserStatus"></div>
     <div id="postSettlConfirmedMsg" class="hidden" style="text-align:center;padding:1.25rem 0;transition:opacity 0.4s ease;">
       <div id="postSettlConfirmedIcon" class="hidden" style="margin-bottom:0.75rem;">
-        <svg width="52" height="52" viewBox="0 0 52 52" fill="none" style="display:inline-block;">
-          <circle cx="26" cy="26" r="24" stroke="#22c55e" stroke-width="2.5" fill="none"/>
-          <path d="M16 27l7 7 13-14" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none" style="display:inline-block;color:var(--success-600);">
+          <circle cx="26" cy="26" r="24" stroke="currentColor" stroke-width="2.5" fill="none"/>
+          <path d="M16 27l7 7 13-14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
         </svg>
       </div>
-      <div id="postSettlConfirmedText" style="font-size:0.88rem;font-weight:600;color:#000;"></div>
-      <div id="postSettlWaitingText" style="font-size:0.78rem;color:#666;margin-top:0.4rem;"></div>
+      <div id="postSettlConfirmedText" style="font-size:0.88rem;font-weight:600;color:var(--text-primary);"></div>
+      <div id="postSettlWaitingText" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.4rem;"></div>
     </div>
   </div>
 
@@ -270,7 +270,7 @@ $firstName = explode(' ', $currentUsername)[0];
   <div class="card" style="padding:1.25rem;">
     <div style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem;">Past Settlements</div>
     <div id="settlHistoryList"></div>
-    <p id="settlHistoryEmpty" class="hidden" style="text-align:center;color:#666;font-size:0.82rem;padding:1rem 0;">No past settlements.</p>
+    <p id="settlHistoryEmpty" class="hidden" style="text-align:center;color:var(--text-muted);font-size:0.82rem;padding:1rem 0;">No past settlements.</p>
   </div>
 
 </div><!-- /settlContent -->
@@ -283,7 +283,7 @@ $firstName = explode(' ', $currentUsername)[0];
 <!-- Budget Modal -->
 <div id="budgetModal" class="hidden" style="
   position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;
-  background:rgba(0,0,0,0.55);padding:1rem;
+  background:rgba(15, 23, 42, 0.55);padding:1rem;
 ">
   <div class="card" style="width:100%;max-width:380px;padding:1.75rem;">
     <h3 style="font-size:1.05rem;font-weight:700;margin-bottom:1rem;">Set Monthly Budget</h3>
@@ -291,7 +291,7 @@ $firstName = explode(' ', $currentUsername)[0];
       <label for="budgetInput">Budget Amount</label>
       <input type="number" id="budgetInput" class="form-input" placeholder="e.g. 5000" min="1" step="0.01" />
     </div>
-    <p style="font-size:0.8rem;color:#666;margin-bottom:1rem;">This budget will be applied to the current month.</p>
+    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">This budget will be applied to the current month.</p>
     <button id="budgetSaveBtn" class="btn" style="width:100%;">Save Budget</button>
   </div>
 </div>
@@ -299,7 +299,7 @@ $firstName = explode(' ', $currentUsername)[0];
 <!-- Settlement Detail Modal -->
 <div id="settlDetailModal" class="hidden" style="
   position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;
-  background:rgba(0,0,0,0.55);padding:1rem;
+  background:rgba(15, 23, 42, 0.55);padding:1rem;
 ">
   <div class="card" style="width:100%;max-width:480px;padding:1.75rem;max-height:80vh;overflow-y:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
@@ -307,8 +307,8 @@ $firstName = explode(' ', $currentUsername)[0];
       <button id="settlDetailClose" class="btn btn-icon">&times;</button>
     </div>
     <div id="settlDetailContent"></div>
-    <div id="settlDetailTotal" style="margin-top:1rem;padding-top:0.75rem;border-top:2px solid #e0e0e0;font-size:1rem;font-weight:700;text-align:right;"></div>
-    <button id="settlDownloadPdf" class="hidden" style="display:none;margin-top:1rem;width:100%;padding:0.6rem;font-size:0.85rem;font-weight:600;border:none;border-radius:0.5rem;background:var(--mint-leaf);color:#fff;cursor:pointer;">Download as PDF</button>
+    <div id="settlDetailTotal" class="money-md" style="margin-top:1rem;padding-top:0.75rem;border-top:2px solid var(--border-soft);text-align:right;"></div>
+    <button id="settlDownloadPdf" class="hidden" style="display:none;margin-top:1rem;width:100%;padding:0.6rem;font-size:0.85rem;font-weight:600;border:none;border-radius:0.5rem;background:var(--accent-primary);color:var(--text-on-accent);cursor:pointer;">Download as PDF</button>
   </div>
 </div>
 
@@ -465,10 +465,10 @@ var ICON_GROUP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height=
       var rawPct = limit > 0 ? (spentVal / limit) * 100 : 0;
       var pct = Math.min(100, rawPct);
       $budgetPctLabel.textContent = rawPct > 100 ? 'Budget Exceeded' : pct.toFixed(0) + '% Used';
-      $budgetPctLabel.style.color = rawPct > 100 ? '#ef4444' : '#666';
+      $budgetPctLabel.style.color = rawPct > 100 ? 'var(--danger-600)' : 'var(--text-muted)';
       $budgetRemaining.textContent = fmtMoney(Math.max(0, limit - spentVal)) + ' Remaining';
       $budgetFill.style.width = pct + '%';
-      $budgetFill.style.background = pct >= 100 ? '#ef4444' : pct >= 80 ? '#f59e0b' : 'var(--mint-leaf)';
+      $budgetFill.style.background = pct >= 100 ? 'var(--danger-600)' : pct >= 80 ? 'var(--amber-500)' : 'var(--accent-primary)';
       $setBudgetBtn.textContent = 'Edit Budget >';
     } else {
       $budgetAmtDisp.textContent = '\u2014';
@@ -841,12 +841,12 @@ function sortExpenses(arr) {
           var row = btn.closest('.unpriced-row');
           var input = row.querySelector('.unpriced-price-input');
           var price = parseFloat(input.value);
-          if (!price || price <= 0) { input.focus(); input.style.borderColor = '#ef4444'; return; }
+          if (!price || price <= 0) { input.focus(); input.style.borderColor = 'var(--danger-600)'; return; }
           var paidBy = '';
           var paidBySel = row.querySelector('.unpriced-paidby-select');
           if (paidBySel) {
             paidBy = paidBySel.value;
-            if (!paidBy) { paidBySel.focus(); paidBySel.style.borderColor = '#ef4444'; return; }
+            if (!paidBy) { paidBySel.focus(); paidBySel.style.borderColor = 'var(--danger-600)'; return; }
           }
           priceItem(btn.dataset.id, price, btn, paidBy);
         });
@@ -1025,21 +1025,21 @@ function sortExpenses(arr) {
 
       var detail = '';
       if (owes.length) {
-        detail += owes.map(function(o){ return '<div style="font-size:0.78rem;color:#ef4444;">Owes ' + fmtMoney(o.amount) + ' to ' + escHtml(o.to) + '</div>'; }).join('');
+        detail += owes.map(function(o){ return '<div style="font-size:0.78rem;color:var(--danger-600);">Owes ' + fmtMoney(o.amount) + ' to ' + escHtml(o.to) + '</div>'; }).join('');
       }
       if (recv.length) {
         var fromNames = recv.map(function(r){ return escHtml(r.from); }).join(' and ');
-        detail += '<div style="font-size:0.78rem;color:#22c55e;">To be paid ' + fmtMoney(totalRecv) + ' by ' + fromNames + '</div>';
+        detail += '<div style="font-size:0.78rem;color:var(--success-600);">To be paid ' + fmtMoney(totalRecv) + ' by ' + fromNames + '</div>';
       }
       if (!owes.length && !recv.length) {
-        detail = '<div style="font-size:0.78rem;color:#666;">Owes to none &middot; To be paid by none</div>';
+        detail = '<div style="font-size:0.78rem;color:var(--text-muted);">Owes to none &middot; To be paid by none</div>';
       }
 
-      var amountText = totalOwes > 0 ? '<span style="color:#ef4444;">' + fmtMoney(totalOwes) + '</span>' :
-                        totalRecv > 0 ? '<span style="color:#22c55e;">' + fmtMoney(totalRecv) + '</span>' :
-                        '<span style="color:#666;">\u20B90.00</span>';
+      var amountText = totalOwes > 0 ? '<span style="color:var(--danger-600);">' + fmtMoney(totalOwes) + '</span>' :
+                        totalRecv > 0 ? '<span style="color:var(--success-600);">' + fmtMoney(totalRecv) + '</span>' :
+                        '<span style="color:var(--text-muted);">\u20B90.00</span>';
 
-      return '<div style="padding:0.75rem 0;border-bottom:1px solid rgba(0,0,0,0.08);">'
+      return '<div style="padding:0.75rem 0;border-bottom:1px solid var(--border-soft);">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;">'
         + '<span style="font-weight:600;font-size:0.88rem;">' + escHtml(m.username) + '</span>'
         + amountText
@@ -1103,21 +1103,21 @@ function sortExpenses(arr) {
 
     var html = '';
     userOwes.forEach(function(s){
-      html += '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid rgba(0,0,0,0.08);">'
+      html += '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid var(--border-soft);">'
         + '<div style="flex:1;">'
         + '<div style="font-size:0.85rem;font-weight:500;">' + escHtml(firstName) + ' \u2192 ' + escHtml(s.to_username) + '</div>'
-        + '<div style="font-size:0.72rem;color:#666;">' + escHtml(firstName) + ' (Debtor) \u2192 ' + escHtml(s.to_username) + ' (Creditor)</div>'
+        + '<div style="font-size:0.72rem;color:var(--text-muted);">' + escHtml(firstName) + ' (Debtor) \u2192 ' + escHtml(s.to_username) + ' (Creditor)</div>'
         + '</div>'
-        + '<div style="font-weight:700;color:#ef4444;font-size:0.95rem;">\u2193 ' + fmtMoney(s.amount) + '</div>'
+        + '<div style="font-weight:700;color:var(--danger-600);font-size:0.95rem;">\u2193 ' + fmtMoney(s.amount) + '</div>'
         + '</div>';
     });
     userRecv.forEach(function(s){
-      html += '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid rgba(0,0,0,0.08);">'
+      html += '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid var(--border-soft);">'
         + '<div style="flex:1;">'
         + '<div style="font-size:0.85rem;font-weight:500;">' + escHtml(s.from_username) + ' \u2192 ' + escHtml(firstName) + '</div>'
-        + '<div style="font-size:0.72rem;color:#666;">' + escHtml(s.from_username) + ' (Debtor) \u2192 ' + escHtml(firstName) + ' (Creditor)</div>'
+        + '<div style="font-size:0.72rem;color:var(--text-muted);">' + escHtml(s.from_username) + ' (Debtor) \u2192 ' + escHtml(firstName) + ' (Creditor)</div>'
         + '</div>'
-        + '<div style="font-weight:700;color:#22c55e;font-size:0.95rem;">\u2191 ' + fmtMoney(s.amount) + '</div>'
+        + '<div style="font-weight:700;color:var(--success-600);font-size:0.95rem;">\u2191 ' + fmtMoney(s.amount) + '</div>'
         + '</div>';
     });
     $userStatus.innerHTML = html;
@@ -1141,10 +1141,10 @@ function sortExpenses(arr) {
       var amountHtml = isMarker
         ? 'No balance transfer required (' + fmtMoney(s.amount) + ')'
         : 'Amount: <strong>' + fmtMoney(s.amount) + '</strong>';
-      return '<div style="padding:0.75rem 0;border-bottom:1px solid rgba(0,0,0,0.08);">'
+      return '<div style="padding:0.75rem 0;border-bottom:1px solid var(--border-soft);">'
         + '<div style="font-size:0.85rem;font-weight:500;">' + titleHtml + '</div>'
-        + '<div style="font-size:0.82rem;color:#000;margin-top:0.15rem;">' + amountHtml + '</div>'
-        + '<div style="font-size:0.72rem;color:#666;margin-top:0.1rem;">Period: ' + formatDate(s.period_start) + ' \u2013 ' + formatDate(s.period_end) + '</div>'
+        + '<div style="font-size:0.82rem;color:var(--text-primary);margin-top:0.15rem;">' + amountHtml + '</div>'
+        + '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.1rem;">Period: ' + formatDate(s.period_start) + ' \u2013 ' + formatDate(s.period_end) + '</div>'
         + '<button class="btn-outline" style="margin-top:0.5rem;padding:0.25rem 0.6rem;font-size:0.72rem;border-radius:0.4rem;" onclick="viewSettlementDetail(' + s.id + ',' + groupId + ',\'' + s.period_start + '\',\'' + s.period_end + '\')">View More Details</button>'
         + '</div>';
     }).join('');
@@ -1160,30 +1160,30 @@ function sortExpenses(arr) {
   window.viewSettlementDetail = async function(settlId, groupId, start, end) {
     $detailModal.classList.remove('hidden');
     $detailModal.style.display = 'flex';
-    $detailContent.innerHTML = '<p style="text-align:center;color:#666;padding:1rem;">Loading\u2026</p>';
+    $detailContent.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:1rem;">Loading\u2026</p>';
     $detailTotal.textContent = '';
     $downloadPdf.classList.add('hidden'); $downloadPdf.style.display = 'none';
     lastDetailData = null;
     try {
       var res = await get(API + '/settlements/details.php?group_id=' + groupId + '&start=' + start + '&end=' + end);
-      if (!res.ok) { $detailContent.innerHTML = '<p style="color:#ef4444;">Failed to load details.</p>'; return; }
-      if (!res.expenses.length) { $detailContent.innerHTML = '<p style="color:#666;text-align:center;">No expenses found for this period.</p>'; return; }
+      if (!res.ok) { $detailContent.innerHTML = '<p style="color:var(--danger-600);">Failed to load details.</p>'; return; }
+      if (!res.expenses.length) { $detailContent.innerHTML = '<p style="color:var(--text-muted);text-align:center;">No expenses found for this period.</p>'; return; }
       lastDetailData = { expenses: res.expenses, total: res.total, start: start, end: end };
-      $detailContent.innerHTML = '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:0.5rem;font-size:0.72rem;font-weight:600;color:#666;padding-bottom:0.5rem;border-bottom:1px solid #e0e0e0;text-transform:uppercase;">'
+      $detailContent.innerHTML = '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:0.5rem;font-size:0.72rem;font-weight:600;color:var(--text-muted);padding-bottom:0.5rem;border-bottom:1px solid var(--border-soft);text-transform:uppercase;">'
         + '<span>Item</span><span>Category</span><span>Date</span><span style="text-align:right;">Amount</span>'
         + '</div>'
         + res.expenses.map(function(e){
-          return '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:0.5rem;font-size:0.82rem;padding:0.5rem 0;border-bottom:1px solid rgba(0,0,0,0.06);">'
-            + '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(e.note || '\u2014') + ' <span style="font-size:0.7rem;color:#666;">paid by ' + escHtml(e.payer_username || e.added_by) + '</span></span>'
-            + '<span style="color:#666;">' + escHtml(e.category_name) + '</span>'
-            + '<span style="color:#666;">' + e.expense_date + '</span>'
+          return '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:0.5rem;font-size:0.82rem;padding:0.5rem 0;border-bottom:1px solid var(--border-soft);">'
+            + '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(e.note || '\u2014') + ' <span style="font-size:0.7rem;color:var(--text-muted);">paid by ' + escHtml(e.payer_username || e.added_by) + '</span></span>'
+            + '<span style="color:var(--text-muted);">' + escHtml(e.category_name) + '</span>'
+            + '<span style="color:var(--text-muted);">' + e.expense_date + '</span>'
             + '<span style="text-align:right;font-weight:600;">' + fmtMoney(e.amount) + '</span>'
             + '</div>';
         }).join('');
       $detailTotal.textContent = 'Total Settled Amount: ' + fmtMoney(res.total);
       $downloadPdf.classList.remove('hidden'); $downloadPdf.style.display = 'block';
     } catch(e) {
-      $detailContent.innerHTML = '<p style="color:#ef4444;">Network error.</p>';
+      $detailContent.innerHTML = '<p style="color:var(--danger-600);">Network error.</p>';
     }
   };
 
@@ -1314,11 +1314,11 @@ function sortExpenses(arr) {
 
       // Render late expenses list
       if (res.expenses.length) {
-        $psExpenseList.innerHTML = '<div style="font-size:0.78rem;font-weight:600;color:#92400e;margin-bottom:0.4rem;">Late Expenses (' + res.expenses.length + ')</div>'
+        $psExpenseList.innerHTML = '<div style="font-size:0.78rem;font-weight:600;color:var(--amber-800);margin-bottom:0.4rem;">Late Expenses (' + res.expenses.length + ')</div>'
           + res.expenses.map(function(e){
-            return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid rgba(0,0,0,0.06);font-size:0.82rem;">'
-              + '<div style="flex:1;min-width:0;"><span style="font-weight:500;">' + escHtml(e.note || '\u2014') + '</span> <span style="font-size:0.7rem;color:#666;">paid by ' + escHtml(e.payer_username || e.added_by) + '</span></div>'
-              + '<div style="font-size:0.72rem;color:#666;">' + (e.expense_date === '1970-01-01' ? 'Date unrecorded' : e.expense_date) + '</div>'
+            return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--border-soft);font-size:0.82rem;">'
+              + '<div style="flex:1;min-width:0;"><span style="font-weight:500;">' + escHtml(e.note || '\u2014') + '</span> <span style="font-size:0.7rem;color:var(--text-muted);">paid by ' + escHtml(e.payer_username || e.added_by) + '</span></div>'
+              + '<div style="font-size:0.72rem;color:var(--text-muted);">' + (e.expense_date === '1970-01-01' ? 'Date unrecorded' : e.expense_date) + '</div>'
               + '<div style="font-weight:600;white-space:nowrap;">' + fmtMoney(e.amount) + '</div>'
               + '</div>';
           }).join('');
@@ -1328,11 +1328,11 @@ function sortExpenses(arr) {
 
       // Render breakdown
       if (res.settlements.length) {
-        $psBreakdown.innerHTML = '<div style="font-size:0.78rem;font-weight:600;color:#92400e;margin-bottom:0.4rem;">Settlement Breakdown</div>'
+        $psBreakdown.innerHTML = '<div style="font-size:0.78rem;font-weight:600;color:var(--amber-800);margin-bottom:0.4rem;">Settlement Breakdown</div>'
           + res.settlements.map(function(s){
-            return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid rgba(0,0,0,0.06);font-size:0.82rem;">'
+            return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid var(--border-soft);font-size:0.82rem;">'
               + '<div style="flex:1;">' + escHtml(s.from_username) + ' \u2192 ' + escHtml(s.to_username) + '</div>'
-              + '<div style="font-weight:600;color:#ef4444;">' + fmtMoney(s.amount) + '</div>'
+              + '<div style="font-weight:600;color:var(--danger-600);">' + fmtMoney(s.amount) + '</div>'
               + '</div>';
           }).join('');
       } else {
@@ -1373,21 +1373,21 @@ function sortExpenses(arr) {
     var userRecv = data.settlements.filter(function(s){return s.to_id === currentUserId;});
 
     if (!userOwes.length && !userRecv.length) {
-      $psUserStatus.innerHTML = '<p style="text-align:center;color:#666;font-size:0.82rem;padding:0.5rem 0;">Equal contribution — no transfers needed.</p>';
+      $psUserStatus.innerHTML = '<p style="text-align:center;color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0;">Equal contribution — no transfers needed.</p>';
       return;
     }
 
     var html = '';
     userOwes.forEach(function(s){
-      html += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid rgba(0,0,0,0.06);font-size:0.82rem;">'
+      html += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid var(--border-soft);font-size:0.82rem;">'
         + '<div style="flex:1;">' + escHtml(firstName) + ' \u2192 ' + escHtml(s.to_username) + '</div>'
-        + '<div style="font-weight:700;color:#ef4444;">\u2193 ' + fmtMoney(s.amount) + '</div>'
+        + '<div style="font-weight:700;color:var(--danger-600);">\u2193 ' + fmtMoney(s.amount) + '</div>'
         + '</div>';
     });
     userRecv.forEach(function(s){
-      html += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid rgba(0,0,0,0.06);font-size:0.82rem;">'
+      html += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0;border-bottom:1px solid var(--border-soft);font-size:0.82rem;">'
         + '<div style="flex:1;">' + escHtml(s.from_username) + ' \u2192 ' + escHtml(firstName) + '</div>'
-        + '<div style="font-weight:700;color:#22c55e;">\u2191 ' + fmtMoney(s.amount) + '</div>'
+        + '<div style="font-weight:700;color:var(--success-600);">\u2191 ' + fmtMoney(s.amount) + '</div>'
         + '</div>';
     });
     $psUserStatus.innerHTML = html;
@@ -1421,44 +1421,26 @@ function sortExpenses(arr) {
 </script>
 
 <style>
-/* Tab Switcher — pill style */
-.exp-tabs-container {
-  display:flex;
-  background:#efefef;
-  border-radius:0.75rem;
-  padding:0.25rem;
-  margin-bottom:1rem;
-  gap:0.25rem;
-}
-.exp-tab {
-  flex:1; padding:0.6rem 1rem; font-size:0.9rem; font-weight:600;
-  border:none; cursor:pointer; border-radius:0.55rem;
-  transition: background 0.25s, color 0.25s, box-shadow 0.25s;
-  background:transparent; color:#888;
-}
-.exp-tab.active {
-  background:#fff; color:#000;
-  box-shadow:0 1px 4px rgba(0,0,0,0.1);
-}
-.exp-tab:not(.active):hover {
-  color:#555;
-}
+/* Tab Switcher — segmented pill style (global: .segmented-tabs /
+   .exp-tabs-container in styles.css; margin kept locally) */
+.exp-tabs-container { margin-bottom: 1rem; }
 
 /* Inline Date Filter */
 .exp-date-filter-row {
   display:flex;
   align-items:center;
   gap:0.5rem;
-  background:#efefef;
-  border-radius:0.75rem;
+  background:var(--bg-subtle);
+  border:1px solid var(--border-soft);
+  border-radius:var(--radius-md);
   padding:0.3rem 0.4rem;
   margin-bottom:1rem;
 }
 .exp-date-input-wrap {
   flex:1;
   min-width:0;
-  background:#fff;
-  border-radius:0.55rem;
+  background:var(--bg-surface);
+  border-radius:var(--radius-sm);
   overflow:hidden;
 }
 .exp-date-input {
@@ -1468,15 +1450,16 @@ function sortExpenses(arr) {
   padding:0.55rem 0.6rem;
   font-size:0.88rem;
   font-weight:600;
-  color:#333;
-  font-family:inherit;
+  font-family:var(--font-mono);
+  font-variant-numeric:tabular-nums;
+  color:var(--text-primary);
   outline:none;
   box-sizing:border-box;
 }
-.exp-date-input::-webkit-calendar-picker-indicator { opacity:0.5; cursor:pointer; }
+.exp-date-input::-webkit-calendar-picker-indicator { opacity:0.5; cursor:pointer; color:var(--text-secondary); }
 .exp-date-to {
   font-size:0.82rem;
-  color:#999;
+  color:var(--text-muted);
   font-weight:500;
   flex-shrink:0;
 }
@@ -1490,9 +1473,9 @@ function sortExpenses(arr) {
   font-size:0.85rem;
   display:flex;align-items:center;justify-content:center;
 }
-.exp-date-apply { background:var(--mint-leaf); color:#fff; }
+.exp-date-apply { background:var(--accent-primary); color:var(--text-on-accent); }
 .exp-date-apply:hover { opacity:0.85; }
-.exp-date-clear { background:#ef4444; color:#fff; }
+.exp-date-clear { background:var(--danger-600); color:#fff; }
 .exp-date-clear:hover { opacity:0.85; }
 
 /* Settlement status card animation */
@@ -1541,10 +1524,10 @@ function sortExpenses(arr) {
   align-items: center;
 }
 .exp-sort-select {
-  background: #f5f5f5;
-  color: #000;
-  border: 1px solid #ccc;
-  border-radius: 0.4rem;
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
   font-family: inherit;
@@ -1552,9 +1535,9 @@ function sortExpenses(arr) {
   outline: none;
   transition: border-color 0.2s;
 }
-.exp-sort-select:focus { border-color: var(--mint-leaf); }
+.exp-sort-select:focus { border-color: var(--accent-primary); }
 
-/* Two-Column Expense Layout */
+/* Two-Column Expense Layout (subcards) */
 .exp-two-col {
   display: flex;
   gap: 0.75rem;
@@ -1562,9 +1545,9 @@ function sortExpenses(arr) {
 .exp-col {
   flex: 1;
   min-width: 0;
-  background: #fafafa;
-  border-radius: 0.6rem;
-  border: 1px solid rgba(0,0,0,0.06);
+  background: var(--bg-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
   display: flex;
   flex-direction: column;
 }
@@ -1572,11 +1555,11 @@ function sortExpenses(arr) {
   font-size: 0.78rem;
   font-weight: 600;
   padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid var(--border-soft);
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  color: #333;
+  color: var(--text-secondary);
 }
 /* .exp-pdf-btn (and :hover) moved to public/assets/css/styles.css (shared components) */
 .exp-col-dot {
@@ -1585,8 +1568,8 @@ function sortExpenses(arr) {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.exp-col-dot--personal { background: #3b82f6; }
-.exp-col-dot--group    { background: var(--mint-leaf); }
+.exp-col-dot--personal { background: var(--accent-primary); }
+.exp-col-dot--group    { background: var(--accent-secondary); }
 .exp-col-body {
   max-height: 360px;
   overflow-y: auto;
@@ -1594,7 +1577,7 @@ function sortExpenses(arr) {
 }
 .exp-col-empty {
   text-align: center;
-  color: #888;
+  color: var(--text-muted);
   font-size: 0.8rem;
   padding: 1.5rem 0.5rem;
   margin: 0;
@@ -1606,21 +1589,21 @@ function sortExpenses(arr) {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.25rem;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  border-bottom: 1px solid var(--border-soft);
   border-radius: 0.3rem;
   transition: background 0.15s;
 }
 .exp-row:last-child { border-bottom: none; }
-.exp-row:hover { background: rgba(82,183,136,0.06); }
+.exp-row:hover { background: var(--accent-soft); }
 .exp-row-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
-.exp-row-dot--personal  { background: #3b82f6; }
-.exp-row-dot--unsettled { background: #22c55e; }
-.exp-row-dot--settled   { background: #9ca3af; }
+.exp-row-dot--personal  { background: var(--accent-primary); }
+.exp-row-dot--unsettled { background: var(--accent-secondary); }
+.exp-row-dot--settled   { background: #94a3b8; }
 .exp-row-info {
   flex: 1;
   min-width: 0;
@@ -1628,44 +1611,46 @@ function sortExpenses(arr) {
 .exp-row-name {
   font-size: 0.8rem;
   font-weight: 500;
-  color: #000;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .exp-row-grouptag {
   font-size: 0.62rem;
-  background: rgba(82,183,136,0.15);
-  color: var(--mint-leaf);
+  background: var(--accent-soft);
+  color: var(--accent-primary);
   padding: 0.05rem 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   vertical-align: middle;
 }
 .exp-row-meta {
   font-size: 0.68rem;
-  color: #666;
+  color: var(--text-muted);
   margin-top: 0.1rem;
 }
 .exp-row-amt {
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
   font-size: 0.82rem;
-  color: #000;
+  color: var(--text-primary);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-/* Unpriced Items Section */
+/* Unpriced Items Section — amber warning callout */
 .unpriced-card {
-  border: 1px dashed #d4a843;
-  background: #fffdf5;
+  border: 1.5px dashed var(--amber-500);
+  background: var(--amber-50);
 }
 .unpriced-badge {
   font-size: 0.7rem;
   font-weight: 700;
-  background: #f59e0b;
-  color: #fff;
+  background: var(--amber-500);
+  color: #ffffff;
   padding: 0.1rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   min-width: 20px;
   text-align: center;
 }
@@ -1674,25 +1659,25 @@ function sortExpenses(arr) {
   align-items: center;
   gap: 0.75rem;
   padding: 0.65rem 0;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  border-bottom: 1px solid var(--border-soft);
 }
 .unpriced-row:last-child { border-bottom: none; }
 .unpriced-info { flex: 1; min-width: 0; }
 .unpriced-name {
   font-size: 0.85rem;
   font-weight: 500;
-  color: #000;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.unpriced-meta { font-size: 0.72rem; color: #666; margin-top: 0.15rem; }
+.unpriced-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; }
 .unpriced-src {
   font-size: 0.65rem;
-  background: rgba(82,183,136,0.12);
-  color: var(--sea-green);
+  background: var(--accent-soft);
+  color: var(--accent-primary);
   padding: 0.05rem 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 .unpriced-action {
   display: flex;
@@ -1703,23 +1688,24 @@ function sortExpenses(arr) {
 .unpriced-price-input {
   width: 90px;
   padding: 0.35rem 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 0.4rem;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
   font-size: 0.82rem;
-  font-family: inherit;
-  background: #fff;
-  color: #000;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-surface);
+  color: var(--text-primary);
   outline: none;
   transition: border-color 0.2s;
 }
-.unpriced-price-input:focus { border-color: var(--mint-leaf); }
+.unpriced-price-input:focus { border-color: var(--accent-primary); }
 .unpriced-add-btn {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   border: none;
-  background: var(--mint-leaf);
-  color: #fff;
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
   font-size: 0.9rem;
   cursor: pointer;
   display: flex;
@@ -1731,36 +1717,35 @@ function sortExpenses(arr) {
 .unpriced-add-btn:hover { opacity: 0.85; }
 .unpriced-add-btn:disabled { opacity: 0.5; cursor: default; }
 
-/* Post-Settlement (Late Expenses) Section */
+/* Post-Settlement (Late Expenses) Section — amber warning callout */
 .post-settl-card {
-  border: 1px dashed #f59e0b;
-  background: #fffdf5;
-}
-.post-settl-card .card-header {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border: 1.5px dashed var(--amber-500);
+  background: var(--amber-50);
 }
 .ps-expense-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.55rem 0;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  border-bottom: 1px solid var(--border-soft);
 }
 .ps-expense-row:last-child { border-bottom: none; }
 .ps-exp-info { flex: 1; min-width: 0; }
 .ps-exp-desc {
   font-size: 0.85rem;
   font-weight: 500;
-  color: #000;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ps-exp-meta { font-size: 0.72rem; color: #666; margin-top: 0.15rem; }
+.ps-exp-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; }
 .ps-exp-amt {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #d97706;
+  color: var(--amber-800);
   flex-shrink: 0;
 }
 </style>

@@ -42,7 +42,7 @@
 <div id="dayPanel" class="hidden">
   <div class="card" style="padding:1.25rem;">
   <div class="flex justify-between items-center mb-1">
-    <h3 id="dayPanelDate" style="font-size:1.05rem; font-weight:600; color:#000;"></h3>
+    <h3 id="dayPanelDate" style="font-size:1.05rem; font-weight:600; color:var(--text-primary);"></h3>
     <button class="btn" id="btnAddExpense" style="padding:0.45rem 1rem; font-size:0.85rem;">+ Add Expense</button>
   </div>
 
@@ -63,7 +63,7 @@
 
   <!-- Daily expense list -->
   <div id="dayExpenseList" style="display:flex; flex-direction:column; gap:0.65rem;"></div>
-  <p id="dayEmpty" class="hidden" style="text-align:center; color:#666; font-size:0.9rem; padding:1.5rem 0;">
+  <p id="dayEmpty" class="hidden" style="text-align:center; color:var(--text-muted); font-size:0.9rem; padding:1.5rem 0;">
     No expenses for this date.
   </p>
   </div>
@@ -139,19 +139,21 @@
   .cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 6px;
+    gap: 5px;
     text-align: center;
   }
   .cal-header span {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 600;
-    color: #000;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
     padding: 0.3rem 0;
   }
   .cal-legend-wrap {
     margin-top: 0.85rem;
     padding-top: 0.75rem;
-    border-top: 1px solid rgba(0,0,0,0.08);
+    border-top: 1px solid var(--border-soft);
   }
   .cal-legend {
     display: flex;
@@ -159,8 +161,8 @@
     gap: 0.75rem 1rem;
     align-items: center;
     justify-content: center;
-    font-size: 0.8rem;
-    color: #444;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
   }
   .cal-legend-item {
     display: inline-flex;
@@ -169,18 +171,18 @@
     white-space: nowrap;
   }
   .cal-legend-sep {
-    color: rgba(0,0,0,0.35);
+    color: var(--border-medium);
     font-weight: 600;
   }
   .cal-legend .dot {
-    width: 8px;
-    height: 8px;
+    width: 4.5px;
+    height: 4.5px;
     border-radius: 50%;
     display: inline-block;
   }
-  .cal-legend .dot-personal { background: #3b82f6; }
-  .cal-legend .dot-group { background: #52b788; }
-  .cal-legend .dot-settled { background: #aaa; }
+  .cal-legend .dot-personal { background: var(--accent-primary); }
+  .cal-legend .dot-group { background: var(--accent-secondary); }
+  .cal-legend .dot-settled { background: #94a3b8; }
 
   .day-summary-row {
     display: grid;
@@ -193,18 +195,20 @@
     flex-direction: column;
     gap: 0.15rem;
     padding: 0.75rem 0.85rem;
-    border-radius: 0.75rem;
-    background: rgba(0,0,0,0.03);
+    border-radius: var(--radius-md);
+    background: var(--bg-subtle);
   }
   .day-summary-label {
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #666;
+    color: var(--text-muted);
   }
   .day-summary-stat strong {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
     font-size: 0.95rem;
-    color: #000;
+    color: var(--text-primary);
     line-height: 1.2;
   }
   #daySummaryShareWrap.hidden { display: none !important; }
@@ -214,25 +218,33 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    border-radius: 0.6rem;
-    font-size: 0.85rem;
+    border-radius: 9px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
     font-weight: 600;
-    color: #333;
+    color: var(--text-primary);
     cursor: pointer;
-    transition: background var(--t-fast), transform var(--t-fast);
+    transition: background var(--t-fast), border-color var(--t-fast);
     position: relative;
-    background: #f0f0f0;
+    background: var(--bg-subtle);
     overflow: visible;
-    --cal-day-text: #333;
-    --cal-day-subtext: #5a5a5a;
+    --cal-day-text: var(--text-primary);
+    --cal-day-subtext: var(--text-secondary);
   }
-  .cal-day:hover { background: #e4e4e4; }
-  .cal-day.today { background: rgba(82,183,136,0.45); color: #fff; }
-  .cal-day.selected { background: var(--mint-leaf); color: #fff; font-weight: 700; }
-  .cal-day.today,
+  .cal-day:hover { background: var(--accent-soft); }
+  .cal-day.today {
+    background: var(--accent-soft);
+    color: var(--accent-primary);
+    --cal-day-text: var(--accent-primary);
+    --cal-day-subtext: var(--accent-primary);
+  }
   .cal-day.selected {
-    --cal-day-text: #fff;
-    --cal-day-subtext: rgba(255,255,255,0.92);
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+    font-weight: 700;
+    --cal-day-text: var(--text-on-accent);
+    --cal-day-subtext: var(--text-on-accent);
   }
   .cal-day.empty { background: transparent; cursor: default; }
   .cal-day.empty:hover { background: transparent; }
@@ -280,23 +292,21 @@
     transform: translateX(-50%);
   }
   .cal-day .dot {
-    width: 6px; height: 6px; border-radius: 50%;
+    width: 4.5px; height: 4.5px; border-radius: 50%;
   }
-  .cal-day .dot-personal { background: #3b82f6; }
-  .cal-day .dot-group    { background: #52b788; }
-  .cal-day .dot-settled  { background: #aaa; }
-  .cal-day.today .dot-personal,
-  .cal-day.selected .dot-personal { background: #93bbfd; }
-  .cal-day.today .dot-group,
-  .cal-day.selected .dot-group    { background: #a8dfc4; }
-  .cal-day.today .dot-settled,
-  .cal-day.selected .dot-settled  { background: #ddd; }
+  .cal-day .dot-personal { background: var(--accent-primary); }
+  .cal-day .dot-group    { background: var(--accent-secondary); }
+  .cal-day .dot-settled  { background: #94a3b8; }
+  .cal-day.selected .dot-personal,
+  .cal-day.selected .dot-group,
+  .cal-day.selected .dot-settled { background: var(--text-on-accent); opacity: 0.9; }
 
   /* Modal expense type tab switcher (pill style) */
   .modal-type-tabs {
     display: flex;
-    background: #efefef;
-    border-radius: 0.75rem;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
     padding: 0.25rem;
     margin-bottom: 1rem;
     gap: 0.25rem;
@@ -308,19 +318,19 @@
     font-weight: 600;
     border: none;
     cursor: pointer;
-    border-radius: 0.55rem;
+    border-radius: var(--radius-sm);
     transition: background 0.25s, color 0.25s, box-shadow 0.25s;
     background: transparent;
-    color: #888;
+    color: var(--text-muted);
     font-family: inherit;
   }
   .modal-type-tab.active {
-    background: #fff;
-    color: #000;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-card);
   }
   .modal-type-tab:not(.active):hover {
-    color: #555;
+    color: var(--text-secondary);
   }
 
   /* .modal-overlay, .expense-item rows, .exp-badge, .badge-personal/.badge-group
@@ -334,7 +344,7 @@
     border-radius: 50%;
     margin-top: 0.45rem;
   }
-  .exp-dot-personal { background: #3b82f6; box-shadow: 0 0 4px rgba(59,130,246,0.4); }
-  .exp-dot-group    { background: #52b788; box-shadow: 0 0 4px rgba(82,183,136,0.4); }
-  .exp-dot-settled  { background: #aaa;    box-shadow: 0 0 4px rgba(170,170,170,0.3); }
+  .exp-dot-personal { background: var(--accent-primary); }
+  .exp-dot-group    { background: var(--accent-secondary); }
+  .exp-dot-settled  { background: #94a3b8; }
 </style>

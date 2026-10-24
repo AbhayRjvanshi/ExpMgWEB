@@ -38,7 +38,7 @@
     if (listsCache.length > 0) {
       renderListCards(container, listsCache);
     } else {
-      container.innerHTML = `<p style="text-align:center;color:#b45309;padding:1.5rem 0;">Too many requests. Please wait ${remaining}s.</p>`;
+      container.innerHTML = `<p style="text-align:center;color:var(--amber-800);padding:1.5rem 0;">Too many requests. Please wait ${remaining}s.</p>`;
       hide(empty);
     }
   }
@@ -169,7 +169,7 @@
       if (listsCache.length > 0) {
         renderListCards(container, listsCache);
       } else {
-        container.innerHTML = `<p style="text-align:center;color:#b45309;padding:1.5rem 0;">Too many requests. Please wait ${cooldownRemaining}s.</p>`;
+        container.innerHTML = `<p style="text-align:center;color:var(--amber-800);padding:1.5rem 0;">Too many requests. Please wait ${cooldownRemaining}s.</p>`;
         hide(empty);
       }
       reportIssue({ _status: 429, _retry_after: cooldownRemaining, error: 'Too many requests. Please wait before retrying.' }, 'lists-overview', () => loadLists());
@@ -178,7 +178,7 @@
 
     hide(empty);
     listsLoading = true;
-    container.innerHTML = '<p style="text-align:center;color:var(--celadon);padding:1.5rem 0;">Loading…</p>';
+    container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:1.5rem 0;">Loading…</p>';
 
     try {
       const res = await get(`${API}/lists/user_lists.php`);
@@ -186,7 +186,7 @@
         if (listsCache.length > 0) {
           renderListCards(container, listsCache);
         } else {
-          container.innerHTML = '<p style="text-align:center;color:#b45309;padding:1.5rem 0;">Unable to load lists right now.</p>';
+          container.innerHTML = '<p style="text-align:center;color:var(--amber-800);padding:1.5rem 0;">Unable to load lists right now.</p>';
           hide(empty);
         }
         reportIssue(res, 'lists-overview', () => loadLists());
@@ -207,7 +207,7 @@
       if (listsCache.length > 0) {
         renderListCards(container, listsCache);
       } else {
-        container.innerHTML = '<p style="text-align:center;color:#b45309;padding:1.5rem 0;">Connection issue. Retry.</p>';
+        container.innerHTML = '<p style="text-align:center;color:var(--amber-800);padding:1.5rem 0;">Connection issue. Retry.</p>';
         hide(empty);
       }
       reportIssue({ _status: 0, error: 'Connection issue. Retry.' }, 'lists-overview', () => loadLists());
@@ -257,7 +257,7 @@
 
     setDetailView(true, opts);
     listDetailLoading = true;
-    $('#ldItems').innerHTML = '<p style="text-align:center;color:var(--celadon);padding:1rem;">Loading…</p>';
+    $('#ldItems').innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:1rem;">Loading…</p>';
     hide($('#ldItemsEmpty'));
 
     try {
@@ -418,7 +418,7 @@
     $('#ccItemName').value = item.description;
     $('#ccAmount').value = item.price ? Number(item.price) : '';
     $('#ccAmount').readOnly = !!item.price;
-    $('#ccAmount').style.background = item.price ? '#f5f5f5' : '';
+    $('#ccAmount').style.background = item.price ? 'var(--bg-subtle)' : '';
     $('#ccDate').value = item.date;
     hide($('#ccError'));
 
