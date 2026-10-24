@@ -22,11 +22,24 @@ if (isset($_SESSION['user_id'])) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sign In — Expense Manager</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../public/assets/css/styles.css" />
   <script src="../public/assets/js/helpers.js?v=<?= time() ?>"></script>
 </head>
 <body>
+<script>
+  (function () {
+    try {
+      var p = localStorage.getItem('expmg_palette');
+      if (p === 'indigo' || p === 'sand' || p === 'cobalt') {
+        document.body.setAttribute('data-palette', p);
+      }
+      if (localStorage.getItem('expmg_theme_mode') === 'dark') {
+        document.body.classList.add('theme-dark');
+      }
+    } catch (_) { /* localStorage unavailable */ }
+  })();
+</script>
   <div class="auth-wrapper">
     <div class="auth-card">
       <h1>Welcome Back</h1>

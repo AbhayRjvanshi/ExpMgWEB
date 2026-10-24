@@ -450,3 +450,51 @@ function showConfirmModal(opts) {
     if (confirmBtn) confirmBtn.focus();
   });
 }
+
+// ============================================================
+// ExpMgTheme — palette & light/dark mode engine.
+// An inline bootstrap script at the top of <body> (index, login,
+// signup, splash) applies persisted preferences before first paint;
+// these helpers mutate and persist them at runtime.
+// localStorage keys: expmg_palette (default 'green'),
+// expmg_theme_mode ('light' | 'dark', default 'light').
+// Dispatches 'expmg:theme-change' on document so charts and other
+// theme-aware components can re-render immediately.
+// ============================================================
+const ExpMgTheme = {
+  PALETTES: ['green', 'indigo', 'sand', 'cobalt'],
+  getPalette() {
+    const p = document.body.getAttribute('data-palette');
+    return this.PALETTES.indexOf(p) !== -1 ? p : 'green';
+  },
+  isDark() {
+    return document.body.classList.contains('theme-dark');
+  },
+  setPalette(key, persist) {
+    if (this.PALETTES.indexOf(key) === -1) return;
+    if (key === 'green') document.body.removeAttribute('data-palette');
+    else document.body.setAttribute('data-palette', key);
+    try { if (persist !== false) localStorage.setItem('expmg_palette', key); } catch (_) {}
+    this._emit();
+  },
+  setMode(mode, persist) {
+    const dark = mode === 'dark';
+    document.body.classList.toggle('theme-dark', dark);
+    try { if (persist !== false) localStorage.setItem('expmg_theme_mode', dark ? 'dark' : 'light'); } catch (_) {}
+    this._emit();
+  },
+  toggleMode() {
+    this.setMode(this.isDark() ? 'light' : 'dark');
+  },
+  cssVar(name) {
+    return getComputedStyle(document.body).getPropertyValue(name).trim();
+  },
+  _emit() {
+    try {
+      document.dispatchEvent(new CustomEvent('expmg:theme-change', {
+        detail: { palette: this.getPalette(), mode: this.isDark() ? 'dark' : 'light' }
+      }));
+    } catch (_) {}
+  }
+};
+window.ExpMgTheme = ExpMgTheme;

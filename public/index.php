@@ -26,9 +26,9 @@ $page     = $_GET['page'] ?? 'home';
   <title>Expense Manager</title>
   <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <!-- Chart.js (loaded early; used on expenses page) -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Chart.js (loaded early; used on expenses page; pinned to v4) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
   <!-- jsPDF + autoTable (for settlement PDF export) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -36,6 +36,22 @@ $page     = $_GET['page'] ?? 'home';
   <script src="assets/js/helpers.js?v=<?= time() ?>"></script>
 </head>
 <body>
+<script>
+  /* Theme bootstrap — runs before paint (body exists here) so palette and
+     dark/light mode never flash. localStorage keys: expmg_palette,
+     expmg_theme_mode. Default palette is Botanical Emerald (green). */
+  (function () {
+    try {
+      var p = localStorage.getItem('expmg_palette');
+      if (p === 'indigo' || p === 'sand' || p === 'cobalt') {
+        document.body.setAttribute('data-palette', p);
+      }
+      if (localStorage.getItem('expmg_theme_mode') === 'dark') {
+        document.body.classList.add('theme-dark');
+      }
+    } catch (_) { /* localStorage unavailable */ }
+  })();
+</script>
   <div class="page-shell">
 
     <!-- Top header -->
