@@ -17,14 +17,17 @@ $redirect = $loggedIn ? 'index.php' : '../pages/login.php';
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: linear-gradient(135deg, #081c15, #1b4332, #2d6a4f);
-      color: #f0fdf4;
+      font-family: var(--font-sans);
+      background: var(--bg-canvas);
+      color: var(--text-primary);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      /* Architectural dot-matrix pattern over the canvas */
+      background-image: radial-gradient(var(--border-medium) 1px, transparent 1px);
+      background-size: 20px 20px;
     }
 
     /* ---------- Splash Container ---------- */
@@ -38,31 +41,33 @@ $redirect = $loggedIn ? 'index.php' : '../pages/login.php';
       animation: fadeInUp 0.8s ease forwards;
     }
 
-    /* ---------- Logo ---------- */
+    /* ---------- Center Emblem ---------- */
     .splash-logo {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #2d6a4f, #40916c);
+      width: 82px;
+      height: 82px;
+      border-radius: 22px;
+      background: var(--accent-soft);
+      border: 1.5px solid var(--accent-border);
+      color: var(--accent-primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.30),
-                  0 0 60px rgba(82, 183, 136, 0.15);
+      box-shadow: var(--shadow-card);
     }
-    .splash-logo svg { width: 64px; height: 64px; }
+    .splash-logo svg { width: 44px; height: 44px; }
 
     /* ---------- Typography ---------- */
     .splash-title {
-      font-size: 1.75rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: #f0fdf4;
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
     }
     .splash-tagline {
-      font-size: 0.95rem;
+      font-size: 14px;
       font-weight: 400;
-      color: #95d5b2;
+      color: var(--text-secondary);
       margin-top: -0.5rem;
     }
 
@@ -101,14 +106,14 @@ $redirect = $loggedIn ? 'index.php' : '../pages/login.php';
     <div class="splash-logo">
       <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
         <!-- Chart bars -->
-        <rect x="8"  y="36" width="8" height="20" rx="2" fill="#b7e4c7"/>
-        <rect x="20" y="26" width="8" height="30" rx="2" fill="#d8f3dc"/>
-        <rect x="32" y="18" width="8" height="38" rx="2" fill="#b7e4c7"/>
-        <rect x="44" y="28" width="8" height="28" rx="2" fill="#d8f3dc"/>
+        <rect x="8"  y="36" width="8" height="20" rx="2" fill="currentColor" opacity="0.45"/>
+        <rect x="20" y="26" width="8" height="30" rx="2" fill="currentColor" opacity="0.7"/>
+        <rect x="32" y="18" width="8" height="38" rx="2" fill="currentColor"/>
+        <rect x="44" y="28" width="8" height="28" rx="2" fill="currentColor" opacity="0.7"/>
         <!-- Dollar coin -->
-        <circle cx="48" cy="16" r="11" fill="#d8f3dc" stroke="#081c15" stroke-width="2"/>
+        <circle cx="48" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="2"/>
         <text x="48" y="21" text-anchor="middle" font-size="14" font-weight="700"
-              font-family="Inter, sans-serif" fill="#081c15">$</text>
+              font-family="Inter, sans-serif" fill="currentColor">$</text>
       </svg>
     </div>
 
