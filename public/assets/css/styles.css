@@ -1148,17 +1148,17 @@ input[type="checkbox"] {
 
 /* ---------- Tablet & Desktop (>=768px) ---------- */
 @media (min-width: 768px) {
-  .exp-summary-grid { gap: 1.25rem; }
-  .exp-charts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+  .exp-summary-grid { gap: 16px; }
+  .exp-charts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 
   /* Home: calendar left, selected-day panel right (single column until a
      day is selected — :has() falls back to one column if unsupported). */
-  .home-two-col { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; }
+  .home-two-col { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
   .home-two-col:has(#dayPanel:not(.hidden)) { grid-template-columns: 1.08fr 0.92fr; }
   .home-two-col > * { min-width: 0; }
 
   /* Lists & Groups: master-detail split view when a detail panel is open. */
-  .master-detail-grid { display: grid; grid-template-columns: 320px 1fr; gap: 1.25rem; align-items: start; }
+  .master-detail-grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
   .master-detail-grid > * { min-width: 0; }
   .master-detail-grid #listDetail,
   .master-detail-grid #groupDetail { position: sticky; top: 4.5rem; }

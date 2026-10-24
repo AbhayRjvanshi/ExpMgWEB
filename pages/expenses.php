@@ -349,6 +349,15 @@ function parseSafeDate(d) {
 var ICON_LOCK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 var ICON_GROUP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>';
 
+/* Read a live CSS custom property (theme-aware) for Chart.js, which needs
+   resolved color values — CSS var() strings do not work on canvas. */
+function expmgCssVar(name) {
+  if (window.ExpMgTheme && typeof ExpMgTheme.cssVar === 'function') {
+    return ExpMgTheme.cssVar(name);
+  }
+  return getComputedStyle(document.body).getPropertyValue(name).trim();
+}
+
 /* ========== MY EXPENSES MODULE ========== */
 (function(){
   var now = new Date();
@@ -404,24 +413,24 @@ var ICON_GROUP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height=
   function updateLabel(){ $label.textContent = monthNames[curMonth] + ' ' + curYear; }
 
   var chartColorMap = {
-    'Food/Groceries': '#2d6a4f',
-    'Food': '#2d6a4f',
-    'Groceries': '#2d6a4f',
-    'Shopping': '#3b82f6',
+    'Food/Groceries': '#1f6f4c',
+    'Food': '#1f6f4c',
+    'Groceries': '#1f6f4c',
+    'Shopping': '#4f46e5',
     'Bills': '#f59e0b',
     'Utilities': '#8b5cf6',
-    'Transport': '#06b6d4',
+    'Transport': '#0ea5e9',
     'Health': '#ec4899',
     'Education': '#6366f1',
-    'General': '#10b981',
-    'Others': '#64748b'
+    'General': '#64748b',
+    'Others': '#eab308'
   };
 
   function categoryColor(name, index) {
     var key = (name || '').trim();
     if (chartColorMap[key]) return chartColorMap[key];
 
-    var fallbackPalette = ['#2d6a4f', '#3b82f6', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#6366f1', '#10b981', '#64748b'];
+    var fallbackPalette = ['#1f6f4c', '#4f46e5', '#f59e0b', '#8b5cf6', '#0ea5e9', '#ec4899', '#6366f1', '#64748b', '#eab308', '#14b8a6'];
     return fallbackPalette[index % fallbackPalette.length];
   }
 
@@ -503,8 +512,8 @@ var ICON_GROUP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height=
       var catTotal = values.reduce(function(a, v){ return a + (Math.abs(Number(v)) || 0); }, 0);
       catChart = new Chart($catCanvas, {
         type: 'doughnut',
-        data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
-        options: { cutout:'60%', plugins:{ legend:{ display:true, position:'bottom', labels:{ color:'#000', font:{size:11}, padding:10, generateLabels: function(chart){
+        data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderColor: expmgCssVar('--bg-surface'), borderWidth: 2 }] },
+        options: { cutout:'58%', plugins:{ legend:{ display:true, position:'bottom', labels:{ color:expmgCssVar('--text-secondary'), font:{size:11}, padding:10, generateLabels: function(chart){
           var ds = chart.data.datasets[0] || {};
           var data = ds.data || [];
           return chart.data.labels.map(function(label, i){
@@ -512,9 +521,9 @@ var ICON_GROUP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height=
             var pct = catTotal > 0 ? ' (' + Math.round((val / catTotal) * 100) + '%)' : ' (0%)';
             return {
               text: label + ' \u2014 ' + fmtMoney(val) + pct,
-              fillStyle: (ds.backgroundColor && ds.backgroundColor[i]) ? ds.backgroundColor[i] : '#ccc',
-              strokeStyle: '#fff',
-              lineWidth: 0,
+              fillStyle: (ds.backgroundColor && ds.backgroundColor[i]) ? ds.backgroundColor[i] : expmgCssVar('--border-medium'),
+              strokeStyle: expmgCssVar('--bg-surface'),
+              lineWidth: 2,
               hidden: !chart.getDataVisibility(i),
               index: i,
               datasetIndex: 0
@@ -548,11 +557,11 @@ var ICON_GROUP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height=
         data: {
           labels: dayLabels,
           datasets: [
-            { label:'Personal', data: personalValues, borderColor:'#3b82f6', backgroundColor:'#3b82f6', pointRadius:0, pointHoverRadius:0, pointHitRadius:6, cubicInterpolationMode:'monotone', borderWidth:2, fill:false },
-            { label:'Group', data: groupValues, borderColor:'#52b788', backgroundColor:'#52b788', pointRadius:0, pointHoverRadius:0, pointHitRadius:6, cubicInterpolationMode:'monotone', borderWidth:2, fill:false }
+            { label:'Personal', data: personalValues, borderColor:expmgCssVar('--accent-primary'), backgroundColor:expmgCssVar('--accent-primary'), pointRadius:0, pointHoverRadius:0, pointHitRadius:6, cubicInterpolationMode:'monotone', borderWidth:2, fill:false },
+            { label:'Group', data: groupValues, borderColor:expmgCssVar('--accent-secondary'), backgroundColor:expmgCssVar('--accent-secondary'), pointRadius:0, pointHoverRadius:0, pointHitRadius:6, cubicInterpolationMode:'monotone', borderWidth:2, fill:false }
           ]
         },
-        options: { responsive:true, scales:{ x:{ ticks:{ color:'#000', font:{size:10} }, grid:{ display:false } }, y:{ ticks:{ color:'#000', font:{size:10}, callback: function(v){return '\u20B9'+v;} }, grid:{ color:'rgba(0,0,0,0.08)' }, beginAtZero:true } }, plugins:{ legend:{ display:true, position:'bottom', labels:{ color:'#000', font:{size:11}, usePointStyle:true, pointStyle:'circle' } }, tooltip:{ callbacks:{ label: function(ctx){ return ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y); } } } } }
+        options: { responsive:true, scales:{ x:{ ticks:{ color:expmgCssVar('--chart-tick'), font:{size:10} }, grid:{ display:false } }, y:{ ticks:{ color:expmgCssVar('--chart-tick'), font:{size:10}, callback: function(v){return '\u20B9'+v;} }, grid:{ color:expmgCssVar('--chart-grid') }, beginAtZero:true } }, plugins:{ legend:{ display:true, position:'bottom', labels:{ color:expmgCssVar('--text-secondary'), font:{size:11}, usePointStyle:true, pointStyle:'circle' } }, tooltip:{ callbacks:{ label: function(ctx){ return ctx.dataset.label + ': ' + fmtMoney(ctx.parsed.y); } } } } }
       });
     } else {
       $dayEmpty.classList.remove('hidden'); $dayCanvas.style.display = 'none';
@@ -693,6 +702,28 @@ function sortExpenses(arr) {
   $dateFilterBtn.onclick = function(){ applyDateFilter(); };
   $dateClearBtn.onclick  = function(){ clearDateFilter(); loadMonth(); };
   document.getElementById('expCustomRangeReset').onclick = function(){ clearDateFilter(); loadMonth(); };
+
+  /* ---- Live chart re-theming: palette / dark-mode switches dispatch
+     'expmg:theme-change' (helpers.js ExpMgTheme); re-read tokens and
+     update the visible Chart.js instances immediately. ---- */
+  document.addEventListener('expmg:theme-change', function() {
+    if (catChart) {
+      catChart.data.datasets[0].borderColor = expmgCssVar('--bg-surface');
+      catChart.options.plugins.legend.labels.color = expmgCssVar('--text-secondary');
+      catChart.update();
+    }
+    if (dayChart) {
+      dayChart.data.datasets[0].borderColor = expmgCssVar('--accent-primary');
+      dayChart.data.datasets[0].backgroundColor = expmgCssVar('--accent-primary');
+      dayChart.data.datasets[1].borderColor = expmgCssVar('--accent-secondary');
+      dayChart.data.datasets[1].backgroundColor = expmgCssVar('--accent-secondary');
+      dayChart.options.scales.x.ticks.color = expmgCssVar('--chart-tick');
+      dayChart.options.scales.y.ticks.color = expmgCssVar('--chart-tick');
+      dayChart.options.scales.y.grid.color = expmgCssVar('--chart-grid');
+      dayChart.options.plugins.legend.labels.color = expmgCssVar('--text-secondary');
+      dayChart.update();
+    }
+  });
 
   async function applyDateFilter(){
     var s = $startDate.value, e = $endDate.value;
