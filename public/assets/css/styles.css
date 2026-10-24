@@ -808,6 +808,14 @@ input[type="checkbox"] {
   text-align: left;
 }
 .theme-row:hover { background: var(--bg-subtle); }
+.theme-row .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-soft);
+  background: var(--accent-primary);
+  flex-shrink: 0;
+}
 .theme-row .chev { margin-left: auto; transition: transform var(--t-fast); }
 .theme-row.open .chev { transform: rotate(180deg); }
 

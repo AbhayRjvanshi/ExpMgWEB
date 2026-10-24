@@ -54,67 +54,76 @@ $page     = $_GET['page'] ?? 'home';
 </script>
   <div class="page-shell">
 
-    <!-- Top header -->
-    <header class="page-header">
-      <!-- Logo icon -->
-      <div class="header-logo">
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/><path d="M16 14h2"/>
-        </svg>
-        <span style="font-size:1.1rem;font-weight:700;color:#fff;margin-left:0.4rem;">ExpMg</span>
+    <!-- Top header (sticky, frosted) -->
+    <header class="app-header">
+      <!-- Brand cluster -->
+      <div class="brand-wrap">
+        <span class="brand-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/><path d="M16 14h2"/>
+          </svg>
+        </span>
+        <span class="brand-name">ExpMg</span>
       </div>
 
       <div class="header-actions">
-        <!-- Notification bell + dropdown -->
+        <!-- Dark / Light mode toggle (placed before the notifications bell) -->
+        <button id="btnThemeModeToggle" title="Switch to dark mode" class="header-icon-btn" aria-label="Toggle dark / light mode">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun hidden" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        </button>
+        <!-- Notification bell + popover -->
         <div id="notifWrapper" style="position:relative;">
-          <button id="notifBell" title="Notifications" class="header-icon-btn">
+          <button id="btnNotifToggle" title="Notifications" class="header-icon-btn">
             <!-- Lined bell (default) -->
-            <svg class="bell-lined" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <svg class="bell-lined" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             <!-- Solid bell (active) -->
-            <svg class="bell-solid hidden" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="#ffffff" stroke="#ffffff" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0" fill="none" stroke="#ffffff" stroke-width="2"/></svg>
-            <span id="notifBadge" class="hidden" style="position:absolute;top:0;right:0;min-width:16px;height:16px;border-radius:999px;background:#ef4444;color:#fff;font-size:0.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;"></span>
+            <svg class="bell-solid hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            <span id="notifBadge" class="hidden"></span>
           </button>
 
-          <!-- Dropdown panel -->
-          <div id="notifPanel" class="hidden" style="
-            position:absolute; right:0; top:calc(100% + 8px); width:340px; max-height:420px;
-            background:#ffffff; color:#000; border-radius:0.75rem;
-            box-shadow:0 15px 35px rgba(0,0,0,0.2); overflow:hidden; z-index:3000;
-          ">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 1rem;border-bottom:1px solid #e0e0e0;">
-              <span style="font-weight:600;font-size:0.95rem;color:#000;">Notifications</span>
-              <button id="notifMarkAll" style="background:none;border:none;color:var(--mint-leaf);font-size:0.78rem;cursor:pointer;font-weight:500;">Mark all read</button>
+          <!-- Notifications popover -->
+          <div id="notifPanel" class="notif-popover hidden">
+            <div class="popover-head">
+              <span class="popover-title">Notifications</span>
+              <button id="notifMarkAll" class="popover-link">Mark all read</button>
             </div>
-            <div id="notifList" style="overflow-y:auto;max-height:310px;"></div>
-            <p id="notifEmpty" class="hidden" style="text-align:center;color:#666;font-size:0.85rem;padding:2rem 1rem;">
+            <div id="notifList" class="popover-body"></div>
+            <p id="notifEmpty" class="hidden" style="text-align:center;color:var(--text-muted);font-size:0.85rem;padding:2rem 1rem;">
               No notifications yet.
             </p>
-            <a id="notifHistoryLink" href="index.php?page=notifications" style="display:flex;align-items:center;justify-content:center;gap:0.4rem;padding:0.7rem 1rem;border-top:1px solid #e0e0e0;font-size:0.8rem;font-weight:500;color:var(--mint-leaf);text-decoration:none;transition:background 0.15s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'">
+            <a id="notifHistoryLink" class="popover-foot" href="index.php?page=notifications">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               View Last 7 Days Notifications
             </a>
           </div>
         </div>
 
-        <!-- Profile icon + dropdown -->
+        <!-- Profile + Color/Theme popover -->
         <div id="profileWrapper" style="position:relative;">
-          <button id="profileBtn" title="Profile" class="header-icon-btn">
+          <button id="btnUserToggle" title="Profile" class="header-icon-btn">
             <!-- Lined profile (default) -->
-            <svg class="profile-lined" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <svg class="profile-lined" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <!-- Solid profile (active) -->
-            <svg class="profile-solid hidden" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="#ffffff" stroke="#ffffff" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <svg class="profile-solid hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </button>
 
-          <!-- Profile dropdown -->
-          <div id="profilePanel" class="hidden" style="
-            position:absolute; right:0; top:calc(100% + 8px); min-width:180px;
-            background:#ffffff; color:#000; border-radius:0.75rem;
-            box-shadow:0 15px 35px rgba(0,0,0,0.2); overflow:hidden; z-index:3000;
-          ">
-            <div style="padding:0.75rem 1rem;border-bottom:1px solid #e0e0e0;">
-              <span style="font-weight:600;font-size:0.9rem;color:#000;"><?= $username ?></span>
+          <!-- User popover: name, Color / Theme expander, Logout -->
+          <div id="profilePanel" class="user-popover hidden">
+            <div class="user-head"><?= $username ?></div>
+            <button type="button" id="btnThemePaletteToggle" class="theme-row">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+              <span>Color / Theme</span>
+              <span id="themeSwatchPreview" class="swatch"></span>
+              <svg class="chev" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="profileThemeList" class="hidden">
+              <button type="button" class="theme-opt" data-theme-palette="green"><span class="swatch" style="background:#1f6f4c;"></span>Botanical Emerald<span class="check">&#10003;</span></button>
+              <button type="button" class="theme-opt" data-theme-palette="indigo"><span class="swatch" style="background:#4f46e5;"></span>Slate & Indigo<span class="check">&#10003;</span></button>
+              <button type="button" class="theme-opt" data-theme-palette="sand"><span class="swatch" style="background:#c2410c;"></span>Warm Sand & Terracotta<span class="check">&#10003;</span></button>
+              <button type="button" class="theme-opt" data-theme-palette="cobalt"><span class="swatch" style="background:#0284c7;"></span>Nordic Cobalt<span class="check">&#10003;</span></button>
             </div>
-            <a href="../api/logout.php" style="display:flex;align-items:center;gap:0.5rem;padding:0.75rem 1rem;color:#000;text-decoration:none;font-size:0.85rem;transition:background 0.15s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'">
+            <a href="../api/logout.php" class="user-logout-row">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
               Logout
             </a>

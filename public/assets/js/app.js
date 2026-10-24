@@ -599,7 +599,7 @@
   'use strict';
   const POLL_INTERVAL = 10000; // 10 seconds
 
-  const bell     = $('#notifBell');
+  const bell     = $('#btnNotifToggle');
   const badge    = $('#notifBadge');
   const panel    = $('#notifPanel');
   const list     = $('#notifList');
@@ -817,7 +817,7 @@
 (function () {
   'use strict';
 
-  const btn     = $('#profileBtn');
+  const btn     = $('#btnUserToggle');
   const panel   = $('#profilePanel');
   const wrapper = $('#profileWrapper');
   if (!btn) return;
@@ -849,5 +849,78 @@
       setIcon(false);
       panel.classList.add('hidden');
     }
+  });
+})();
+
+// ============================================================
+// Theme Switcher Module — dark/light toggle (before the bell) and
+// Color / Theme menu inside the profile popover. The engine lives in
+// helpers.js (window.ExpMgTheme); this module only wires the header
+// controls and syncs their visual state.
+// ============================================================
+(function () {
+  'use strict';
+
+  const modeBtn = $('#btnThemeModeToggle');
+  if (!modeBtn) return; // not on the logged-in shell
+
+  const moonIcon = modeBtn.querySelector('.icon-moon');
+  const sunIcon  = modeBtn.querySelector('.icon-sun');
+
+  function syncModeIcon() {
+    if (ExpMgTheme.isDark()) {
+      moonIcon && moonIcon.classList.add('hidden');
+      sunIcon && sunIcon.classList.remove('hidden');
+      modeBtn.title = 'Switch to light mode';
+    } else {
+      sunIcon && sunIcon.classList.add('hidden');
+      moonIcon && moonIcon.classList.remove('hidden');
+      modeBtn.title = 'Switch to dark mode';
+    }
+  }
+
+  modeBtn.addEventListener('click', () => {
+    ExpMgTheme.toggleMode();
+    syncModeIcon();
+  });
+  syncModeIcon();
+
+  // ---- Color / Theme expander inside the profile popover ----
+  const paletteRow    = $('#btnThemePaletteToggle');
+  const themeList     = $('#profileThemeList');
+  const previewSwatch = $('#themeSwatchPreview');
+  const SWATCHES = { green: '#1f6f4c', indigo: '#4f46e5', sand: '#c2410c', cobalt: '#0284c7' };
+
+  function syncPaletteUI() {
+    const cur = ExpMgTheme.getPalette();
+    if (previewSwatch) previewSwatch.style.background = SWATCHES[cur] || SWATCHES.green;
+    if (paletteRow && themeList) {
+      paletteRow.classList.toggle('open', !themeList.classList.contains('hidden'));
+      themeList.querySelectorAll('.theme-opt').forEach(opt => {
+        opt.classList.toggle('active', opt.dataset.themePalette === cur);
+      });
+    }
+  }
+
+  if (paletteRow && themeList) {
+    paletteRow.addEventListener('click', (e) => {
+      e.stopPropagation(); // keep the profile menu open
+      themeList.classList.toggle('hidden');
+      syncPaletteUI();
+    });
+    themeList.querySelectorAll('.theme-opt').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        ExpMgTheme.setPalette(opt.dataset.themePalette);
+        syncPaletteUI();
+      });
+    });
+  }
+  syncPaletteUI();
+
+  // Keep icon/menu state correct even if the theme is changed elsewhere.
+  document.addEventListener('expmg:theme-change', () => {
+    syncModeIcon();
+    syncPaletteUI();
   });
 })();
