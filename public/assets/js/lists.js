@@ -621,6 +621,17 @@
       hide($('#checkConfirmModal'));
     });
 
+    // Escape dismisses the paid-by confirm popup exactly like Cancel
+    // (unchecks the item and re-renders). When this popup is stacked
+    // above an open "View all" modal, openViewAllModal's Escape guard
+    // defers to it, so Escape peels one layer at a time.
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Escape') return;
+      const popup = $('#checkConfirmModal');
+      if (!popup || popup.classList.contains('hidden')) return;
+      $('#ccCancel').click();
+    });
+
     // Close modals on overlay click
     ['createListModal', 'addItemModal', 'checkConfirmModal'].forEach(id => {
       document.getElementById(id).addEventListener('click', function(e) {

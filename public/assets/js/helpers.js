@@ -580,7 +580,19 @@ function openViewAllModal(opts) {
     document.removeEventListener('keydown', onKey);
     if (typeof options.onClose === 'function') options.onClose();
   };
-  const onKey = (ev) => { if (ev.key === 'Escape') close(); };
+  const onKey = (ev) => {
+    if (ev.key !== 'Escape') return;
+    // Escape peels one layer at a time: when a higher-layered modal is
+    // open above this overlay (e.g. the group paid-by confirm popup at
+    // z-index 5010), let Escape target that one instead of closing this.
+    const myZ = parseInt(getComputedStyle(overlay).zIndex, 10) || 5000;
+    const stackedAbove = Array.from(document.querySelectorAll('.modal-overlay')).some(el => {
+      if (el === overlay || el.classList.contains('hidden')) return false;
+      return (parseInt(getComputedStyle(el).zIndex, 10) || 5000) > myZ;
+    });
+    if (stackedAbove) return;
+    close();
+  };
   overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(); });
   overlay.querySelector('.view-all-modal-close').addEventListener('click', close);
   document.addEventListener('keydown', onKey);

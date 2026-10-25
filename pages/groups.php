@@ -351,7 +351,7 @@
       i + 1,
       e.note || '—',
       e.category_name,
-      e.expense_date,
+      formatDateDMY(e.expense_date),
       e.payer_username || e.added_by,
       parseFloat(e.amount).toFixed(2)
     ]);
