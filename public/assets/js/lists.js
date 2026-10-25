@@ -15,6 +15,9 @@
   const listDetailCache = new Map();
   let listsLoading = false;
   let listDetailLoading = false;
+  let itemsModal = null;         // open "View all" modal handle (list items)
+  let itemsModalListId = null;   // list id the open modal was rendered for
+  let currentListMeta = null;     // list metadata for the open detail view
 
   function reportIssue(result, scope, retryAction) {
     if (window.ExpMgStatus && typeof window.ExpMgStatus.setRequestError === 'function') {
@@ -294,12 +297,27 @@
     $('#ldCreator').textContent = `Created by ${l.created_by}`;
 
     const items = res.items;
+    currentListMeta = l;
     if (items.length === 0) {
       $('#ldItems').innerHTML = '';
       show($('#ldItemsEmpty'));
+      // Every item was removed while the modal was open — close it.
+      if (itemsModal && !itemsModal.isClosed()) closeItemsModal();
     } else {
       hide($('#ldItemsEmpty'));
       renderItems(items);
+      // Live sync: if the "View all" modal is open for this same list
+      // (a check/uncheck/remove/add just re-rendered the inline card),
+      // refresh its body so both views stay in sync.
+      if (itemsModal && !itemsModal.isClosed()) {
+        if (String(itemsModalListId) === String(currentListId)) {
+          itemsModal.setBody(listItemsHtml(items, 0));
+          bindItemRowEvents(itemsModal.body);
+          startTimers();
+        } else {
+          closeItemsModal();
+        }
+      }
     }
 
     // Delete list button
@@ -312,7 +330,7 @@
       });
       if (!confirmed) return;
       const r = await post(`${API}/lists/delete.php`, { list_id: currentListId });
-      if (r.ok) { setDetailView(false); currentListId = null; loadLists(); }
+      if (r.ok) { setDetailView(false); currentListId = null; closeItemsModal(); loadLists(); }
       else {
         reportIssue(r, 'lists-delete', () => $('#ldDeleteList').click());
         alert(r.error);
@@ -320,58 +338,114 @@
     };
   }
 
-  function renderItems(items) {
-    const container = $('#ldItems');
-    // Group by priority
+  function listPriorityGroups(items) {
     const groups = { high: [], moderate: [], low: [] };
     items.forEach(i => groups[i.priority].push(i));
+    return groups;
+  }
 
+  const priorityLabels = {
+    high:     '<div class="priority-label pl-high"><span class="dot dot-high"></span> High Priority</div>',
+    moderate: '<div class="priority-label pl-mod"><span class="dot dot-moderate"></span> Moderate Priority</div>',
+    low:      '<div class="priority-label pl-low"><span class="dot dot-low"></span> Low Priority</div>'
+  };
+
+  function listItemRowHtml(i) {
+    const checkedCls = i.is_checked ? 'checked' : '';
+    const checkBtnCls = i.is_checked ? 'li-check is-checked' : 'li-check';
+
+    // 10-minute lock logic
+    let lockInfo = '';
+    let isLocked = false;
+    if (i.is_checked && i.checked_at) {
+      const checkedMs = new Date(i.checked_at.replace(' ', 'T')).getTime();
+      const elapsedMs = Date.now() - checkedMs;
+      const tenMin = 10 * 60 * 1000;
+      if (elapsedMs >= tenMin) {
+        isLocked = true;
+        lockInfo = `<span class="li-lock" title="Locked — cannot uncheck after 10 minutes">${ICON_LOCK_SVG}</span>`;
+      } else {
+        const secsLeft = Math.ceil((tenMin - elapsedMs) / 1000);
+        lockInfo = `<span class="li-timer" data-expires="${checkedMs + tenMin}" title="Time remaining to uncheck">${fmtTimer(secsLeft)}</span>`;
+      }
+    }
+
+    return `
+      <div class="list-item-row ${checkedCls}">
+        <button class="${checkBtnCls}${isLocked ? ' li-locked' : ''}" data-id="${i.id}" title="${isLocked ? 'Locked' : 'Toggle'}" ${isLocked ? 'disabled' : ''}>${i.is_checked ? '✓' : ''}</button>
+        <span class="li-desc">${esc(i.description)}</span>
+        ${lockInfo}
+        ${i.price ? `<span class="li-price">₹${Number(i.price).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>` : ''}
+        ${i.category_name ? `<span class="li-cat">${esc(i.category_name)}</span>` : ''}
+        <button class="li-remove" data-id="${i.id}" title="Remove">✕</button>
+      </div>
+    `;
+  }
+
+  /* Render list item rows grouped under priority headings. When `limit` is a
+     positive number (the inline 5-item preview cap), at most `limit` rows are
+     emitted, counted across High -> Moderate -> Low; a priority heading is
+     only rendered when at least one of its items falls within the cap.
+     Pass 0 (or null/undefined) to render every item. */
+  function listItemsHtml(items, limit) {
+    const groups = listPriorityGroups(items);
     let html = '';
-    const labels = {
-      high:     '<div class="priority-label pl-high"><span class="dot dot-high"></span> High Priority</div>',
-      moderate: '<div class="priority-label pl-mod"><span class="dot dot-moderate"></span> Moderate Priority</div>',
-      low:      '<div class="priority-label pl-low"><span class="dot dot-low"></span> Low Priority</div>'
-    };
-
+    let rendered = 0;
     ['high', 'moderate', 'low'].forEach(p => {
       if (groups[p].length === 0) return;
-      html += labels[p];
+      if (limit && rendered >= limit) return;
+      html += priorityLabels[p];
       groups[p].forEach(i => {
-        const checkedCls = i.is_checked ? 'checked' : '';
-        const checkBtnCls = i.is_checked ? 'li-check is-checked' : 'li-check';
-
-        // 10-minute lock logic
-        let lockInfo = '';
-        let isLocked = false;
-        if (i.is_checked && i.checked_at) {
-          const checkedMs = new Date(i.checked_at.replace(' ', 'T')).getTime();
-          const elapsedMs = Date.now() - checkedMs;
-          const tenMin = 10 * 60 * 1000;
-          if (elapsedMs >= tenMin) {
-            isLocked = true;
-            lockInfo = `<span class="li-lock" title="Locked — cannot uncheck after 10 minutes">${ICON_LOCK_SVG}</span>`;
-          } else {
-            const secsLeft = Math.ceil((tenMin - elapsedMs) / 1000);
-            lockInfo = `<span class="li-timer" data-expires="${checkedMs + tenMin}" title="Time remaining to uncheck">${fmtTimer(secsLeft)}</span>`;
-          }
-        }
-
-        html += `
-          <div class="list-item-row ${checkedCls}">
-            <button class="${checkBtnCls}${isLocked ? ' li-locked' : ''}" data-id="${i.id}" title="${isLocked ? 'Locked' : 'Toggle'}" ${isLocked ? 'disabled' : ''}>${i.is_checked ? '✓' : ''}</button>
-            <span class="li-desc">${esc(i.description)}</span>
-            ${lockInfo}
-            ${i.price ? `<span class="li-price">₹${Number(i.price).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>` : ''}
-            ${i.category_name ? `<span class="li-cat">${esc(i.category_name)}</span>` : ''}
-            <button class="li-remove" data-id="${i.id}" title="Remove">✕</button>
-          </div>
-        `;
+        if (limit && rendered >= limit) return;
+        rendered++;
+        html += listItemRowHtml(i);
       });
     });
+    return html;
+  }
 
-    container.innerHTML = html;
+  function closeItemsModal() {
+    if (itemsModal && !itemsModal.isClosed()) itemsModal.close();
+    itemsModal = null;
+    itemsModalListId = null;
+  }
 
-    // Bind check/remove
+  function openItemsModal(l, items) {
+    closeItemsModal();
+    const doneCount = items.filter(i => i.is_checked).length;
+    itemsModalListId = currentListId;
+    itemsModal = openViewAllModal({
+      title: l.name,
+      badge: l.group_id
+        ? { label: l.group_name || 'Group', className: 'badge-group' }
+        : { label: 'Personal', className: 'badge-personal' },
+      subtitle: `${doneCount}/${items.length} items completed`,
+      bodyHtml: listItemsHtml(items, 0)
+    });
+    bindItemRowEvents(itemsModal.body);
+    startTimers();
+  }
+
+  function renderItems(items) {
+    const container = $('#ldItems');
+    // Inline preview: at most 5 items total, counted across the priority
+    // groups; items 6..N are only rendered inside the "View all" modal.
+    container.innerHTML = listItemsHtml(items, 5);
+    if (items.length > 5) {
+      container.innerHTML += viewAllBtnHtml(items.length);
+      container.querySelector('.btn-view-all').addEventListener('click', () => {
+        if (!currentListMeta) return;
+        openItemsModal(currentListMeta, items);
+      });
+    }
+    bindItemRowEvents(container);
+    startTimers();
+  }
+
+  // Bind check/remove handlers on every rendered item row (inline detail
+  // card or "View all" modal body) — identical behavior in both views, and
+  // every mutation re-renders both via openListDetail().
+  function bindItemRowEvents(container) {
     container.querySelectorAll('.li-check').forEach(btn => {
       if (btn.disabled) return; // locked items
       btn.addEventListener('click', async () => {
@@ -405,9 +479,6 @@
         else alert(r.error);
       });
     });
-
-    // Start live countdown timers
-    startTimers();
   }
 
   // ---- Group Check Confirm Popup ----
@@ -429,6 +500,9 @@
       sel.innerHTML += `<option value="${m.user_id}">${esc(m.username)}</option>`;
     });
 
+    // Layer the confirm popup above any open "View all" modal (both use the
+    // .modal-overlay z-index 5000; this one must sit on top).
+    $('#checkConfirmModal').style.zIndex = '5010';
     show($('#checkConfirmModal'));
     sel.focus();
   }
@@ -436,7 +510,7 @@
   // ---- Events ----
   function bindEvents() {
     // Close detail
-    $('#ldClose').addEventListener('click', () => { setDetailView(false); currentListId = null; });
+    $('#ldClose').addEventListener('click', () => { setDetailView(false); currentListId = null; closeItemsModal(); });
 
     // Add item button
     $('#ldAddItem').addEventListener('click', () => {

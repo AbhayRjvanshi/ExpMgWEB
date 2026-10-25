@@ -12,6 +12,8 @@
   let userGroups = [];
   let categoriesLoadPromise = null;
   let monthExpenseDates = new Set(); // dates that have expenses (for dots)
+  let dayViewAllModal = null;       // open "View all" modal handle (day expenses)
+  let dayViewAllDate = null;        // the date the open modal was rendered for
 
   // ------ Helpers (shared from helpers.js; only local extras here) ------
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -185,6 +187,8 @@
         list.innerHTML = '';
         if (summaryRow) hide(summaryRow);
         show(empty);
+        // No expenses left for the date the modal was showing — close it.
+        if (dayViewAllModal && !dayViewAllModal.isClosed()) dayViewAllModal.close();
         return;
       }
 
@@ -212,15 +216,28 @@
         show(summaryRow);
       }
 
-      list.innerHTML = expenses.map(e => expenseCardHTML(e)).join('');
+      // 5-item inline preview cap — items 6..N are only in the "View all" modal.
+      const preview = expenses.slice(0, 5);
+      list.innerHTML = preview.map(e => expenseCardHTML(e)).join('');
+      if (expenses.length > 5) {
+        list.innerHTML += viewAllBtnHtml(expenses.length);
+        list.querySelector('.btn-view-all').addEventListener('click', () => {
+          openDayExpensesModal(date, expenses);
+        });
+      }
 
-      // Bind edit/delete buttons
-      list.querySelectorAll('.btn-edit').forEach(btn => {
-        btn.addEventListener('click', () => openEditModal(btn.dataset.id, expenses));
-      });
-      list.querySelectorAll('.btn-del').forEach(btn => {
-        btn.addEventListener('click', () => deleteExpense(btn.dataset.id));
-      });
+      bindExpenseRowActions(list, expenses);
+
+      // Live sync: if the "View all" modal is open for this same date
+      // (add/edit/delete happened), refresh its body so both views match.
+      if (dayViewAllModal && !dayViewAllModal.isClosed()) {
+        if (dayViewAllDate === date) {
+          dayViewAllModal.setBody(expenses.map(e => expenseCardHTML(e)).join(''));
+          bindExpenseRowActions(dayViewAllModal.body, expenses);
+        } else {
+          dayViewAllModal.close(); // user selected a different calendar date
+        }
+      }
 
     } catch (err) {
       list.innerHTML = '';
@@ -259,6 +276,28 @@
           ${actions}
         </div>
       </div>`;
+  }
+
+  // ------ "View all ↓" modal (day expenses) ------
+  function openDayExpensesModal(date, expenses) {
+    if (dayViewAllModal && !dayViewAllModal.isClosed()) dayViewAllModal.close();
+    dayViewAllDate = date;
+    dayViewAllModal = openViewAllModal({
+      title: formatDateNice(date),
+      subtitle: expenses.length + ' expenses',
+      bodyHtml: expenses.map(e => expenseCardHTML(e)).join('')
+    });
+    bindExpenseRowActions(dayViewAllModal.body, expenses);
+  }
+
+  // Bind edit/delete on every rendered expense row (inline card or modal body).
+  function bindExpenseRowActions(scope, expenses) {
+    scope.querySelectorAll('.btn-edit').forEach(btn => {
+      btn.addEventListener('click', () => openEditModal(btn.dataset.id, expenses));
+    });
+    scope.querySelectorAll('.btn-del').forEach(btn => {
+      btn.addEventListener('click', () => deleteExpense(btn.dataset.id));
+    });
   }
 
   // ------ Modal ------

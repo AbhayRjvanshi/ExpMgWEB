@@ -272,15 +272,7 @@
       hide($('#gdExpEmpty'));
       pdfBtn.style.display = '';
       pdfBtn.onclick = () => downloadGroupExpPdf(g.name, res.expenses);
-      $('#gdExpenses').innerHTML = res.expenses.map(e => `
-        <div class="expense-item">
-          <div class="exp-left">
-            <div class="exp-note" style="font-weight:600;">${esc(e.note || e.category_name || '—')}</div>
-            <div class="exp-cat">${e.expense_date} · ${esc(e.category_name)} · paid by ${esc(e.payer_username || e.added_by)}</div>
-          </div>
-          <div class="exp-amount">₹${Number(e.amount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
-        </div>
-      `).join('');
+      renderGroupExpenses(g.name, res.expenses);
     }
 
     // Actions — Leave Group (members) stays at the bottom; Delete Group moved
@@ -312,6 +304,38 @@
         setTimeout(() => { $('#gdCopyCode').textContent = 'Copy Code'; }, 1500);
       });
     };
+  }
+
+  // ---- Past Group Expenses: 5-item inline preview cap + "View all ↓" modal ----
+  function groupExpenseRowHtml(e) {
+    return `
+      <div class="expense-item">
+        <div class="exp-left">
+          <div class="exp-note" style="font-weight:600;">${esc(e.note || e.category_name || '—')}</div>
+          <div class="exp-cat"><span class="dmy-date">${formatDateDMY(e.expense_date)}</span> · ${esc(e.category_name)} · paid by ${esc(e.payer_username || e.added_by)}</div>
+        </div>
+        <div class="exp-amount">₹${Number(e.amount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+      </div>
+    `;
+  }
+
+  function renderGroupExpenses(groupName, expenses) {
+    const container = $('#gdExpenses');
+    // Inline preview shows the first 5 entries only; items 6..N live in the
+    // "View all" modal. Dates render as DD-MM-YYYY in both views, and the
+    // PDF export stays wired to the full, untruncated expense array.
+    const preview = expenses.slice(0, 5);
+    container.innerHTML = preview.map(groupExpenseRowHtml).join('');
+    if (expenses.length > 5) {
+      container.innerHTML += viewAllBtnHtml(expenses.length);
+      container.querySelector('.btn-view-all').addEventListener('click', () => {
+        openViewAllModal({
+          title: `${groupName} — Group Expenses`,
+          subtitle: `${expenses.length} total expenses`,
+          bodyHtml: expenses.map(groupExpenseRowHtml).join('')
+        });
+      });
+    }
   }
 
   // ---- Download group expenses PDF ----

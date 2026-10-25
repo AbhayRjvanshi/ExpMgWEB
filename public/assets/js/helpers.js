@@ -498,3 +498,98 @@ const ExpMgTheme = {
   }
 };
 window.ExpMgTheme = ExpMgTheme;
+
+// ============================================================
+// formatDateDMY — converts a MySQL DATE ("YYYY-MM-DD") or DATETIME
+// ("YYYY-MM-DD HH:MM:SS") into "DD-MM-YYYY" without timezone
+// rollover bugs (pure string manipulation, no Date() parsing).
+// ============================================================
+function formatDateDMY(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return 'Date unrecorded';
+  const cleanDate = dateStr.trim().split(/[ T]/)[0];
+  if (cleanDate === '1970-01-01') return 'Date unrecorded';
+  const parts = cleanDate.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    const [yyyy, mm, dd] = parts;
+    return `${dd.padStart(2, '0')}-${mm.padStart(2, '0')}-${yyyy}`;
+  }
+  return cleanDate;
+}
+
+// ============================================================
+// viewAllBtnHtml — shared "View all ↓" trigger button markup.
+// Rendered only when a collection exceeds the 5-item inline cap;
+// the count shown is the TOTAL number of entries (e.g. "View all (12)").
+// ============================================================
+function viewAllBtnHtml(count) {
+  const label = (typeof count === 'number' && count > 0) ? 'View all (' + count + ')' : 'View all';
+  return '<button type="button" class="btn-view-all">' +
+    '<span>' + escapeHTML(label) + '</span>' +
+    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+  '</button>';
+}
+
+// ============================================================
+// openViewAllModal — shared centered, scrollable pop-up modal for
+// the "View all ↓" flows. Sits on the global .modal-overlay styles
+// (z-index 5000, blurred backdrop). Locks body scroll while open;
+// dismisses via the ✕ button, backdrop click, or Escape. Returns a
+// handle: { close(), body, setBody(html), isClosed() } so callers
+// can live-refresh the body after mutations and bind row events.
+// ============================================================
+function openViewAllModal(opts) {
+  const options = Object.assign({ title: '', subtitle: '', badge: null, bodyHtml: '' }, opts || {});
+
+  let overlay = document.getElementById('expmgViewAllModal');
+  if (overlay) overlay.remove();
+
+  overlay = document.createElement('div');
+  overlay.id = 'expmgViewAllModal';
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML =
+    '<div class="view-all-modal-card" role="dialog" aria-modal="true">' +
+      '<div class="view-all-modal-header">' +
+        '<div class="view-all-modal-heading">' +
+          '<h3 class="view-all-modal-title">' + escapeHTML(options.title || '') +
+            (options.badge
+              ? ' <span class="exp-badge ' + (options.badge.className || 'badge-personal') + '">' + escapeHTML(options.badge.label || '') + '</span>'
+              : '') +
+          '</h3>' +
+          (options.subtitle
+            ? '<div class="view-all-modal-subtitle">' + escapeHTML(options.subtitle) + '</div>'
+            : '') +
+        '</div>' +
+        '<button type="button" class="view-all-modal-close" aria-label="Close">&#10005;</button>' +
+      '</div>' +
+      '<div class="view-all-modal-body"></div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+
+  const bodyEl = overlay.querySelector('.view-all-modal-body');
+  bodyEl.innerHTML = options.bodyHtml || '';
+
+  let closed = false;
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    document.body.style.overflow = prevOverflow || '';
+    overlay.remove();
+    document.removeEventListener('keydown', onKey);
+    if (typeof options.onClose === 'function') options.onClose();
+  };
+  const onKey = (ev) => { if (ev.key === 'Escape') close(); };
+  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(); });
+  overlay.querySelector('.view-all-modal-close').addEventListener('click', close);
+  document.addEventListener('keydown', onKey);
+
+  return {
+    close,
+    overlay,
+    body: bodyEl,
+    setBody(html) { bodyEl.innerHTML = html; },
+    isClosed() { return closed; }
+  };
+}
