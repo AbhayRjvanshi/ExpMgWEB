@@ -416,6 +416,33 @@ input[type="checkbox"] {
   z-index: 5000;
   padding: 1rem;
 }
+
+/* ---------- Explicit modal z-index tiers ----------
+   Tier 4: "View all" collection modal (the base .modal-overlay level).
+   Tier 5: action / edit / add / check-confirm modals — always render on
+   top of "View all" (opening Edit from inside a View-all modal must not
+   hide the edit form underneath).
+   Tier 6: the reusable destructive-confirmation dialog — always on top of
+   Tier 4 and Tier 5. (System layers stay above: toast 9999, cooldown
+   banner 10000.) ID selectors beat .modal-overlay class specificity, so
+   no JS changes are needed for the tier assignment. */
+#expmgViewAllModal,
+.modal-overlay.view-all-modal-overlay {
+  z-index: 5000;
+}
+#expenseModal,
+#createListModal,
+#addItemModal,
+#checkConfirmModal,
+#createGroupModal,
+#joinGroupModal,
+#budgetModal,
+#settlDetailModal {
+  z-index: 5500;
+}
+#expmgConfirmModal {
+  z-index: 6000;
+}
 .modal-x {
   position: absolute;
   top: 1rem;

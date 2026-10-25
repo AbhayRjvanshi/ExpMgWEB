@@ -441,7 +441,14 @@ function showConfirmModal(opts) {
       document.removeEventListener('keydown', onKey);
       resolve(result);
     };
-    const onKey = (ev) => { if (ev.key === 'Escape') done(false); };
+    const onKey = (ev) => {
+      if (ev.key !== 'Escape') return;
+      // Tier 6 dialog: consume the Escape so lower-tier modal handlers
+      // (View all, edit forms) never see this keystroke.
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      done(false);
+    };
     overlay.addEventListener('click', (ev) => { if (ev.target === overlay) done(false); });
     overlay.querySelector('[data-expmg-confirm="0"]').addEventListener('click', () => done(false));
     overlay.querySelector('[data-expmg-confirm="1"]').addEventListener('click', () => done(true));
@@ -591,6 +598,10 @@ function openViewAllModal(opts) {
       return (parseInt(getComputedStyle(el).zIndex, 10) || 5000) > myZ;
     });
     if (stackedAbove) return;
+    // No higher-tier modal is open — this overlay is the top layer. Consume
+    // the Escape so lower-tier / page-load handlers never see it.
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
     close();
   };
   overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(); });

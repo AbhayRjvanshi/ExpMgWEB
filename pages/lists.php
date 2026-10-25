@@ -127,7 +127,7 @@
 <!-- ===== Group Check Confirm Modal ===== -->
 <div id="checkConfirmModal" class="modal-overlay hidden">
   <div class="auth-card" style="max-width:420px; position:relative;">
-    <button class="modal-x" onclick="document.getElementById('checkConfirmModal').classList.add('hidden')">✕</button>
+    <button class="modal-x" id="ccCloseX" title="Close">✕</button>
     <h2 style="font-size:1.2rem; font-weight:700; margin-bottom:1rem;">Confirm Purchase</h2>
     <form id="checkConfirmForm">
       <input type="hidden" id="ccItemId" value="" />

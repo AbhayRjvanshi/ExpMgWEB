@@ -18,6 +18,7 @@
   let itemsModal = null;         // open "View all" modal handle (list items)
   let itemsModalListId = null;   // list id the open modal was rendered for
   let currentListMeta = null;     // list metadata for the open detail view
+  let cancelConfirmInFlight = false; // single-flight lock for check-confirm dismissal
 
   function reportIssue(result, scope, retryAction) {
     if (window.ExpMgStatus && typeof window.ExpMgStatus.setRequestError === 'function') {
@@ -383,7 +384,7 @@
   }
 
   /* Render list item rows grouped under priority headings. When `limit` is a
-     positive number (the inline 5-item preview cap), at most `limit` rows are
+     positive number (the inline 3-item preview cap), at most `limit` rows are
      emitted, counted across High -> Moderate -> Low; a priority heading is
      only rendered when at least one of its items falls within the cap.
      Pass 0 (or null/undefined) to render every item. */
@@ -428,10 +429,10 @@
 
   function renderItems(items) {
     const container = $('#ldItems');
-    // Inline preview: at most 5 items total, counted across the priority
-    // groups; items 6..N are only rendered inside the "View all" modal.
-    container.innerHTML = listItemsHtml(items, 5);
-    if (items.length > 5) {
+    // Inline preview: at most 3 items total, counted across the priority
+    // groups; items 4..N are only rendered inside the "View all" modal.
+    container.innerHTML = listItemsHtml(items, 3);
+    if (items.length > 3) {
       container.innerHTML += viewAllBtnHtml(items.length);
       container.querySelector('.btn-view-all').addEventListener('click', () => {
         if (!currentListMeta) return;
@@ -481,6 +482,42 @@
     });
   }
 
+  /* Idempotent dismissal for the paid-by confirm popup. All four
+     affordances route through here: Escape, Cancel, ✕, and the backdrop
+     click. The popup hides SYNCHRONOUSLY (0ms perceived latency), then the
+     uncheck POST runs in the background behind a single-flight lock so
+     rapid repeated presses cannot fire a second toggle POST and silently
+     re-check the item. The captured itemId is cleared immediately, making
+     the dismissal idempotent even if a stale handler fires twice. */
+  async function cancelCheckConfirm() {
+    const popup = $('#checkConfirmModal');
+    if (!popup || popup.classList.contains('hidden') || cancelConfirmInFlight) return;
+
+    const itemId = $('#ccItemId').value;
+    $('#ccItemId').value = '';
+    // 1. Hide synchronously so Escape / Cancel / ✕ / backdrop feels instant.
+    hide(popup);
+
+    if (!itemId) return;
+    cancelConfirmInFlight = true;
+    try {
+      // Optimistically revert the checkbox so there is zero visual lag
+      // before the re-render lands.
+      const checkBtn = document.querySelector(`[data-id="${itemId}"].li-check`);
+      if (checkBtn) {
+        checkBtn.classList.remove('is-checked');
+        checkBtn.textContent = '';
+        const row = checkBtn.closest('.list-item-row');
+        if (row) row.classList.remove('checked');
+      }
+      await post(`${API}/lists/check_item.php`, { item_id: itemId });
+      if (currentListId) openListDetail(currentListId);
+      loadLists();
+    } finally {
+      cancelConfirmInFlight = false;
+    }
+  }
+
   // ---- Group Check Confirm Popup ----
   function showCheckConfirmModal(resp) {
     const item = resp.item;
@@ -500,11 +537,14 @@
       sel.innerHTML += `<option value="${m.user_id}">${esc(m.username)}</option>`;
     });
 
-    // Layer the confirm popup above any open "View all" modal (both use the
-    // .modal-overlay z-index 5000; this one must sit on top).
-    $('#checkConfirmModal').style.zIndex = '5010';
+    // Tier 5 (z-index 5500 via styles.css) always sits above the "View all"
+    // modal (Tier 4) — no inline z-index needed.
     show($('#checkConfirmModal'));
-    sel.focus();
+    // Focus a non-<select> control so an open native dropdown cannot
+    // swallow the Escape keypress: the amount input when editable, else
+    // the Cancel button.
+    if (!item.price) $('#ccAmount').focus();
+    else $('#ccCancel').focus();
   }
 
   // ---- Events ----
@@ -609,34 +649,50 @@
       }
     });
 
-    // Check confirm cancel — uncheck the item
-    $('#ccCancel').addEventListener('click', async () => {
-      const itemId = $('#ccItemId').value;
-      if (itemId) {
-        // Uncheck the item since they cancelled
-        await post(`${API}/lists/check_item.php`, { item_id: itemId });
-        openListDetail(currentListId);
-        loadLists();
-      }
-      hide($('#checkConfirmModal'));
-    });
+    // Check confirm dismissal — Cancel and ✕ both route through the unified
+    // idempotent cancelCheckConfirm() (synchronous hide, background uncheck).
+    $('#ccCancel').addEventListener('click', () => cancelCheckConfirm());
+    $('#ccCloseX').addEventListener('click', () => cancelCheckConfirm());
 
-    // Escape dismisses the paid-by confirm popup exactly like Cancel
-    // (unchecks the item and re-renders). When this popup is stacked
-    // above an open "View all" modal, openViewAllModal's Escape guard
-    // defers to it, so Escape peels one layer at a time.
+    // Escape peels one layer at a time. cancelCheckConfirm() hides the
+    // popup SYNCHRONOUSLY, so this page-load handler (which runs before
+    // openViewAllModal's later-registered keydown) MUST consume the
+    // keystroke — otherwise the "View all" handler would see the popup
+    // already hidden and close "View all" on the same press.
     document.addEventListener('keydown', (ev) => {
       if (ev.key !== 'Escape') return;
-      const popup = $('#checkConfirmModal');
-      if (!popup || popup.classList.contains('hidden')) return;
-      $('#ccCancel').click();
+      const checkPopup = $('#checkConfirmModal');
+      if (checkPopup && !checkPopup.classList.contains('hidden')) {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        cancelCheckConfirm();
+        return;
+      }
+      const addModal = $('#addItemModal');
+      if (addModal && !addModal.classList.contains('hidden')) {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        hide(addModal);
+        return;
+      }
+      const createModal = $('#createListModal');
+      if (createModal && !createModal.classList.contains('hidden')) {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        hide(createModal);
+      }
     });
 
-    // Close modals on overlay click
-    ['createListModal', 'addItemModal', 'checkConfirmModal'].forEach(id => {
+    // Close modals on overlay click — the check-confirm backdrop runs the
+    // unified dismissal (unchecks the item) instead of a bare hide, so DB
+    // and UI state stay consistent.
+    ['createListModal', 'addItemModal'].forEach(id => {
       document.getElementById(id).addEventListener('click', function(e) {
         if (e.target === this) this.classList.add('hidden');
       });
+    });
+    $('#checkConfirmModal').addEventListener('click', function(e) {
+      if (e.target === this) cancelCheckConfirm();
     });
   }
 

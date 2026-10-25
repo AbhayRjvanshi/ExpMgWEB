@@ -2,6 +2,19 @@
 // app.js — Expense Manager Frontend
 // ============================================================
 
+// Shared header-popover coordinator (mutual exclusion): the notification
+// and profile modules register their close helpers as they load. Clicking
+// one header button calls this first so both popovers can never be open
+// at once. `except` is 'notif' or 'profile' (the one being toggled).
+window.closeAllHeaderPopovers = function (except) {
+  if (except !== 'notif' && typeof window.__closeNotifPopover === 'function') {
+    window.__closeNotifPopover();
+  }
+  if (except !== 'profile' && typeof window.__closeProfilePopover === 'function') {
+    window.__closeProfilePopover();
+  }
+};
+
 (function () {
   'use strict';
 
@@ -216,10 +229,10 @@
         show(summaryRow);
       }
 
-      // 5-item inline preview cap — items 6..N are only in the "View all" modal.
-      const preview = expenses.slice(0, 5);
+      // 3-item inline preview cap — items 4..N are only in the "View all" modal.
+      const preview = expenses.slice(0, 3);
       list.innerHTML = preview.map(e => expenseCardHTML(e)).join('');
-      if (expenses.length > 5) {
+      if (expenses.length > 3) {
         list.innerHTML += viewAllBtnHtml(expenses.length);
         list.querySelector('.btn-view-all').addEventListener('click', () => {
           openDayExpensesModal(date, expenses);
@@ -592,6 +605,19 @@
       if (e.target === overlay) closeModal();
     });
 
+    // Escape closes the Add/Edit Expense modal (Tier 5, z-index 5500) and
+    // consumes the keystroke so the "View all" modal underneath (Tier 4)
+    // stays open — one layer per press.
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Escape') return;
+      const expModal = $('#expenseModal');
+      if (expModal && !expModal.classList.contains('hidden')) {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        closeModal();
+      }
+    });
+
     // Expense type tab switcher (pill buttons)
     $$('#expTypeTabs .modal-type-tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -670,9 +696,21 @@
     }
   }
 
+  // ---- Close helper (shared with the profile module for mutual exclusion) ----
+  const closePanel = () => {
+    panelOpen = false;
+    setBellIcon(false);
+    hide(panel);
+  };
+  window.__closeNotifPopover = closePanel;
+
   // ---- Toggle panel ----
   bell.addEventListener('click', (e) => {
     e.stopPropagation();
+    // Mutual exclusion: close the profile popover (and its theme list) first.
+    if (typeof window.closeAllHeaderPopovers === 'function') {
+      window.closeAllHeaderPopovers('notif');
+    }
     panelOpen = !panelOpen;
     setBellIcon(panelOpen);
     if (panelOpen) { show(panel); loadNotifications(); }
@@ -875,18 +913,34 @@
     }
   }
 
+  // ---- Close helper (shared with the notifications module for mutual exclusion) ----
+  const closePanel = () => {
+    open = false;
+    setIcon(false);
+    panel.classList.add('hidden');
+    // Collapse the Color / Theme sub-menu so it never re-opens expanded.
+    const themeRow  = document.getElementById('btnThemePaletteToggle');
+    const themeList = document.getElementById('profileThemeList');
+    if (themeRow) themeRow.classList.remove('open');
+    if (themeList) themeList.classList.add('hidden');
+  };
+  window.__closeProfilePopover = closePanel;
+
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
+    // Mutual exclusion: close the notifications popover first.
+    if (typeof window.closeAllHeaderPopovers === 'function') {
+      window.closeAllHeaderPopovers('profile');
+    }
     open = !open;
     setIcon(open);
-    panel.classList.toggle('hidden', !open);
+    if (open) panel.classList.remove('hidden');
+    else closePanel();
   });
 
   document.addEventListener('click', (e) => {
     if (open && wrapper && !wrapper.contains(e.target)) {
-      open = false;
-      setIcon(false);
-      panel.classList.add('hidden');
+      closePanel();
     }
   });
 })();
@@ -919,10 +973,24 @@
   }
 
   modeBtn.addEventListener('click', () => {
+    // The header is shared chrome: close any open popover so the header
+    // stays unambiguous after a theme switch.
+    if (typeof window.closeAllHeaderPopovers === 'function') {
+      window.closeAllHeaderPopovers();
+    }
     ExpMgTheme.toggleMode();
     syncModeIcon();
   });
   syncModeIcon();
+
+  // Escape closes any open header popover. The keystroke is NOT consumed,
+  // so modal Escape handlers keep peeling layers underneath.
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Escape') return;
+    if (typeof window.closeAllHeaderPopovers === 'function') {
+      window.closeAllHeaderPopovers();
+    }
+  });
 
   // ---- Color / Theme expander inside the profile popover ----
   const paletteRow    = $('#btnThemePaletteToggle');

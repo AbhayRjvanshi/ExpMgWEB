@@ -282,7 +282,7 @@ $firstName = explode(' ', $currentUsername)[0];
 
 <!-- Budget Modal -->
 <div id="budgetModal" class="hidden" style="
-  position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
   background:rgba(15, 23, 42, 0.55);padding:1rem;
 ">
   <div class="card" style="width:100%;max-width:380px;padding:1.75rem;">
@@ -298,7 +298,7 @@ $firstName = explode(' ', $currentUsername)[0];
 
 <!-- Settlement Detail Modal -->
 <div id="settlDetailModal" class="hidden" style="
-  position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
   background:rgba(15, 23, 42, 0.55);padding:1rem;
 ">
   <div class="card" style="width:100%;max-width:480px;padding:1.75rem;max-height:80vh;overflow-y:auto;">

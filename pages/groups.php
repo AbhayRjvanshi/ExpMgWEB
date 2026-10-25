@@ -321,12 +321,12 @@
 
   function renderGroupExpenses(groupName, expenses) {
     const container = $('#gdExpenses');
-    // Inline preview shows the first 5 entries only; items 6..N live in the
+    // Inline preview shows the first 3 entries only; items 4..N live in the
     // "View all" modal. Dates render as DD-MM-YYYY in both views, and the
     // PDF export stays wired to the full, untruncated expense array.
-    const preview = expenses.slice(0, 5);
+    const preview = expenses.slice(0, 3);
     container.innerHTML = preview.map(groupExpenseRowHtml).join('');
-    if (expenses.length > 5) {
+    if (expenses.length > 3) {
       container.innerHTML += viewAllBtnHtml(expenses.length);
       container.querySelector('.btn-view-all').addEventListener('click', () => {
         openViewAllModal({
@@ -455,6 +455,26 @@
     document.getElementById(id).addEventListener('click', function(e) {
       if (e.target === this) this.classList.add('hidden');
     });
+  });
+
+  // Escape closes the Create/Join Group modals (Tier 5, z-index 5500) and
+  // consumes the keystroke so the "View all" modal underneath (Tier 4)
+  // stays open — one layer per press.
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Escape') return;
+    const createModal = document.getElementById('createGroupModal');
+    const joinModal = document.getElementById('joinGroupModal');
+    if (createModal && !createModal.classList.contains('hidden')) {
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      hide(createModal);
+      return;
+    }
+    if (joinModal && !joinModal.classList.contains('hidden')) {
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      hide(joinModal);
+    }
   });
 
   // ---- Init ----
