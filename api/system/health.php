@@ -60,14 +60,6 @@ try {
         'retry_after' => $retryAfter,
         'redis_connected' => $redisConnected,
         'outbox_available' => $outboxAvailable,
-    ]);
-
-    logMessage($status === 'ok' ? 'INFO' : 'WARNING', '[HEALTH] status update', [
-        'status' => $status,
-        'queue_pressure' => $queuePressure,
-        'retry_after' => $retryAfter,
-        'redis_connected' => $redisConnected,
-        'outbox_available' => $outboxAvailable,
         'endpoint' => $_SERVER['REQUEST_URI'] ?? '/api/system/health.php',
         'status_code' => 200
     ]);

@@ -108,9 +108,9 @@ class PredictiveHealthService
      *
      * @return string "healthy", "caution", "degraded", or "critical"
      */
-    public static function getState(): string
+    public static function getState(?int $score = null): string
     {
-        $score = self::calculateScore();
+        $score = $score ?? self::calculateScore();
 
         if ($score >= self::THRESHOLD_HEALTHY) {
             return 'healthy';
@@ -128,10 +128,10 @@ class PredictiveHealthService
      *
      * @return array
      */
-    public static function getAdaptiveConfig(): array
+    public static function getAdaptiveConfig(?int $score = null): array
     {
-        $score = self::calculateScore();
-        $state = self::getState();
+        $score = $score ?? self::calculateScore();
+        $state = self::getState($score);
 
         return [
             'score' => $score,
@@ -140,7 +140,7 @@ class PredictiveHealthService
                 'max_concurrency' => self::getMaxConcurrency($score),
                 'retry_delay_ms' => self::getBaseRetryDelay($score),
                 'timeout_ms' => self::getTimeout($score),
-                'circuit_break' => self::shouldCircuitBreak(),
+                'circuit_break' => self::shouldCircuitBreak($score),
                 'prioritize_critical' => $score < self::THRESHOLD_CAUTION,
                 'enable_fallback' => $score < self::THRESHOLD_DEGRADED,
                 'reduce_payload_size' => $score < self::THRESHOLD_CAUTION,
@@ -153,9 +153,9 @@ class PredictiveHealthService
      *
      * @return bool
      */
-    public static function shouldCircuitBreak(): bool
+    public static function shouldCircuitBreak(?int $score = null): bool
     {
-        $score = self::calculateScore();
+        $score = $score ?? self::calculateScore();
         return $score < self::THRESHOLD_DEGRADED;
     }
 
@@ -164,9 +164,9 @@ class PredictiveHealthService
      *
      * @return bool
      */
-    public static function shouldReduceConcurrency(): bool
+    public static function shouldReduceConcurrency(?int $score = null): bool
     {
-        $score = self::calculateScore();
+        $score = $score ?? self::calculateScore();
         return $score < self::THRESHOLD_CAUTION;
     }
 
@@ -261,10 +261,15 @@ class PredictiveHealthService
      */
     public static function getDiagnostics(): array
     {
+        // Fetch once, thread everywhere: the optional $score parameters on
+        // getState/getAdaptiveConfig/shouldCircuitBreak mean this method
+        // computes the score a single time instead of re-deriving it in
+        // every nested call (each derivation re-fetched metrics via
+        // MetricsService::getMetrics()).
         $metrics = MetricsService::getMetrics();
         $score = self::calculateScore();
-        $state = self::getState();
-        $config = self::getAdaptiveConfig();
+        $state = self::getState($score);
+        $config = self::getAdaptiveConfig($score);
 
         return [
             'timestamp' => time(),

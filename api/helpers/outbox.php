@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * Outbox helper library — not a standalone endpoint. Every request-serving
+ * entry point that loads this file (api/system/health.php and
+ * api/workers/process_outbox.php) already includes api/middleware/auth.php
+ * itself, so the auth middleware is not pulled in transitively here.
+ */
+
 require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/response.php';
 require_once __DIR__ . '/validator.php';
 require_once __DIR__ . '/logger.php';
@@ -88,6 +94,25 @@ function outboxEnsureTable(mysqli $conn): bool
         return $initialized[$connectionKey];
     }
 
+    // Lazy DDL: the table is no longer created eagerly on every request.
+    // outboxPrepare() below detects MySQL error 1146 (table missing) on the
+    // first real outbox query, runs CREATE TABLE exactly then, and retries
+    // once — so a healthy install executes zero schema statements.
+    return $initialized[$connectionKey] = true;
+}
+
+/**
+ * Create the outbox_events table on demand (error-1146 path only).
+ */
+function outboxCreateTable(mysqli $conn): bool
+{
+    static $created = [];
+    $connectionKey = spl_object_hash($conn);
+
+    if (isset($created[$connectionKey])) {
+        return $created[$connectionKey];
+    }
+
     try {
         $sql = <<<SQL
 CREATE TABLE IF NOT EXISTS `outbox_events` (
@@ -122,17 +147,37 @@ SQL;
             $stmt->close();
         }
 
-        $initialized[$connectionKey] = true;
-        return true;
+        return $created[$connectionKey] = true;
     } catch (Throwable $e) {
-        $initialized[$connectionKey] = false;
         if (function_exists('logMessage')) {
             logMessage('ERROR', 'Outbox schema bootstrap failed', ['error' => $e->getMessage()]);
         }
         outboxMaybeApiError500();
         outboxLogFailure('Outbox schema bootstrap failed', [], $e);
-        return false;
+        return $created[$connectionKey] = false;
     }
+}
+
+/**
+ * Prepare an outbox statement, creating the table and retrying exactly once
+ * if it does not exist yet (MySQL error 1146).
+ *
+ * Handles both mysqli error modes: silent mode (prepare() returns false)
+ * and exception mode (prepare() throws).
+ *
+ * @return mysqli_stmt|false
+ */
+function outboxPrepare(mysqli $conn, string $sql)
+{
+    try {
+        $stmt = $conn->prepare($sql);
+    } catch (Throwable $e) {
+        $stmt = false;
+    }
+    if ($stmt === false && (int) $conn->errno === 1146 && outboxCreateTable($conn)) {
+        $stmt = $conn->prepare($sql);
+    }
+    return $stmt;
 }
 
 function outboxEventKey(string $eventType, array $payload): string
@@ -160,7 +205,8 @@ function outboxQueueEvent(mysqli $conn, string $eventType, array $payload): ?int
     $eventKey = outboxEventKey($eventType, $payload);
 
     try {
-        $stmt = $conn->prepare(
+        $stmt = outboxPrepare(
+            $conn,
             'INSERT INTO `outbox_events` (event_key, event_type, payload_json, status, retry_count, next_attempt_at) VALUES (?, ?, ?, "pending", 0, NOW())'
         );
         if (!$stmt) {
@@ -176,7 +222,7 @@ function outboxQueueEvent(mysqli $conn, string $eventType, array $payload): ?int
             return $insertId;
         }
 
-        $lookup = $conn->prepare('SELECT id FROM `outbox_events` WHERE event_key = ? LIMIT 1');
+        $lookup = outboxPrepare($conn, 'SELECT id FROM `outbox_events` WHERE event_key = ? LIMIT 1');
         if ($lookup) {
             $lookup->bind_param('s', $eventKey);
             $lookup->execute();
@@ -228,7 +274,8 @@ function outboxClaimDueEvents(mysqli $conn, int $limit = 50): array
         $conn->begin_transaction();
         $usedTransaction = true;
 
-        $stmt = $conn->prepare(
+        $stmt = outboxPrepare(
+            $conn,
             'SELECT id, event_key, event_type, payload_json, status, retry_count, next_attempt_at, last_error, processed_at, created_at, updated_at
              FROM `outbox_events`
              WHERE status IN ("pending", "retryable") AND next_attempt_at <= NOW()
@@ -282,7 +329,8 @@ function outboxClaimDueEvents(mysqli $conn, int $limit = 50): array
 
         // Fallback path for databases lacking SKIP LOCKED.
         try {
-            $stmt = $conn->prepare(
+            $stmt = outboxPrepare(
+                $conn,
                 'SELECT id, event_key, event_type, payload_json, status, retry_count, next_attempt_at, last_error, processed_at, created_at, updated_at
                  FROM `outbox_events`
                  WHERE status IN ("pending", "retryable") AND next_attempt_at <= NOW()
@@ -337,7 +385,7 @@ function outboxMarkSent(mysqli $conn, int $outboxId): bool
     }
 
     try {
-        $stmt = $conn->prepare('UPDATE `outbox_events` SET status = "sent", processed_at = NOW(), processing_since = NULL, last_error = NULL WHERE id = ?');
+        $stmt = outboxPrepare($conn, 'UPDATE `outbox_events` SET status = "sent", processed_at = NOW(), processing_since = NULL, last_error = NULL WHERE id = ?');
         if (!$stmt) {
             throw new RuntimeException($conn->error ?: 'Failed to prepare sent update.');
         }
@@ -373,7 +421,8 @@ function outboxMarkFailed(mysqli $conn, int $outboxId, string $eventType, string
 
     try {
         if ($isDead) {
-            $stmt = $conn->prepare(
+            $stmt = outboxPrepare(
+                $conn,
                 'UPDATE `outbox_events`
                  SET status = "dead", retry_count = ?, last_error = ?, processing_since = NULL, processed_at = NOW(), next_attempt_at = NOW()
                  WHERE id = ?'
@@ -383,7 +432,8 @@ function outboxMarkFailed(mysqli $conn, int $outboxId, string $eventType, string
             }
             $stmt->bind_param('isi', $nextRetryCount, $error, $outboxId);
         } else {
-            $stmt = $conn->prepare(
+            $stmt = outboxPrepare(
+                $conn,
                 'UPDATE `outbox_events`
                  SET status = "retryable", retry_count = ?, last_error = ?, processing_since = NULL,
                      next_attempt_at = DATE_ADD(NOW(), INTERVAL ? SECOND)
@@ -442,7 +492,8 @@ function outboxStats(mysqli $conn): array
     }
 
     try {
-        $stmt = $conn->prepare(
+        $stmt = outboxPrepare(
+            $conn,
             'SELECT
                 SUM(status = "pending" AND next_attempt_at <= NOW()) AS pending,
                 SUM(status = "retryable" AND next_attempt_at <= NOW()) AS retryable,

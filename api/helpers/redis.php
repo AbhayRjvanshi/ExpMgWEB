@@ -26,6 +26,15 @@ class RedisClient
     /** @var string|null */
     private $connectionError = null;
 
+    /**
+     * Process-level failure memoization: once a connection attempt fails,
+     * later constructions in the same request skip retrying — the server is
+     * presumed unreachable until the next request lifecycle.
+     *
+     * @var bool
+     */
+    private static $serverUnreachable = false;
+
     public function __construct()
     {
         $this->host = (string) env('REDIS_HOST', '127.0.0.1');
@@ -37,7 +46,16 @@ class RedisClient
             return;
         }
 
-        $timeout = 1.5;
+        if (self::$serverUnreachable) {
+            $this->redis = null;
+            $this->connectionError = 'Redis server unreachable (memoized failure from earlier in this request).';
+            return;
+        }
+
+        // 150ms: fail fast — Redis is optional and every caller falls back to
+        // DB/file equivalents, so waiting 1.5s per attempt only stalls request
+        // latency when no server is listening.
+        $timeout = 0.15;
 
         $redisClass = 'Redis';
         $this->redis = new $redisClass();
@@ -49,6 +67,7 @@ class RedisClient
             }
         } catch (\Throwable $e) {
             $this->redis = null;
+            self::$serverUnreachable = true;
             $this->connectionError = $e->getMessage();
             if (function_exists('logMessage')) {
                 logMessage('WARNING', '[REDIS_FALLBACK] reason="connection_failed"', [

@@ -116,6 +116,16 @@ function idempotencyCleanupExpired(): void {
             @unlink($path);
         }
     }
+
+    // Orphaned .lock files from crashed processes: the flock dies with the
+    // process, but the file itself lingers (KD-08). Anything older than the
+    // lock TTL is safe to delete.
+    $lockCutoff = time() - IDEMPOTENCY_LOCK_TTL_SECONDS;
+    foreach (glob(IDEMPOTENCY_DIR . '/*.lock') ?: [] as $path) {
+        if (@filemtime($path) !== false && @filemtime($path) < $lockCutoff) {
+            @unlink($path);
+        }
+    }
 }
 
 /**

@@ -49,7 +49,7 @@ class LockService
     public static function acquireLock(string $key, int $ttl = self::DEFAULT_TTL): bool
     {
         if (!RedisService::isAvailable()) {
-            return self::acquireFileLock($key);
+            return self::acquireFileLock($key, $ttl);
         }
 
         $lockValue = uniqid('lock_', true);
@@ -147,7 +147,7 @@ class LockService
     /**
      * Acquire a lock using a local file descriptor when Redis is unavailable.
      */
-    private static function acquireFileLock(string $key): bool
+    private static function acquireFileLock(string $key, int $ttl = self::DEFAULT_TTL): bool
     {
         if (isset(self::$fileLocks[$key])) {
             return true;
@@ -156,6 +156,18 @@ class LockService
         $dir = self::getFileLockDir();
         if (!is_dir($dir) && !@mkdir($dir, 0777, true) && !is_dir($dir)) {
             return false;
+        }
+
+        // Sweep stale .lock files left behind by crashed processes (the OS
+        // released their flock when the process died, but the files linger).
+        // A lock still held by a live process cannot be unlinked on Windows,
+        // and on POSIX the holder keeps its inode — safe on both platforms.
+        $staleCutoff = time() - max(1, $ttl);
+        foreach (glob($dir . DIRECTORY_SEPARATOR . '*.lock') ?: [] as $stalePath) {
+            $staleMtime = @filemtime($stalePath);
+            if ($staleMtime !== false && $staleMtime < $staleCutoff) {
+                @unlink($stalePath);
+            }
         }
 
         $path = $dir . DIRECTORY_SEPARATOR . hash('sha256', $key) . '.lock';
