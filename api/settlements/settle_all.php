@@ -22,8 +22,14 @@ if ($groupId <= 0) {
     exit;
 }
 
-// Verify user is admin of this group
-$stmt = $conn->prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?');
+// Verify user is admin of this group (the JOIN also captures the group's name
+// for the notification below — no extra SELECT after the write)
+$stmt = $conn->prepare(
+    'SELECT gm.role, g.name AS group_name
+     FROM group_members gm
+     JOIN `groups` g ON g.id = gm.group_id
+     WHERE gm.group_id = ? AND gm.user_id = ?'
+);
 $stmt->bind_param('ii', $groupId, $userId);
 $stmt->execute();
 $membership = $stmt->get_result()->fetch_assoc();
@@ -37,6 +43,7 @@ if ($membership['role'] !== 'admin') {
     echo json_encode(['ok' => false, 'error' => 'Only the group admin can settle expenses.']);
     exit;
 }
+$groupName = $membership['group_name'] ?? 'the group';
 
 // Find the last settlement date for this group
 $stmt = $conn->prepare('SELECT MAX(period_end) AS last_end FROM settlements WHERE group_id = ?');
@@ -151,13 +158,7 @@ try {
     $conn->commit();
 
     // Notify group members about settlement
-    $gStmt = $conn->prepare('SELECT name FROM `groups` WHERE id = ?');
-    $gStmt->bind_param('i', $groupId);
-    $gStmt->execute();
-    $gRow = $gStmt->get_result()->fetch_assoc();
-    $gStmt->close();
-    $groupName = $gRow ? $gRow['name'] : 'the group';
-
+    // ($groupName captured during the admin check above)
     $username = $_SESSION['username'];
     $msg = "$username settled all expenses in $groupName.";
     $nStmt = $conn->prepare(

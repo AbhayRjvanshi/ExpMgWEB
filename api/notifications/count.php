@@ -14,7 +14,10 @@ requireAuth(false); // false: heartbeat poll — check limits but don't INSERT 2
 $userId = (int) $_SESSION['user_id'];
 
 // Count unread for today only
-$stmt = $conn->prepare('SELECT COUNT(*) AS cnt FROM notifications WHERE user_id = ? AND is_read = 0 AND DATE(created_at) = CURDATE()');
+// SARGable range predicate (>= CURDATE(), < tomorrow) so MySQL uses the
+// idx_user_read (user_id, is_read, created_at) index range scan instead of
+// wrapping created_at in DATE() and forcing a full scan on every 10s poll.
+$stmt = $conn->prepare('SELECT COUNT(*) AS cnt FROM notifications WHERE user_id = ? AND is_read = 0 AND created_at >= CURDATE() AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)');
 $stmt->bind_param('i', $userId);
 $stmt->execute();
 $cnt = (int) $stmt->get_result()->fetch_assoc()['cnt'];
@@ -22,7 +25,7 @@ $stmt->close();
 
 // Latest unread notification (for popup detection)
 $latest = null;
-$stmt = $conn->prepare('SELECT id, message, type, created_at FROM notifications WHERE user_id = ? AND is_read = 0 AND DATE(created_at) = CURDATE() ORDER BY id DESC LIMIT 1');
+$stmt = $conn->prepare('SELECT id, message, type, created_at FROM notifications WHERE user_id = ? AND is_read = 0 AND created_at >= CURDATE() AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY) ORDER BY id DESC LIMIT 1');
 $stmt->bind_param('i', $userId);
 $stmt->execute();
 $row = $stmt->get_result()->fetch_assoc();

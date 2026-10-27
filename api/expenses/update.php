@@ -77,8 +77,14 @@ if ($existing['type'] === 'personal') {
         exit;
     }
 } else {
-    // Group expense — only admin can edit
-    $chk = $conn->prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?');
+    // Group expense — only admin can edit (the JOIN also captures the group's
+    // name for the notification below — no second SELECT after the UPDATE)
+    $chk = $conn->prepare(
+        'SELECT gm.role, g.name AS group_name
+         FROM group_members gm
+         JOIN `groups` g ON g.id = gm.group_id
+         WHERE gm.group_id = ? AND gm.user_id = ?'
+    );
     $gid = (int)$existing['group_id'];
     $chk->bind_param('ii', $gid, $userId);
     $chk->execute();
@@ -88,6 +94,7 @@ if ($existing['type'] === 'personal') {
         echo json_encode(['ok' => false, 'error' => 'Only the group admin can edit group expenses.']);
         exit;
     }
+    $groupName = $role['group_name'] ?? 'the group';
 }
 
 // For personal expenses, payer is always the current user
@@ -103,15 +110,8 @@ if ($stmt->execute()) {
     $stmt->close();
 
     // Notify group members if group expense updated
+    // ($groupName was captured during the permission check above)
     if ($existing['type'] === 'group' && $existing['group_id']) {
-        $gid = (int)$existing['group_id'];
-        $gStmt = $conn->prepare('SELECT name FROM `groups` WHERE id = ?');
-        $gStmt->bind_param('i', $gid);
-        $gStmt->execute();
-        $gRow = $gStmt->get_result()->fetch_assoc();
-        $gStmt->close();
-        $groupName = $gRow ? $gRow['name'] : 'the group';
-
         $username = $_SESSION['username'];
         $msg = "$username updated an expense in $groupName.";
         $n = $conn->prepare(

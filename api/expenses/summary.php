@@ -26,6 +26,8 @@ $startDate = $month . '-01';
 $endDate   = date('Y-m-t', strtotime($startDate));
 
 // --- Total spent (personal + group where user is member) ---
+// The member-count subquery is restricted to the user's own groups instead
+// of aggregating every group in the database before joining.
 $sql = "SELECT
             COALESCE(SUM(e.amount), 0) AS total_spent,
             COALESCE(SUM(CASE WHEN e.type='personal' THEN e.amount ELSE 0 END), 0) AS personal_total,
@@ -33,9 +35,10 @@ $sql = "SELECT
             COALESCE(SUM(CASE WHEN e.type='group' THEN e.amount / NULLIF(gm.member_count, 0) ELSE 0 END), 0) AS group_share
         FROM expenses e
         LEFT JOIN (
-            SELECT group_id, COUNT(*) AS member_count
-            FROM group_members
-            GROUP BY group_id
+            SELECT gm.group_id, COUNT(*) AS member_count
+            FROM group_members gm
+            WHERE gm.group_id IN (SELECT group_id FROM group_members WHERE user_id = ?)
+            GROUP BY gm.group_id
         ) gm ON gm.group_id = e.group_id
         WHERE e.expense_date BETWEEN ? AND ?
           AND (
@@ -46,7 +49,7 @@ $sql = "SELECT
               ))
           )";
 $stmt = $conn->prepare($sql);
-$stmt->bind_param('ssii', $startDate, $endDate, $userId, $userId);
+$stmt->bind_param('issii', $userId, $startDate, $endDate, $userId, $userId);
 $stmt->execute();
 $totals = $stmt->get_result()->fetch_assoc();
 $stmt->close();

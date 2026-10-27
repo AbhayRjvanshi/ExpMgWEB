@@ -15,11 +15,17 @@ $userId = (int) $_SESSION['user_id'];
 $sql = "SELECT l.id, l.name, l.user_id, l.group_id, l.created_at,
                u.username AS created_by,
                g.name AS group_name,
-               (SELECT COUNT(*) FROM list_items li WHERE li.list_id = l.id) AS item_count,
-               (SELECT COUNT(*) FROM list_items li WHERE li.list_id = l.id AND li.is_checked = 1) AS checked_count
+               li_counts.item_count, li_counts.checked_count
         FROM lists l
         JOIN users u ON u.id = l.user_id
         LEFT JOIN `groups` g ON g.id = l.group_id
+        LEFT JOIN (
+            SELECT list_id,
+                   COUNT(*) AS item_count,
+                   COALESCE(SUM(is_checked = 1), 0) AS checked_count
+            FROM list_items
+            GROUP BY list_id
+        ) li_counts ON li_counts.list_id = l.id
         WHERE
             (l.group_id IS NULL AND l.user_id = ?)
             OR

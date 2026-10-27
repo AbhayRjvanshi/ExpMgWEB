@@ -160,6 +160,7 @@ CREATE TABLE IF NOT EXISTS list_items (
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_list_priority (list_id, priority, created_at),
+    INDEX idx_unpriced_lookup (is_checked, expense_created, list_id, checked_at),
 
     FOREIGN KEY (list_id)     REFERENCES lists(id)       ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id)  ON DELETE SET NULL,
@@ -186,6 +187,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_user_read (user_id, is_read, created_at),
+    INDEX idx_notif_created (created_at),
 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -205,6 +207,7 @@ CREATE TABLE IF NOT EXISTS settlements (
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_group_date (group_id, created_at),
+    INDEX idx_settlement_period (group_id, period_start, period_end),
     FOREIGN KEY (group_id)   REFERENCES `groups`(id) ON DELETE CASCADE,
     FOREIGN KEY (settled_by) REFERENCES users(id)    ON DELETE CASCADE,
     FOREIGN KEY (payer_id)   REFERENCES users(id)    ON DELETE CASCADE,
@@ -256,7 +259,8 @@ CREATE TABLE IF NOT EXISTS rate_limits (
     action       VARCHAR(30)  NOT NULL,
     attempted_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
 
-    INDEX idx_rate_ip_action (ip_address, action, attempted_at)
+    INDEX idx_rate_ip_action (ip_address, action, attempted_at),
+    INDEX idx_rate_attempted (attempted_at)
 ) ENGINE=InnoDB;
 
 -- ============================================================

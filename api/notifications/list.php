@@ -18,20 +18,24 @@ $userId     = (int) $_SESSION['user_id'];
 $unreadOnly = isset($_GET['unread_only']) && $_GET['unread_only'] == '1';
 $limit      = min(100, max(1, (int)($_GET['limit'] ?? 30)));
 
-// Cleanup old notifications (older than 7 days)
-$conn->query("DELETE FROM notifications WHERE DATE(created_at) < DATE_SUB(CURDATE(), INTERVAL 6 DAY)");
+// Cleanup old notifications (older than 6 days) — SARGable predicate on the
+// bare created_at column (uses idx_notif_created) and probabilistic (~2% of
+// requests) instead of a full-table DELETE scan on every bell open.
+if (mt_rand(1, 50) === 1) {
+    $conn->query("DELETE FROM notifications WHERE created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)");
+}
 
-// Total unread count (today only)
-$stmt = $conn->prepare('SELECT COUNT(*) AS cnt FROM notifications WHERE user_id = ? AND is_read = 0 AND DATE(created_at) = CURDATE()');
+// Total unread count (today only, SARGable range)
+$stmt = $conn->prepare('SELECT COUNT(*) AS cnt FROM notifications WHERE user_id = ? AND is_read = 0 AND created_at >= CURDATE() AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)');
 $stmt->bind_param('i', $userId);
 $stmt->execute();
 $unreadCount = (int)$stmt->get_result()->fetch_assoc()['cnt'];
 $stmt->close();
 
-// Fetch today's notifications
+// Fetch today's notifications (SARGable range)
 $sql = 'SELECT id, message, type, reference_id, is_read, created_at
         FROM notifications
-        WHERE user_id = ? AND DATE(created_at) = CURDATE()';
+        WHERE user_id = ? AND created_at >= CURDATE() AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)';
 if ($unreadOnly) $sql .= ' AND is_read = 0';
 $sql .= ' ORDER BY created_at DESC LIMIT ?';
 

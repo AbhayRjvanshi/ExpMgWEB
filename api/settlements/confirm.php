@@ -24,8 +24,14 @@ if ($groupId <= 0) {
     exit;
 }
 
-// Verify membership
-$stmt = $conn->prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?');
+// Verify membership (the JOIN also captures the group's name for the
+// notifications below — no extra SELECT after the write)
+$stmt = $conn->prepare(
+    'SELECT gm.role, g.name AS group_name
+     FROM group_members gm
+     JOIN `groups` g ON g.id = gm.group_id
+     WHERE gm.group_id = ? AND gm.user_id = ?'
+);
 $stmt->bind_param('ii', $groupId, $userId);
 $stmt->execute();
 $membership = $stmt->get_result()->fetch_assoc();
@@ -35,6 +41,7 @@ if (!$membership) {
     echo json_encode(['ok' => false, 'error' => 'You are not a member of this group.']);
     exit;
 }
+$groupName = $membership['group_name'] ?? 'the group';
 
 // ---- Compute current period (same logic as calculate.php) ----
 $stmt = $conn->prepare('SELECT MAX(period_end) AS last_end FROM settlements WHERE group_id = ?');
@@ -198,14 +205,7 @@ if ($remaining <= 0) {
 
         $conn->commit();
 
-        // Notify group members
-        $gStmt = $conn->prepare('SELECT name FROM `groups` WHERE id = ?');
-        $gStmt->bind_param('i', $groupId);
-        $gStmt->execute();
-        $gRow = $gStmt->get_result()->fetch_assoc();
-        $gStmt->close();
-        $groupName = $gRow ? $gRow['name'] : 'the group';
-
+        // Notify group members ($groupName captured during the membership check)
         $msg = "All members confirmed — settlement completed in $groupName.";
         $nStmt = $conn->prepare(
             'INSERT INTO notifications (user_id, message, type, reference_id)
@@ -235,13 +235,7 @@ if ($remaining <= 0) {
     $conn->commit();
 
     // Notify other members that this user confirmed
-    $gStmt = $conn->prepare('SELECT name FROM `groups` WHERE id = ?');
-    $gStmt->bind_param('i', $groupId);
-    $gStmt->execute();
-    $gRow = $gStmt->get_result()->fetch_assoc();
-    $gStmt->close();
-    $groupName = $gRow ? $gRow['name'] : 'the group';
-
+    // ($groupName captured during the membership check)
     $username = $_SESSION['username'];
     $msg = "$username confirmed their settlement in $groupName. $remaining member(s) remaining.";
     $nStmt = $conn->prepare(

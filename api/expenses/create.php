@@ -42,17 +42,28 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $expenseDate)) {
 // Note length guard (expenses.note is VARCHAR(255))
 if (mb_strlen($note) > 255)               $errors[] = 'Note is too long (max 255 characters).';
 
-// If group, ensure user is a member of that group
+$groupName = 'the group'; // captured during the membership check below
+// If group, ensure user is a member of that group (the JOIN also captures the
+// group's name so the notification below needs no second SELECT after INSERT)
 if ($type === 'group') {
     if (!$groupId) {
         $errors[] = 'Please select a group for a group expense.';
     } else {
-        $chk = $conn->prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?');
+        $chk = $conn->prepare(
+            'SELECT gm.id, g.name AS group_name
+             FROM group_members gm
+             JOIN `groups` g ON g.id = gm.group_id
+             WHERE gm.group_id = ? AND gm.user_id = ?'
+        );
         $chk->bind_param('ii', $groupId, $userId);
         $chk->execute();
-        $chk->store_result();
-        if ($chk->num_rows === 0) $errors[] = 'You are not a member of this group.';
+        $chkRow = $chk->get_result()->fetch_assoc();
         $chk->close();
+        if (!$chkRow) {
+            $errors[] = 'You are not a member of this group.';
+        } else {
+            $groupName = $chkRow['group_name'];
+        }
     }
     // Validate paid_by for group expenses
     if (!$paidBy) {
@@ -100,14 +111,8 @@ if ($stmt->execute()) {
     $stmt->close();
 
     // --- Notification: if group expense, notify other members ---
+    // $groupName was captured during the membership check above.
     if ($type === 'group' && $groupId) {
-        $gStmt = $conn->prepare('SELECT name FROM `groups` WHERE id = ?');
-        $gStmt->bind_param('i', $groupId);
-        $gStmt->execute();
-        $gRow = $gStmt->get_result()->fetch_assoc();
-        $gStmt->close();
-        $groupName = $gRow ? $gRow['name'] : 'the group';
-
         $username = $_SESSION['username'];
         $msg = "$username added a new expense to $groupName.";
         $notifStmt = $conn->prepare(

@@ -31,16 +31,14 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
     [$page, $limit, $offset] = parsePagination(20, 50);
     $countSql = "SELECT COUNT(*) AS total
                  FROM expenses e
+                 LEFT JOIN group_members gm_me ON gm_me.group_id = e.group_id AND gm_me.user_id = ?
                  WHERE e.expense_date = ?
                    AND (
                        (e.type = 'personal' AND e.user_id = ?)
-                       OR
-                       (e.type = 'group' AND e.group_id IN (
-                           SELECT group_id FROM group_members WHERE user_id = ?
-                       ))
+                       OR (e.type = 'group' AND gm_me.user_id IS NOT NULL)
                    )";
     $countStmt = $conn->prepare($countSql);
-    $countStmt->bind_param('sii', $date, $userId, $userId);
+    $countStmt->bind_param('isi', $userId, $date, $userId);
     $countStmt->execute();
     $total = (int)($countStmt->get_result()->fetch_assoc()['total'] ?? 0);
     $countStmt->close();
@@ -54,10 +52,7 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
                    g.name AS group_name,
                    CASE
                        WHEN e.type = 'personal' AND e.user_id = ? THEN 1
-                       WHEN e.type = 'group' THEN (
-                           SELECT COUNT(*) FROM group_members gm2
-                           WHERE gm2.group_id = e.group_id AND gm2.user_id = ? AND gm2.role = 'admin'
-                       )
+                       WHEN e.type = 'group' AND gm_me.role = 'admin' THEN 1
                        ELSE 0
                    END AS can_edit
             FROM expenses e
@@ -65,18 +60,16 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             JOIN users u ON u.id = e.user_id
             LEFT JOIN users pb ON pb.id = e.paid_by
             LEFT JOIN `groups` g ON g.id = e.group_id
+            LEFT JOIN group_members gm_me ON gm_me.group_id = e.group_id AND gm_me.user_id = ?
             WHERE e.expense_date = ?
               AND (
                   (e.type = 'personal' AND e.user_id = ?)
-                  OR
-                  (e.type = 'group' AND e.group_id IN (
-                      SELECT group_id FROM group_members WHERE user_id = ?
-                  ))
+                  OR (e.type = 'group' AND gm_me.user_id IS NOT NULL)
               )
             ORDER BY e.created_at DESC
             LIMIT ? OFFSET ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param('iisiiii', $userId, $userId, $date, $userId, $userId, $limit, $offset);
+    $stmt->bind_param('iisiii', $userId, $userId, $date, $userId, $limit, $offset);
 
 } elseif ($month !== '' && preg_match('/^\d{4}-\d{2}$/', $month)) {
     // ---- Expenses for a whole month ----
@@ -86,16 +79,14 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
 
     $countSql = "SELECT COUNT(*) AS total
                  FROM expenses e
+                 LEFT JOIN group_members gm_me ON gm_me.group_id = e.group_id AND gm_me.user_id = ?
                  WHERE e.expense_date BETWEEN ? AND ?
                    AND (
                        (e.type = 'personal' AND e.user_id = ?)
-                       OR
-                       (e.type = 'group' AND e.group_id IN (
-                           SELECT group_id FROM group_members WHERE user_id = ?
-                       ))
+                       OR (e.type = 'group' AND gm_me.user_id IS NOT NULL)
                    )";
     $countStmt = $conn->prepare($countSql);
-    $countStmt->bind_param('ssii', $startDate, $endDate, $userId, $userId);
+    $countStmt->bind_param('issi', $userId, $startDate, $endDate, $userId);
     $countStmt->execute();
     $total = (int)($countStmt->get_result()->fetch_assoc()['total'] ?? 0);
     $countStmt->close();
@@ -108,10 +99,7 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
                    g.name AS group_name,
                    CASE
                        WHEN e.type = 'personal' AND e.user_id = ? THEN 1
-                       WHEN e.type = 'group' THEN (
-                           SELECT COUNT(*) FROM group_members gm2
-                           WHERE gm2.group_id = e.group_id AND gm2.user_id = ? AND gm2.role = 'admin'
-                       )
+                       WHEN e.type = 'group' AND gm_me.role = 'admin' THEN 1
                        ELSE 0
                    END AS can_edit
             FROM expenses e
@@ -119,18 +107,16 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             JOIN users u ON u.id = e.user_id
             LEFT JOIN users pb ON pb.id = e.paid_by
             LEFT JOIN `groups` g ON g.id = e.group_id
+            LEFT JOIN group_members gm_me ON gm_me.group_id = e.group_id AND gm_me.user_id = ?
             WHERE e.expense_date BETWEEN ? AND ?
               AND (
                   (e.type = 'personal' AND e.user_id = ?)
-                  OR
-                  (e.type = 'group' AND e.group_id IN (
-                      SELECT group_id FROM group_members WHERE user_id = ?
-                  ))
+                  OR (e.type = 'group' AND gm_me.user_id IS NOT NULL)
               )
             ORDER BY e.expense_date ASC, e.created_at DESC
             LIMIT ? OFFSET ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param('iissiiii', $userId, $userId, $startDate, $endDate, $userId, $userId, $limit, $offset);
+    $stmt->bind_param('iissiii', $userId, $userId, $startDate, $endDate, $userId, $limit, $offset);
 
 } elseif (isset($_GET['start'], $_GET['end'])
          && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($_GET['start']))
@@ -142,16 +128,14 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
 
     $countSql = "SELECT COUNT(*) AS total
                  FROM expenses e
+                 LEFT JOIN group_members gm_me ON gm_me.group_id = e.group_id AND gm_me.user_id = ?
                  WHERE e.expense_date BETWEEN ? AND ?
                    AND (
                        (e.type = 'personal' AND e.user_id = ?)
-                       OR
-                       (e.type = 'group' AND e.group_id IN (
-                           SELECT group_id FROM group_members WHERE user_id = ?
-                       ))
+                       OR (e.type = 'group' AND gm_me.user_id IS NOT NULL)
                    )";
     $countStmt = $conn->prepare($countSql);
-    $countStmt->bind_param('ssii', $startDate, $endDate, $userId, $userId);
+    $countStmt->bind_param('issi', $userId, $startDate, $endDate, $userId);
     $countStmt->execute();
     $total = (int)($countStmt->get_result()->fetch_assoc()['total'] ?? 0);
     $countStmt->close();
@@ -164,10 +148,7 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
                    g.name AS group_name,
                    CASE
                        WHEN e.type = 'personal' AND e.user_id = ? THEN 1
-                       WHEN e.type = 'group' THEN (
-                           SELECT COUNT(*) FROM group_members gm2
-                           WHERE gm2.group_id = e.group_id AND gm2.user_id = ? AND gm2.role = 'admin'
-                       )
+                       WHEN e.type = 'group' AND gm_me.role = 'admin' THEN 1
                        ELSE 0
                    END AS can_edit
             FROM expenses e
@@ -175,18 +156,16 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             JOIN users u ON u.id = e.user_id
             LEFT JOIN users pb ON pb.id = e.paid_by
             LEFT JOIN `groups` g ON g.id = e.group_id
+            LEFT JOIN group_members gm_me ON gm_me.group_id = e.group_id AND gm_me.user_id = ?
             WHERE e.expense_date BETWEEN ? AND ?
               AND (
                   (e.type = 'personal' AND e.user_id = ?)
-                  OR
-                  (e.type = 'group' AND e.group_id IN (
-                      SELECT group_id FROM group_members WHERE user_id = ?
-                  ))
+                  OR (e.type = 'group' AND gm_me.user_id IS NOT NULL)
               )
             ORDER BY e.expense_date ASC, e.created_at DESC
             LIMIT ? OFFSET ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param('iissiiii', $userId, $userId, $startDate, $endDate, $userId, $userId, $limit, $offset);
+    $stmt->bind_param('iissiii', $userId, $userId, $startDate, $endDate, $userId, $limit, $offset);
 
 } else {
     echo json_encode(['ok' => false, 'error' => 'Provide ?date=YYYY-MM-DD or ?month=YYYY-MM or ?start=YYYY-MM-DD&end=YYYY-MM-DD']);
