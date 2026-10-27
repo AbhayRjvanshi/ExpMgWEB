@@ -455,13 +455,19 @@ function expmgCssVar(name) {
     try {
       var results = await Promise.all([
         get(API + '/expenses/summary.php?month=' + mk),
-        get(API + '/expenses/list.php?month=' + mk),
-        get(API + '/budgets/get.php?month=' + mk)
+        get(API + '/expenses/list.php?month=' + mk)
       ]);
-      var sumRes = results[0], listRes = results[1], budRes = results[2];
+      var sumRes = results[0], listRes = results[1];
       if(sumRes.ok) renderSummary(sumRes);
       if(listRes.ok){ allExpenses = listRes.expenses; renderList(); }
-      renderBudgetCard(budRes.ok ? budRes.budget : null, sumRes.ok ? sumRes.total_spent : 0);
+      // summary.php already returns the month's budget in its payload —
+      // the extra budgets/get.php request on every month change is redundant.
+      renderBudgetCard(
+        (sumRes.ok && sumRes.budget !== null && typeof sumRes.budget !== 'undefined')
+          ? { amount_limit: sumRes.budget }
+          : null,
+        sumRes.ok ? sumRes.total_spent : 0
+      );
     } catch(err){ console.error(err); }
   }
 
@@ -842,21 +848,20 @@ function sortExpenses(arr) {
 
       // Populate paid_by selects for group items
       var groupSelects = $container.querySelectorAll('.unpriced-paidby-select');
-      var groupCache = {};
+      var groupCache = {}; // gid -> in-flight Promise resolving to members (deduped)
       groupSelects.forEach(function(sel){
         var gid = sel.dataset.group;
-        if (groupCache[gid]) {
-          fillPaidBySelect(sel, groupCache[gid]);
-        } else {
-          get(API + '/groups/details.php?group_id=' + gid).then(function(res){
-            if (res.ok && res.members) {
-              groupCache[gid] = res.members;
-              $container.querySelectorAll('.unpriced-paidby-select[data-group="' + gid + '"]').forEach(function(s){
-                fillPaidBySelect(s, res.members);
-              });
-            }
+        // Cache the PROMISE synchronously so N unpriced items from the same
+        // group fire exactly ONE groups/details.php request.
+        var membersPromise = groupCache[gid];
+        if (!membersPromise) {
+          membersPromise = groupCache[gid] = get(API + '/groups/details.php?group_id=' + gid).then(function(res){
+            return (res.ok && res.members) ? res.members : null;
           });
         }
+        membersPromise.then(function(members){
+          if (members) fillPaidBySelect(sel, members);
+        });
       });
 
       function fillPaidBySelect(sel, members) {

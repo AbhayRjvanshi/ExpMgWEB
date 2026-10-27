@@ -76,69 +76,94 @@ if ($confirmMode && $groupId) {
     if ($memChk->num_rows === 0) { $memChk->close(); echo json_encode(['ok' => false, 'error' => 'Payer must be a group member.']); exit; }
     $memChk->close();
 
-    // If a price was provided in the popup, update the item price
-    if ($priceParam !== null && $priceParam > 0) {
-        $upPrice = $conn->prepare('UPDATE list_items SET price = ? WHERE id = ?');
-        $upPrice->bind_param('di', $priceParam, $itemId);
-        $upPrice->execute();
-        $upPrice->close();
-        $item['price'] = $priceParam;
-    }
-
     // Re-read current state
     $now   = date('Y-m-d H:i:s');
     $today = date('Y-m-d');
 
-    // Mark checked if not already
-    if (!(int)$item['is_checked']) {
-        $stmtChk = $conn->prepare('UPDATE list_items SET is_checked = 1, checked_at = ? WHERE id = ?');
-        $stmtChk->bind_param('si', $now, $itemId);
-        $stmtChk->execute();
-        $stmtChk->close();
-    }
-
     $expenseCreated = false;
     $isPostSettlement = false;
 
-    // Create expense if item has a price and expense not yet created
-    $itemPrice = $item['price'] !== null ? floatval($item['price']) : ($priceParam ?? 0);
-    if ($itemPrice > 0 && !(int)$item['expense_created']) {
-        $expAmount  = $itemPrice;
-        $expCatId   = $item['category_id'] ? (int)$item['category_id'] : 8;
-        $expNote    = $item['description'];
-        $expDate    = $today;
-        $expType    = 'group';
-        $expGroupId = $groupId;
-
-        // Post-settlement check
-        $postSettl = 0;
-        $lockStmt = $conn->prepare('SELECT MAX(period_end) AS last_end FROM settlements WHERE group_id = ?');
-        $lockStmt->bind_param('i', $groupId);
-        $lockStmt->execute();
-        $lockRow = $lockStmt->get_result()->fetch_assoc();
-        $lockStmt->close();
-        if ($lockRow && $lockRow['last_end'] && $expDate <= $lockRow['last_end']) {
-            $postSettl = 1;
+    // Atomic confirm flow: popup price, expense creation, and the item state
+    // transition run in ONE transaction with a single collapsed item UPDATE
+    // (previously up to three untransacted UPDATEs: price, mark-checked, link).
+    $conn->begin_transaction();
+    try {
+        // If a price was provided in the popup, update the item price
+        if ($priceParam !== null && $priceParam > 0) {
+            $upPrice = $conn->prepare('UPDATE list_items SET price = ? WHERE id = ?');
+            $upPrice->bind_param('di', $priceParam, $itemId);
+            $upPrice->execute();
+            $upPrice->close();
+            $item['price'] = $priceParam;
         }
 
-        $ins = $conn->prepare(
-            'INSERT INTO expenses (user_id, paid_by, group_id, amount, category_id, note, expense_date, type, is_post_settlement, created_by, checked_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        );
-        $ins->bind_param('iiidisssiii', $userId, $paidByParam, $expGroupId, $expAmount, $expCatId, $expNote, $expDate, $expType, $postSettl, $userId, $userId);
-        if ($ins->execute()) {
-            $createdExpenseId = $ins->insert_id;
-            $expenseCreated = true;
-            $isPostSettlement = (bool)$postSettl;
-            $upd = $conn->prepare('UPDATE list_items SET expense_created = 1, expense_id = ? WHERE id = ?');
-            $upd->bind_param('ii', $createdExpenseId, $itemId);
-            $upd->execute();
-            $upd->close();
+        // Create expense if item has a price and expense not yet created
+        $itemPrice = $item['price'] !== null ? floatval($item['price']) : ($priceParam ?? 0);
+        $createdExpenseId = null;
+        if ($itemPrice > 0 && !(int)$item['expense_created']) {
+            $expAmount  = $itemPrice;
+            $expCatId   = $item['category_id'] ? (int)$item['category_id'] : 8;
+            $expNote    = $item['description'];
+            $expDate    = $today;
+            $expType    = 'group';
+            $expGroupId = $groupId;
+
+            // Post-settlement check
+            $postSettl = 0;
+            $lockStmt = $conn->prepare('SELECT MAX(period_end) AS last_end FROM settlements WHERE group_id = ?');
+            $lockStmt->bind_param('i', $groupId);
+            $lockStmt->execute();
+            $lockRow = $lockStmt->get_result()->fetch_assoc();
+            $lockStmt->close();
+            if ($lockRow && $lockRow['last_end'] && $expDate <= $lockRow['last_end']) {
+                $postSettl = 1;
+            }
+
+            $ins = $conn->prepare(
+                'INSERT INTO expenses (user_id, paid_by, group_id, amount, category_id, note, expense_date, type, is_post_settlement, created_by, checked_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            );
+            $ins->bind_param('iiidisssiii', $userId, $paidByParam, $expGroupId, $expAmount, $expCatId, $expNote, $expDate, $expType, $postSettl, $userId, $userId);
+            if ($ins->execute()) {
+                $createdExpenseId = $ins->insert_id;
+                $expenseCreated = true;
+                $isPostSettlement = (bool)$postSettl;
+            }
+            $ins->close();
         }
-        $ins->close();
-    } elseif ($itemPrice <= 0) {
-        // No price — item goes to unpriced queue, no expense created yet
-        // Just mark checked, expense_created stays 0
+
+        // ONE collapsed item update — checked state (only when not already
+        // checked, preserving the original checked_at 10-minute-window anchor
+        // from the initial check) plus the expense link.
+        if ($createdExpenseId !== null) {
+            if (!(int)$item['is_checked']) {
+                $updItem = $conn->prepare('UPDATE list_items SET is_checked = 1, checked_at = ?, expense_created = 1, expense_id = ? WHERE id = ?');
+                $updItem->bind_param('sii', $now, $createdExpenseId, $itemId);
+            } else {
+                $updItem = $conn->prepare('UPDATE list_items SET expense_created = 1, expense_id = ? WHERE id = ?');
+                $updItem->bind_param('ii', $createdExpenseId, $itemId);
+            }
+        } elseif (!(int)$item['is_checked']) {
+            $updItem = $conn->prepare('UPDATE list_items SET is_checked = 1, checked_at = ? WHERE id = ?');
+            $updItem->bind_param('si', $now, $itemId);
+        } else {
+            $updItem = null;
+        }
+        if ($updItem) {
+            $updItem->execute();
+            $updItem->close();
+        }
+
+        $conn->commit();
+    } catch (Exception $e) {
+        $conn->rollback();
+        logMessage('ERROR', 'Check-confirm transaction failed', [
+            'item_id' => $itemId,
+            'user_id' => $userId,
+            'error' => $e->getMessage()
+        ]);
+        echo json_encode(['ok' => false, 'error' => 'Failed to confirm purchase.']);
+        exit;
     }
 
     // Notify group
@@ -179,91 +204,118 @@ if ($newState === 0) {
         }
     }
 
-    // Delete auto-created expense if one exists
-    if ((int)$item['expense_created']) {
-        // Use stored expense_id for precise deletion; fall back to matching if missing
-        if (!empty($item['expense_id'])) {
-            $del = $conn->prepare('DELETE FROM expenses WHERE id = ?');
-            $del->bind_param('i', $item['expense_id']);
-        } else {
-            $del = $conn->prepare(
-                'DELETE FROM expenses
-                 WHERE note = ? AND expense_date = ?
-                   AND amount = ? AND type = ?
-                   AND group_id <=> ?
-                 ORDER BY created_at DESC LIMIT 1'
-            );
-            $expType = $groupId ? 'group' : 'personal';
-            $expAmt  = floatval($item['price']);
-            $expDate = $item['checked_at'] ? date('Y-m-d', strtotime($item['checked_at'])) : $today;
-            $del->bind_param('ssdsi', $item['description'], $expDate, $expAmt, $expType, $groupId);
+    // Delete the linked expense and reset the item atomically: ONE transaction
+    // with a single collapsed UPDATE (previously up to two untransacted UPDATEs
+    // left a window where the expense was gone but the item still claimed one).
+    $conn->begin_transaction();
+    try {
+        if ((int)$item['expense_created']) {
+            // Use stored expense_id for precise deletion; fall back to matching if missing
+            if (!empty($item['expense_id'])) {
+                $del = $conn->prepare('DELETE FROM expenses WHERE id = ?');
+                $del->bind_param('i', $item['expense_id']);
+            } else {
+                $del = $conn->prepare(
+                    'DELETE FROM expenses
+                     WHERE note = ? AND expense_date = ?
+                       AND amount = ? AND type = ?
+                       AND group_id <=> ?
+                     ORDER BY created_at DESC LIMIT 1'
+                );
+                $expType = $groupId ? 'group' : 'personal';
+                $expAmt  = floatval($item['price']);
+                $expDate = $item['checked_at'] ? date('Y-m-d', strtotime($item['checked_at'])) : $today;
+                $del->bind_param('ssdsi', $item['description'], $expDate, $expAmt, $expType, $groupId);
+            }
+            $del->execute();
+            $del->close();
         }
-        $del->execute();
-        $del->close();
 
-        // Reset expense_created flag and expense_id
-        $rst = $conn->prepare('UPDATE list_items SET expense_created = 0, expense_id = NULL WHERE id = ?');
-        $rst->bind_param('i', $itemId);
-        $rst->execute();
-        $rst->close();
-    }
-
-    $stmt = $conn->prepare('UPDATE list_items SET is_checked = 0, checked_at = NULL WHERE id = ?');
-    $stmt->bind_param('i', $itemId);
-} else {
-    // --- Checking item ---
-    // For group lists: just mark checked and return needs_confirm for popup
-    if ($groupId) {
-        $stmt = $conn->prepare('UPDATE list_items SET is_checked = 1, checked_at = ? WHERE id = ?');
-        $stmt->bind_param('si', $now, $itemId);
-        if ($stmt->execute()) {
-            $stmt->close();
-
-            // Fetch group members for the popup dropdown
-            $memStmt = $conn->prepare(
-                'SELECT gm.user_id, u.username FROM group_members gm
-                 JOIN users u ON u.id = gm.user_id
-                 WHERE gm.group_id = ? ORDER BY u.username ASC'
-            );
-            $memStmt->bind_param('i', $groupId);
-            $memStmt->execute();
-            $members = [];
-            $memRes = $memStmt->get_result();
-            while ($m = $memRes->fetch_assoc()) $members[] = $m;
-            $memStmt->close();
-
-            echo json_encode([
-                'ok' => true,
-                'is_checked' => 1,
-                'needs_confirm' => true,
-                'item' => [
-                    'id' => (int)$item['id'],
-                    'description' => $item['description'],
-                    'price' => $item['price'],
-                    'category_name' => null,
-                    'date' => $today
-                ],
-                'members' => $members
-            ]);
-        } else {
-            $stmt->close();
-            echo json_encode(['ok' => false, 'error' => 'Failed to update item.']);
-        }
+        $stmt = $conn->prepare('UPDATE list_items SET is_checked = 0, checked_at = NULL, expense_created = 0, expense_id = NULL WHERE id = ?');
+        $stmt->bind_param('i', $itemId);
+        $stmt->execute();
+        $stmt->close();
+        $conn->commit();
+    } catch (Exception $e) {
+        $conn->rollback();
+        logMessage('ERROR', 'Uncheck transaction failed', [
+            'item_id' => $itemId,
+            'user_id' => $userId,
+            'error' => $e->getMessage()
+        ]);
+        echo json_encode(['ok' => false, 'error' => 'Failed to uncheck item.']);
         exit;
     }
 
-    // For personal lists: just check and auto-create expense
-    $stmt = $conn->prepare('UPDATE list_items SET is_checked = 1, checked_at = ? WHERE id = ?');
-    $stmt->bind_param('si', $now, $itemId);
+    // Notify group on uncheck (best-effort, outside the transaction)
+    if ($groupId) {
+        $username = $_SESSION['username'];
+        $msg = "$username unchecked \"{$item['description']}\" in the list \"{$item['list_name']}\".";
+        $listId = (int)$item['list_id'];
+        $n = $conn->prepare(
+            'INSERT INTO notifications (user_id, message, type, reference_id)
+             SELECT user_id, ?, "list_item_check", ?
+             FROM group_members WHERE group_id = ? AND user_id != ?'
+        );
+        $n->bind_param('siii', $msg, $listId, $groupId, $userId);
+        $n->execute();
+        $n->close();
+    }
+
+    echo json_encode(['ok' => true, 'is_checked' => 0, 'expense_created' => false, 'is_post_settlement' => false]);
+    exit;
 }
 
-if ($stmt->execute()) {
-    $stmt->close();
+// --- Checking item ---
+// For group lists: just mark checked and return needs_confirm for popup
+if ($groupId) {
+    $stmt = $conn->prepare('UPDATE list_items SET is_checked = 1, checked_at = ? WHERE id = ?');
+    $stmt->bind_param('si', $now, $itemId);
+    if ($stmt->execute()) {
+        $stmt->close();
 
-    // If checking a personal item AND item has a price AND expense not yet created → create expense
-    $expenseCreated = false;
-    $isPostSettlement = false;
-    if ($newState === 1 && !$groupId && $item['price'] !== null && floatval($item['price']) > 0 && !(int)$item['expense_created']) {
+        // Fetch group members for the popup dropdown
+        $memStmt = $conn->prepare(
+            'SELECT gm.user_id, u.username FROM group_members gm
+             JOIN users u ON u.id = gm.user_id
+             WHERE gm.group_id = ? ORDER BY u.username ASC'
+        );
+        $memStmt->bind_param('i', $groupId);
+        $memStmt->execute();
+        $members = [];
+        $memRes = $memStmt->get_result();
+        while ($m = $memRes->fetch_assoc()) $members[] = $m;
+        $memStmt->close();
+
+        echo json_encode([
+            'ok' => true,
+            'is_checked' => 1,
+            'needs_confirm' => true,
+            'item' => [
+                'id' => (int)$item['id'],
+                'description' => $item['description'],
+                'price' => $item['price'],
+                'category_name' => null,
+                'date' => $today
+            ],
+            'members' => $members
+        ]);
+    } else {
+        $stmt->close();
+        echo json_encode(['ok' => false, 'error' => 'Failed to update item.']);
+    }
+    exit;
+}
+
+// For personal lists: check and auto-create the expense atomically — ONE
+// transaction, expense INSERT first, then a single collapsed item UPDATE
+// (previously UPDATE → INSERT → second UPDATE, all untransacted, risking an
+// orphan expense with expense_created = 0 on failure between the two writes).
+$expenseCreated = false;
+$conn->begin_transaction();
+try {
+    $createdExpenseId = null;
+    if ($item['price'] !== null && floatval($item['price']) > 0 && !(int)$item['expense_created']) {
         $expAmount   = floatval($item['price']);
         $expCatId    = $item['category_id'] ? (int)$item['category_id'] : 8;
         $expNote     = $item['description'];
@@ -278,31 +330,30 @@ if ($stmt->execute()) {
         if ($ins->execute()) {
             $createdExpenseId = $ins->insert_id;
             $expenseCreated = true;
-            $upd = $conn->prepare('UPDATE list_items SET expense_created = 1, expense_id = ? WHERE id = ?');
-            $upd->bind_param('ii', $createdExpenseId, $itemId);
-            $upd->execute();
-            $upd->close();
         }
         $ins->close();
     }
 
-    // Notify group on uncheck
-    if ($groupId && $newState === 0) {
-        $username = $_SESSION['username'];
-        $msg = "$username unchecked \"{$item['description']}\" in the list \"{$item['list_name']}\".";
-        $listId = (int)$item['list_id'];
-        $n = $conn->prepare(
-            'INSERT INTO notifications (user_id, message, type, reference_id)
-             SELECT user_id, ?, "list_item_check", ?
-             FROM group_members WHERE group_id = ? AND user_id != ?'
-        );
-        $n->bind_param('siii', $msg, $listId, $groupId, $userId);
-        $n->execute();
-        $n->close();
+    if ($createdExpenseId !== null) {
+        $stmt = $conn->prepare('UPDATE list_items SET is_checked = 1, checked_at = ?, expense_created = 1, expense_id = ? WHERE id = ?');
+        $stmt->bind_param('sii', $now, $createdExpenseId, $itemId);
+    } else {
+        $stmt = $conn->prepare('UPDATE list_items SET is_checked = 1, checked_at = ? WHERE id = ?');
+        $stmt->bind_param('si', $now, $itemId);
     }
-
-    echo json_encode(['ok' => true, 'is_checked' => $newState, 'expense_created' => $expenseCreated, 'is_post_settlement' => $isPostSettlement]);
-} else {
+    $stmt->execute();
     $stmt->close();
+    $conn->commit();
+} catch (Exception $e) {
+    $conn->rollback();
+    logMessage('ERROR', 'Personal check transaction failed', [
+        'item_id' => $itemId,
+        'user_id' => $userId,
+        'error' => $e->getMessage()
+    ]);
     echo json_encode(['ok' => false, 'error' => 'Failed to update item.']);
+    exit;
 }
+
+echo json_encode(['ok' => true, 'is_checked' => 1, 'expense_created' => $expenseCreated, 'is_post_settlement' => false]);
+exit;

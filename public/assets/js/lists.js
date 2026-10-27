@@ -135,7 +135,14 @@
           el.textContent = fmtTimer(left);
         }
       });
-      if (needRefresh && currentListId) openListDetail(currentListId);
+      if (needRefresh && currentListId) {
+        // Stop this interval BEFORE reloading so a slow re-render cannot
+        // stack overlapping openListDetail() calls on subsequent ticks.
+        clearInterval(timerInterval);
+        timerInterval = null;
+        openListDetail(currentListId);
+        return;
+      }
     }, 1000);
   }
 

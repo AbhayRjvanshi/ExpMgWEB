@@ -250,4 +250,4 @@
 </style>
 
 <!-- ===== Lists JS ===== -->
-<script src="assets/js/lists.js?v=<?= time() ?>"></script>
+<script src="assets/js/lists.js?v=<?= @filemtime(__DIR__ . '/../public/assets/js/lists.js') ?: 1 ?>"></script>

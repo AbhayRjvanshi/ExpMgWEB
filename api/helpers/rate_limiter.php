@@ -279,3 +279,114 @@ function rateLimitRetryAfter(mysqli $conn, string $ip, string $action, int $wind
     // Fix 1: return the actual remaining seconds, not capped at 60.
     return max(0, $expiresAt - time());
 }
+
+/**
+ * Batched rate-limit check + record for requireAuth() (api_user + api_ip).
+ *
+ * Collapses the previous 6 queries per authenticated request (4 SELECTs +
+ * 2 INSERTs) into ONE combined probe SELECT and ONE multi-row INSERT on
+ * the happy path, while preserving the exact semantics of checkRateLimit() /
+ * recordRateLimit() for the api_user / api_ip actions (including the
+ * cooldown-active short-circuit and count >= max cooldown start).
+ *
+ * All pre-existing public function signatures remain untouched (Section 33
+ * of run_tests.php asserts them by name).
+ *
+ * @return array{allowed: bool, limited_by: ?string, retry_after: int}
+ */
+function requireAuthRateLimitBatch(mysqli $conn, string $userKey, string $ipKey, int $userMax, int $ipMax, int $windowSecs, bool $record = true): array {
+    if (!rateLimiterEnabled()) {
+        return ['allowed' => true, 'limited_by' => null, 'retry_after' => 0];
+    }
+
+    // Redis backend: keep the granular path (Redis round-trips are cheap).
+    $redis = rateLimiterRedis();
+    if (is_object($redis)) {
+        if (!checkRateLimit($conn, $userKey, 'api_user', $userMax, $windowSecs)) {
+            return ['allowed' => false, 'limited_by' => 'user', 'retry_after' => rateLimitRetryAfter($conn, $userKey, 'api_user', $windowSecs)];
+        }
+        if (!checkRateLimit($conn, $ipKey, 'api_ip', $ipMax, $windowSecs)) {
+            return ['allowed' => false, 'limited_by' => 'ip', 'retry_after' => rateLimitRetryAfter($conn, $ipKey, 'api_ip', $windowSecs)];
+        }
+        if ($record) {
+            recordRateLimit($conn, $userKey, 'api_user', $windowSecs);
+            recordRateLimit($conn, $ipKey, 'api_ip', $windowSecs);
+        }
+        return ['allowed' => true, 'limited_by' => null, 'retry_after' => 0];
+    }
+
+    // DB backend: probabilistic cleanup (~1% of requests), same as before.
+    if (mt_rand(1, 100) === 1) {
+        cleanupRateLimits($conn);
+    }
+
+    $userCooldownAction = rateLimiterCooldownAction('api_user');
+    $ipCooldownAction   = rateLimiterCooldownAction('api_ip');
+    $userCooldownWindow = rateLimiterCooldownWindow('api_user');
+    $ipCooldownWindow   = rateLimiterCooldownWindow('api_ip');
+    // api_user / api_ip cooldown windows equal their count windows (60s), so
+    // one cutoff serves both the cooldown lookups and the COUNT aggregation.
+    $since = date('Y-m-d H:i:s', time() - max($windowSecs, $userCooldownWindow, $ipCooldownWindow));
+
+    $stmt = $conn->prepare(
+        "SELECT
+            MAX(CASE WHEN action = ? THEN attempted_at END) AS user_cooldown_at,
+            MAX(CASE WHEN action = ? THEN attempted_at END) AS ip_cooldown_at,
+            COALESCE(SUM(action = ?), 0) AS user_count,
+            COALESCE(SUM(action = ?), 0) AS ip_count
+         FROM rate_limits
+         WHERE attempted_at >= ?
+           AND (
+               (ip_address = ? AND action IN (?, ?))
+               OR (ip_address = ? AND action IN (?, ?))
+           )"
+    );
+    $userAction = 'api_user';
+    $ipAction   = 'api_ip';
+    $stmt->bind_param(
+        'sssssssssss',
+        $userCooldownAction, $ipCooldownAction, $userAction, $ipAction, $since,
+        $userKey, $userAction, $userCooldownAction,
+        $ipKey, $ipAction, $ipCooldownAction
+    );
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    // Cooldown-active short circuit (mirrors checkRateLimit's early return).
+    if (!empty($row['user_cooldown_at'])) {
+        $remaining = $userCooldownWindow - (time() - strtotime($row['user_cooldown_at']));
+        if ($remaining > 0) {
+            return ['allowed' => false, 'limited_by' => 'user', 'retry_after' => rateLimitRetryAfter($conn, $userKey, 'api_user', $windowSecs)];
+        }
+    }
+    if (!empty($row['ip_cooldown_at'])) {
+        $remaining = $ipCooldownWindow - (time() - strtotime($row['ip_cooldown_at']));
+        if ($remaining > 0) {
+            return ['allowed' => false, 'limited_by' => 'ip', 'retry_after' => rateLimitRetryAfter($conn, $ipKey, 'api_ip', $windowSecs)];
+        }
+    }
+
+    // Count-based limit (mirrors checkRateLimit's cnt >= max branch, including
+    // the cooldown start on the transition into the limited state).
+    if ((int)$row['user_count'] >= $userMax) {
+        rateLimiterStartCooldownIfInactive($conn, $userKey, 'api_user');
+        return ['allowed' => false, 'limited_by' => 'user', 'retry_after' => rateLimitRetryAfter($conn, $userKey, 'api_user', $windowSecs)];
+    }
+    if ((int)$row['ip_count'] >= $ipMax) {
+        rateLimiterStartCooldownIfInactive($conn, $ipKey, 'api_ip');
+        return ['allowed' => false, 'limited_by' => 'ip', 'retry_after' => rateLimitRetryAfter($conn, $ipKey, 'api_ip', $windowSecs)];
+    }
+
+    if ($record) {
+        $now = date('Y-m-d H:i:s');
+        $stmt = $conn->prepare(
+            'INSERT INTO rate_limits (ip_address, action, attempted_at) VALUES (?, ?, ?), (?, ?, ?)'
+        );
+        $stmt->bind_param('ssssss', $userKey, $userAction, $now, $ipKey, $ipAction, $now);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    return ['allowed' => true, 'limited_by' => null, 'retry_after' => 0];
+}

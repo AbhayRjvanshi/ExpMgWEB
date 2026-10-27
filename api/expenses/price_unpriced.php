@@ -104,25 +104,61 @@ if ($groupId) {
     }
 }
 
-// Create the expense
-$ins = $conn->prepare(
-    'INSERT INTO expenses (user_id, paid_by, group_id, amount, category_id, note, expense_date, type, is_post_settlement, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-);
-$ins->bind_param('iiidisssii', $userId, $paidBy, $groupId, $price, $expCatId, $expNote, $expDate, $expType, $isPostSettlement, $userId);
+// Create the expense and link the item atomically: transaction + FOR UPDATE
+// re-check + affected-rows guard so two concurrent pricing requests for the
+// same item can never create duplicate expenses.
+$conn->begin_transaction();
+try {
+    // Re-check under row lock — a concurrent request may have won the race.
+    $lockItem = $conn->prepare('SELECT expense_created FROM list_items WHERE id = ? FOR UPDATE');
+    $lockItem->bind_param('i', $itemId);
+    $lockItem->execute();
+    $fresh = $lockItem->get_result()->fetch_assoc();
+    $lockItem->close();
 
-if ($ins->execute()) {
+    if ($fresh && (int)$fresh['expense_created']) {
+        $conn->rollback();
+        echo json_encode(['ok' => false, 'error' => 'Expense already created for this item.']);
+        exit;
+    }
+
+    $ins = $conn->prepare(
+        'INSERT INTO expenses (user_id, paid_by, group_id, amount, category_id, note, expense_date, type, is_post_settlement, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    );
+    $ins->bind_param('iiidisssii', $userId, $paidBy, $groupId, $price, $expCatId, $expNote, $expDate, $expType, $isPostSettlement, $userId);
+
+    if (!$ins->execute()) {
+        $ins->close();
+        $conn->rollback();
+        echo json_encode(['ok' => false, 'error' => 'Failed to create expense.']);
+        exit;
+    }
     $expenseId = $ins->insert_id;
     $ins->close();
 
-    // Update list item: set price, mark expense_created, store expense_id
-    $upd = $conn->prepare('UPDATE list_items SET price = ?, expense_created = 1, expense_id = ? WHERE id = ?');
+    // Guarded link: AND expense_created = 0 makes the write idempotent even
+    // if two requests somehow passed the FOR UPDATE re-check.
+    $upd = $conn->prepare('UPDATE list_items SET price = ?, expense_created = 1, expense_id = ? WHERE id = ? AND expense_created = 0');
     $upd->bind_param('dii', $price, $expenseId, $itemId);
     $upd->execute();
+    $linked = $conn->affected_rows;
     $upd->close();
 
+    if ($linked !== 1) {
+        $conn->rollback();
+        echo json_encode(['ok' => false, 'error' => 'Item was concurrently priced.']);
+        exit;
+    }
+
+    $conn->commit();
     echo json_encode(['ok' => true, 'expense_id' => $expenseId, 'is_post_settlement' => (bool)$isPostSettlement]);
-} else {
-    $ins->close();
+} catch (Exception $e) {
+    $conn->rollback();
+    logMessage('ERROR', 'Unpriced pricing transaction failed', [
+        'item_id' => $itemId,
+        'user_id' => $userId,
+        'error' => $e->getMessage()
+    ]);
     echo json_encode(['ok' => false, 'error' => 'Failed to create expense.']);
 }

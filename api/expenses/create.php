@@ -29,7 +29,18 @@ $paidBy      = !empty($_POST['paid_by']) ? (int) $_POST['paid_by'] : null;
 $errors = [];
 if ($amount <= 0)                         $errors[] = 'Amount must be greater than 0.';
 if ($categoryId <= 0)                     $errors[] = 'Please select a category.';
-if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $expenseDate)) $errors[] = 'Invalid date format.';
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $expenseDate)) {
+    $errors[] = 'Invalid date format.';
+} else {
+    // Calendar-valid date: the regex alone accepts impossible dates such as
+    // 2026-99-55 or 2026-02-30, which MySQL then silently coerces.
+    $dateParts = explode('-', $expenseDate);
+    if (!checkdate((int)$dateParts[1], (int)$dateParts[2], (int)$dateParts[0])) {
+        $errors[] = 'Invalid calendar date.';
+    }
+}
+// Note length guard (expenses.note is VARCHAR(255))
+if (mb_strlen($note) > 255)               $errors[] = 'Note is too long (max 255 characters).';
 
 // If group, ensure user is a member of that group
 if ($type === 'group') {

@@ -33,17 +33,27 @@ require_once __DIR__ . '/../helpers/rate_limiter.php';
  *   - No session user_id
  *   - Session expired (>24 hours from login_time)
  *   - CSRF token missing/invalid on POST/PUT/PATCH/DELETE
- *   - Rate limit exceeded on API calls
+ * Returns HTTP 429 Too Many Requests and terminates if:
+ *   - Per-user (120/min) or per-IP (240/min) API rate limit exceeded
  *
- * On success, populates:
- *   - $_SESSION['user_id']
- *   - $_SESSION['login_time']
+ * Ordering contract (performance-critical):
+ *   1. All session-dependent validation happens FIRST while the session
+ *      lock is still held (user_id check, 24h expiry which may call
+ *      session_destroy(), CSRF which reads $_SESSION['csrf_token']).
+ *   2. session_write_close() then releases PHP's exclusive flock on the
+ *      session file immediately, so the concurrent AJAX requests of a
+ *      logged-in user execute in parallel instead of serially. $_SESSION
+ *      values remain readable in memory for the rest of the request.
+ *   3. Only DB-backed rate limiting runs after the lock is released.
  *
+ * @param bool $recordUsage Pass false to skip recording rate_limits usage
+ *                          rows (used by lightweight heartbeat polling).
  * @return void
  */
-function requireAuth(): void {
+function requireAuth(bool $recordUsage = true): void {
     global $conn;
-    // Check if user is logged in
+
+    // ---- 1. Session-dependent checks (hold the session lock) ----
     if (!isset($_SESSION['user_id']) || $_SESSION['user_id'] === '') {
         logMessage('WARNING', 'Authentication failed: no session user_id', [
             'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
@@ -59,42 +69,8 @@ function requireAuth(): void {
 
     $userId = (int) $_SESSION['user_id'];
 
-    // ---------- Rate limiting check ----------
-    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-    $userKey = 'user:' . $userId;
-    $ipKey = 'ip:' . $ip;
-    
-    // Per-user API limit: 120 requests per 60 seconds
-    if (!checkRateLimit($conn, $userKey, 'api_user', 120, 60)) {
-        $retryAfter = rateLimitRetryAfter($conn, $userKey, 'api_user', 60);
-        http_response_code(429);
-        header('Content-Type: application/json');
-        header('Retry-After: ' . $retryAfter);
-        echo json_encode([
-            'ok' => false,
-            'error' => 'Rate limited',
-            'retry_after' => $retryAfter,
-            'limited_by' => 'user'
-        ]);
-        exit;
-    }
-    
-    // Per-IP API limit: 240 requests per 60 seconds (allows burst but prevents network abuse)
-    if (!checkRateLimit($conn, $ipKey, 'api_ip', 240, 60)) {
-        $retryAfter = rateLimitRetryAfter($conn, $ipKey, 'api_ip', 60);
-        http_response_code(429);
-        header('Content-Type: application/json');
-        header('Retry-After: ' . $retryAfter);
-        echo json_encode([
-            'ok' => false,
-            'error' => 'Rate limited',
-            'retry_after' => $retryAfter,
-            'limited_by' => 'ip'
-        ]);
-        exit;
-    }
-
-    // Check session expiration (24 hours from login_time)
+    // 24-hour session expiration. session_destroy() requires an ACTIVE
+    // session, so this must run before session_write_close().
     if (isset($_SESSION['login_time'])) {
         $loginTime = (int) $_SESSION['login_time'];
         $now = time();
@@ -116,15 +92,82 @@ function requireAuth(): void {
         }
     }
 
-    // For state-changing requests, verify CSRF token
+    // CSRF verification for state-changing requests (reads $_SESSION['csrf_token']).
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
         verifyCsrfToken();
     }
 
-    // Count successful authenticated API usage so the per-user/IP limits can actually trigger.
-    recordRateLimit($conn, $userKey, 'api_user', 60);
-    recordRateLimit($conn, $ipKey, 'api_ip', 60);
+    // ---- 2. Release the exclusive session file lock NOW ----
+    // Everything below no longer writes $_SESSION, so concurrent requests
+    // from the same user run in parallel instead of queueing on flock(LOCK_EX).
+    session_write_close();
+
+    // Security headers (best-effort, before any body output; centralized here
+    // because api/bootstrap.php is not included by any endpoint).
+    if (!headers_sent()) {
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+        header('Referrer-Policy: strict-origin-when-cross-origin');
+    }
+
+    // ---- 3. Rate limiting (DB-only; does not touch $_SESSION) ----
+    // Per-user API limit: 120 requests per 60 seconds.
+    // Per-IP API limit: 240 requests per 60 seconds (burst allowance).
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    $userKey = 'user:' . $userId;
+    $ipKey = 'ip:' . $ip;
+
+    if (is_object(rateLimiterRedis())) {
+        // Redis backend: granular per-key checks (cheap Redis round-trips).
+        if (!checkRateLimit($conn, $userKey, 'api_user', 120, 60)) {
+            $retryAfter = rateLimitRetryAfter($conn, $userKey, 'api_user', 60);
+            http_response_code(429);
+            header('Content-Type: application/json');
+            header('Retry-After: ' . $retryAfter);
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Rate limited',
+                'retry_after' => $retryAfter,
+                'limited_by' => 'user'
+            ]);
+            exit;
+        }
+        if (!checkRateLimit($conn, $ipKey, 'api_ip', 240, 60)) {
+            $retryAfter = rateLimitRetryAfter($conn, $ipKey, 'api_ip', 60);
+            http_response_code(429);
+            header('Content-Type: application/json');
+            header('Retry-After: ' . $retryAfter);
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Rate limited',
+                'retry_after' => $retryAfter,
+                'limited_by' => 'ip'
+            ]);
+            exit;
+        }
+        if ($recordUsage) {
+            recordRateLimit($conn, $userKey, 'api_user', 60);
+            recordRateLimit($conn, $ipKey, 'api_ip', 60);
+        }
+    } else {
+        // DB backend: one batched probe + one multi-row INSERT (2 queries
+        // instead of the previous 6) with identical limiting semantics.
+        $verdict = requireAuthRateLimitBatch($conn, $userKey, $ipKey, 120, 240, 60, $recordUsage);
+        if (!$verdict['allowed']) {
+            $retryAfter = $verdict['retry_after'];
+            http_response_code(429);
+            header('Content-Type: application/json');
+            header('Retry-After: ' . $retryAfter);
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Rate limited',
+                'retry_after' => $retryAfter,
+                'limited_by' => $verdict['limited_by']
+            ]);
+            exit;
+        }
+    }
 }
 
 /**

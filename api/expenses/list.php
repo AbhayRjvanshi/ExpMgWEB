@@ -16,13 +16,19 @@ requireAuth();
 $userId = (int) $_SESSION['user_id'];
 $date   = trim($_GET['date']  ?? '');
 $month  = trim($_GET['month'] ?? '');
-[$page, $limit, $offset] = parsePagination(20, 50);
 $total = 0;
+$page = 1; $limit = 20; $offset = 0; // set per branch below
+
+// Branch-tuned pagination: the ?date= branch keeps the documented default
+// (20) and cap (50) pinned by the pagination contract (tests 32l/32o);
+// month and custom-range queries feed full calendar views, charts, and PDF
+// exports, so they use a high ceiling and never silently truncate.
 
 // Build the query: personal expenses + group expenses for groups the user belongs to
 // We use a UNION approach or a single query with OR conditions.
 
 if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+    [$page, $limit, $offset] = parsePagination(20, 50);
     $countSql = "SELECT COUNT(*) AS total
                  FROM expenses e
                  WHERE e.expense_date = ?
@@ -74,6 +80,7 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
 
 } elseif ($month !== '' && preg_match('/^\d{4}-\d{2}$/', $month)) {
     // ---- Expenses for a whole month ----
+    [$page, $limit, $offset] = parsePagination(500, 1000);
     $startDate = $month . '-01';
     $endDate   = date('Y-m-t', strtotime($startDate));
 
@@ -129,6 +136,7 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
          && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($_GET['start']))
          && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($_GET['end']))) {
     // ---- Expenses for a date range ----
+    [$page, $limit, $offset] = parsePagination(500, 1000);
     $startDate = trim($_GET['start']);
     $endDate   = trim($_GET['end']);
 

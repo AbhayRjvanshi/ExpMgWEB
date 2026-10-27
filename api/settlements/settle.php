@@ -26,6 +26,10 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $periodStart) || !preg_match('/^\d{4}-\
     echo json_encode(['ok' => false, 'error' => 'Invalid date format.']);
     exit;
 }
+if ($periodStart > $periodEnd) {
+    echo json_encode(['ok' => false, 'error' => 'Invalid period: start date is after end date.']);
+    exit;
+}
 
 // Verify user is admin of this group
 $stmt = $conn->prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?');
@@ -43,15 +47,50 @@ if ($membership['role'] !== 'admin') {
     exit;
 }
 
-$stmt = $conn->prepare(
-    'INSERT INTO settlements (group_id, settled_by, payer_id, payee_id, amount, period_start, period_end)
-     VALUES (?, ?, ?, ?, ?, ?, ?)'
-);
-$stmt->bind_param('iiiidss', $groupId, $userId, $payerId, $payeeId, $amount, $periodStart, $periodEnd);
+// Duplicate guard + INSERT inside a transaction so a double-click cannot
+// record the same settlement twice.
+$conn->begin_transaction();
+try {
+    $dup = $conn->prepare(
+        'SELECT id FROM settlements
+         WHERE group_id = ? AND payer_id = ? AND payee_id = ? AND amount = ?
+           AND period_start = ? AND period_end = ?
+         LIMIT 1'
+    );
+    $dup->bind_param('iiidss', $groupId, $payerId, $payeeId, $amount, $periodStart, $periodEnd);
+    $dup->execute();
+    $dupRow = $dup->get_result()->fetch_assoc();
+    $dup->close();
 
-if ($stmt->execute()) {
-    echo json_encode(['ok' => true, 'message' => 'Settlement recorded.', 'id' => (int) $stmt->insert_id]);
-} else {
+    if ($dupRow) {
+        $conn->rollback();
+        echo json_encode(['ok' => false, 'error' => 'This settlement has already been recorded.']);
+        exit;
+    }
+
+    $stmt = $conn->prepare(
+        'INSERT INTO settlements (group_id, settled_by, payer_id, payee_id, amount, period_start, period_end)
+         VALUES (?, ?, ?, ?, ?, ?, ?)'
+    );
+    $stmt->bind_param('iiiidss', $groupId, $userId, $payerId, $payeeId, $amount, $periodStart, $periodEnd);
+
+    if (!$stmt->execute()) {
+        $stmt->close();
+        $conn->rollback();
+        echo json_encode(['ok' => false, 'error' => 'Failed to record settlement.']);
+        exit;
+    }
+    $newId = (int) $stmt->insert_id;
+    $stmt->close();
+    $conn->commit();
+
+    echo json_encode(['ok' => true, 'message' => 'Settlement recorded.', 'id' => $newId]);
+} catch (Exception $e) {
+    $conn->rollback();
+    logMessage('ERROR', 'Settlement insert transaction failed', [
+        'group_id' => $groupId,
+        'user_id' => $userId,
+        'error' => $e->getMessage()
+    ]);
     echo json_encode(['ok' => false, 'error' => 'Failed to record settlement.']);
 }
-$stmt->close();

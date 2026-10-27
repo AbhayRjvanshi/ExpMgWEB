@@ -27,6 +27,7 @@ window.closeAllHeaderPopovers = function (except) {
   let monthExpenseDates = new Set(); // dates that have expenses (for dots)
   let dayViewAllModal = null;       // open "View all" modal handle (day expenses)
   let dayViewAllDate = null;        // the date the open modal was rendered for
+  let monthExpensesCache = { month: null, expenses: [] }; // last fetched month list (A6)
 
   // ------ Helpers (shared from helpers.js; only local extras here) ------
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -86,6 +87,9 @@ window.closeAllHeaderPopovers = function (except) {
     try {
       const mRes = await get(`${API}/expenses/list.php?month=${monthStr}`);
       if (mRes.ok) {
+        // Cache the month's full expense list so day-panel loads for dates
+        // inside this month reuse it instead of refetching.
+        monthExpensesCache = { month: monthStr, expenses: mRes.expenses };
         mRes.expenses.forEach(e => {
           const amount = parseFloat(e.amount) || 0;
           monthExpenseDates.add(e.expense_date);
@@ -187,7 +191,16 @@ window.closeAllHeaderPopovers = function (except) {
     hide(empty);
 
     try {
-      const res = await get(`${API}/expenses/list.php?date=${date}`);
+      // Reuse the already-fetched month response when the selected date
+      // belongs to that month (identical row shape from list.php) — avoids
+      // the duplicate request right after renderCalendar's month fetch.
+      const dateParts = date.split('-');
+      let res;
+      if (monthExpensesCache.month === `${dateParts[0]}-${dateParts[1]}`) {
+        res = { ok: true, expenses: monthExpensesCache.expenses.filter(e => e.expense_date === date) };
+      } else {
+        res = await get(`${API}/expenses/list.php?date=${date}`);
+      }
       if (!res.ok) {
         list.innerHTML = '';
         if (summaryRow) hide(summaryRow);
@@ -862,6 +875,7 @@ window.closeAllHeaderPopovers = function (except) {
 
   // ---- Polling ----
   async function pollUnreadCount() {
+    if (document.hidden) return; // never poll a hidden background tab
     if (typeof getRateLimitRemainingSeconds === 'function' && getRateLimitRemainingSeconds() > 0) {
       return;
     }
@@ -885,6 +899,11 @@ window.closeAllHeaderPopovers = function (except) {
   // Initial poll + interval
   pollUnreadCount();
   setInterval(pollUnreadCount, POLL_INTERVAL);
+
+  // Catch up immediately when the tab becomes visible again.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) pollUnreadCount();
+  });
 
 })();
 

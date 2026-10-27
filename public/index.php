@@ -27,13 +27,17 @@ $page     = $_GET['page'] ?? 'home';
   <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
-  <!-- Chart.js (loaded early; used on expenses page; pinned to v4) -->
+  <?php if ($page === 'expenses'): ?>
+  <!-- Chart.js (only on the Expenses tab — charts live there; synchronous so
+       the page's inline chart scripts can use it immediately) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
-  <!-- jsPDF + autoTable (for settlement PDF export) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-  <link rel="stylesheet" href="assets/css/styles.css" />
-  <script src="assets/js/helpers.js?v=<?= time() ?>"></script>
+  <?php endif; ?>
+  <!-- jsPDF + autoTable (deferred — only needed when a PDF button is clicked;
+       defer executes before DOMContentLoaded, so click handlers find them) -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <link rel="stylesheet" href="assets/css/styles.css?v=<?= @filemtime(__DIR__ . '/assets/css/styles.css') ?: 1 ?>" />
+  <script src="assets/js/helpers.js?v=<?= @filemtime(__DIR__ . '/assets/js/helpers.js') ?: 1 ?>"></script>
 </head>
 <body>
 <script>
@@ -188,6 +192,6 @@ $page     = $_GET['page'] ?? 'home';
     </div>
   </div>
 
-  <script src="assets/js/app.js?v=<?= time() ?>"></script>
+  <script src="assets/js/app.js?v=<?= @filemtime(__DIR__ . '/assets/js/app.js') ?: 1 ?>"></script>
 </body>
 </html>

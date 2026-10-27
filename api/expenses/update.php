@@ -29,6 +29,8 @@ $paidBy     = !empty($_POST['paid_by']) ? (int) $_POST['paid_by'] : null;
 if ($expenseId <= 0)  { echo json_encode(['ok' => false, 'error' => 'Invalid expense ID.']); exit; }
 if ($amount <= 0)     { echo json_encode(['ok' => false, 'error' => 'Amount must be > 0.']); exit; }
 if ($categoryId <= 0) { echo json_encode(['ok' => false, 'error' => 'Select a category.']); exit; }
+// Note length guard (expenses.note is VARCHAR(255))
+if (mb_strlen($note) > 255) { echo json_encode(['ok' => false, 'error' => 'Note is too long (max 255 characters).']); exit; }
 
 // Fetch existing expense
 $stmt = $conn->prepare('SELECT user_id, group_id, type, expense_date FROM expenses WHERE id = ?');
