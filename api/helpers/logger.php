@@ -18,6 +18,15 @@
 function logMessage(string $level, string $message, array $context = []): void {
     $logFile = __DIR__ . '/../../logs/app.log';
 
+    // 10 MB rotation guard: keeps logs/ bounded on long-lived installs
+    // (file_put_contents below would otherwise grow app.log forever).
+    // The previous log is kept as a single archive (app.log.1), so disk
+    // usage is capped at ~20 MB total.
+    if (@filesize($logFile) > 10 * 1024 * 1024) {
+        @unlink($logFile . '.1');
+        @rename($logFile, $logFile . '.1');
+    }
+
     $entry = [
         'time'    => date('Y-m-d H:i:s'),
         'level'   => $level,
