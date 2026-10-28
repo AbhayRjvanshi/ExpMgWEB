@@ -8,6 +8,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/logger.php';
 
 requireAuth();
 
@@ -20,7 +21,20 @@ if ($groupId <= 0) {
     echo json_encode(['ok' => false, 'error' => 'Invalid group.']);
     exit;
 }
-if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate)) {
+// Full calendar validation, not just the shape: the old regex accepted
+// impossible dates such as 2026-02-30, which then went straight into the
+// BETWEEN bounds. validateDate() throws, and this endpoint has no global
+// handler yet (that is the deferred section-30 work), so the contract is
+// preserved by catching and returning the same message shape.
+try {
+    validateDate($startDate, 'start');
+    validateDate($endDate, 'end');
+} catch (Exception $e) {
+    logMessage('ERROR', 'Rejected settlement period dates', [
+        'user_id' => $userId,
+        'group_id' => $groupId,
+        'reason'  => $e->getMessage(),
+    ]);
     echo json_encode(['ok' => false, 'error' => 'Invalid date format.']);
     exit;
 }

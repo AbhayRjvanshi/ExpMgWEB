@@ -233,7 +233,7 @@ All group actions (join, leave, expense add/edit/delete, settlement, list change
 ## Tech Stack
 
 - **Back-end:** PHP 8+ (procedural, no framework)
-- **Database:** MySQL 8 via `mysqli`
+- **Database:** MySQL 8 / MariaDB 10.4.32 (XAMPP, CHECK constraints enforced on both) via `mysqli`
 - **Front-end:** Vanilla HTML / CSS / JavaScript
 - **Charts:** Chart.js (CDN)
 - **PDF Export:** jsPDF + jsPDF-AutoTable (CDN)

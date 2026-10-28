@@ -108,3 +108,8 @@
   migration can land separately.
 - **`api/bootstrap.php` (KD-02)** and the dormant `api/services/` inventory
   (KD-11): delete, or wire deliberately and document.
+- **`api/settlements/settle.php:29` date check**: still regex-only, so an
+  impossible period date (`2026-02-30`) is accepted here even though
+  `settlements/details.php` now rejects it. Deliberately deferred — bundle it
+  with the section-30 controller pass so the admin settle path is not touched in
+  isolation.

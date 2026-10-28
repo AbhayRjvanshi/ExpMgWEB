@@ -13,7 +13,7 @@
 | Layer | Technology |
 |---|---|
 | Backend | PHP 8+ procedural (no framework, no ORM) |
-| Database | MySQL 8 — raw `mysqli` prepared statements only |
+| Database | MySQL 8 / MariaDB 10.4.32 (XAMPP, CHECK constraints enforced on both) — raw `mysqli` prepared statements only |
 | Frontend | Vanilla JS (ES2020) — no build step, no bundler |
 | Server | Apache via XAMPP on Windows (`C:/xampp/htdocs/ExpMgWEB`) |
 | Cache / Queue | Redis (optional) — file-store fallback always available |
