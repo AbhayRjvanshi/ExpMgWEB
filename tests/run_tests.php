@@ -1,4 +1,13 @@
 <?php
+// Hard CLI-only gate (defense in depth: this file is also reached directly
+// by older tooling, and it performs DB writes).
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Forbidden: CLI execution only.']);
+    exit;
+}
+
 /**
  * Comprehensive functional test suite for ExpMgWEB.
  * 

@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+// Hard CLI-only gate: this suite talks to Redis/MySQL and must never be
+// invokable over HTTP.
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Forbidden: CLI execution only.']);
+    exit;
+}
+
 require_once __DIR__ . '/../services/RedisService.php';
 require_once __DIR__ . '/../services/LockService.php';
 require_once __DIR__ . '/../services/HealthService.php';

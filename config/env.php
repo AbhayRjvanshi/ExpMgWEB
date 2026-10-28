@@ -40,12 +40,13 @@ function env(string $key, $default = null) {
     return $default;
 }
 
-// Set commonly used defaults for local development if not provided.
+// Safe production defaults when no environment is supplied. A local `.env`
+// (or OS/PaaS env vars) can still override these explicitly.
 if (env('APP_ENV') === null) {
-    $_ENV['APP_ENV'] = 'development';
+    $_ENV['APP_ENV'] = 'production';
 }
 if (env('APP_DEBUG') === null) {
-    $_ENV['APP_DEBUG'] = '1';
+    $_ENV['APP_DEBUG'] = '0';
 }
 
 // Database defaults (safe for local XAMPP-style setups)

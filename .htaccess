@@ -1,0 +1,52 @@
+# ============================================================
+# ExpMgWEB — Root webroot lockdown
+# ------------------------------------------------------------
+# XAMPP serves this project folder directly, so every root-level
+# artifact (env files, git internals, SQL dumps, docs, logs, tool
+# config, test runners, dependency tree) is reachable unless it is
+# denied here. public/, pages/ and api/ stay reachable at their
+# existing relative URLs.
+# ============================================================
+
+# Never expose directory listings (vendor/, graphify-out/, data/ ...).
+Options -Indexes
+
+# 1) Deny every dot-prefixed file inside the tree:
+#    .env, .env.example, .gitignore, .cursorrules, .htaccess, .mcp.json ...
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 2) Deny sensitive root artifacts:
+#    SQL dumps/migrations, Markdown docs, log/txt/ini/lock/jsonl files,
+#    composer manifests, tool config (mcp.json), the HTTP-reachable
+#    test runner.
+<FilesMatch "(^run_tests\.php$|^composer\.(json|lock)$|^mcp\.json$|\.(sql|md|log|txt|ini|lock|jsonl)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 3) Deny internal / non-public directories by path.
+#    (.htaccess context: the pattern is relative to this directory.)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(\.git|vendor|graphify-out|partials|data|logs|config|scripts|tests)(/|$) - [F,L]
+</IfModule>
+
+# 4) Same directory deny without mod_rewrite, so the protection does
+#    not silently disappear when mod_rewrite is unavailable.
+<IfModule mod_alias.c>
+    RedirectMatch 403 (?i)(^|/)\.git(/|$)
+    RedirectMatch 403 (?i)(^|/)(vendor|graphify-out|partials|data|logs|config|scripts|tests)(/|$)
+</IfModule>

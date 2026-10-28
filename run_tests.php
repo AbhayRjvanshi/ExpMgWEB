@@ -1,5 +1,15 @@
 <?php
 
+// Hard CLI-only gate. This file is HTTP-reachable from the project root, and
+// running it over HTTP would execute the entire functional suite (DB writes
+// included) for any anonymous caller.
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Forbidden: CLI execution only.']);
+    exit;
+}
+
 require_once __DIR__ . '/tests/run_tests.php';
 if ($csrfA) $csrfTokens[$cookieA] = $csrfA;
 test("Login user A — session obtained", $cookieA !== '', "Cookie: $cookieA");

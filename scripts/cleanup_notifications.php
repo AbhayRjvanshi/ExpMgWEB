@@ -1,4 +1,12 @@
 <?php
+// Hard CLI-only gate: retention cleanup must only run from cron/CLI.
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Forbidden: CLI execution only.']);
+    exit;
+}
+
 /**
  * Notification Cleanup Script
  * 

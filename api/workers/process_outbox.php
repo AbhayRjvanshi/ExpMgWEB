@@ -1,5 +1,14 @@
 <?php
 
+// Hard CLI-only gate. Runs before auth.php so the replay worker is not even
+// reachable as an authenticated HTTP endpoint.
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Forbidden: CLI execution only.']);
+    exit;
+}
+
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/response.php';
 require_once __DIR__ . '/../helpers/validator.php';
@@ -7,18 +16,10 @@ require_once __DIR__ . '/../helpers/logger.php';
 require_once __DIR__ . '/../helpers/outbox.php';
 require_once __DIR__ . '/../services/SystemOrchestrator.php';
 
-if (php_sapi_name() !== 'cli') {
-    requireAuth();
-}
-
 $limit = 50;
-if (php_sapi_name() === 'cli') {
-    global $argv;
-    if (isset($argv[1]) && is_numeric($argv[1])) {
-        $limit = (int) $argv[1];
-    }
-} else {
-    $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 50;
+global $argv;
+if (isset($argv[1]) && is_numeric($argv[1])) {
+    $limit = (int) $argv[1];
 }
 
 if ($limit < 1) {
@@ -32,10 +33,6 @@ try {
     $concurrency = $orchestrator->getConcurrencyLimit();
     $adaptiveLimit = max(1, $concurrency * 10);
     $limit = min($limit, $adaptiveLimit);
-
-    if ($orchestrator->shouldFallback() && php_sapi_name() !== 'cli') {
-        apiError('System overloaded, try again later.', 503);
-    }
 
     $beforeStats = outboxStats($conn);
     $events = outboxClaimDueEvents($conn, $limit);
