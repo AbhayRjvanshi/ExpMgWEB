@@ -40,22 +40,25 @@ if ((int)$row['cnt'] >= 5) {
 }
 
 // Generate unique join code (8 chars alphanumeric)
-function generateJoinCode($conn) {
-    $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
-    for ($attempt = 0; $attempt < 10; $attempt++) {
-        $code = '';
-        for ($i = 0; $i < 8; $i++) {
-            $code .= $chars[random_int(0, strlen($chars) - 1)];
+// Guarded: another endpoint may have already declared this helper.
+if (!function_exists('generateJoinCode')) {
+    function generateJoinCode($conn) {
+        $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $code = '';
+            for ($i = 0; $i < 8; $i++) {
+                $code .= $chars[random_int(0, strlen($chars) - 1)];
+            }
+            $chk = $conn->prepare('SELECT id FROM `groups` WHERE join_code = ?');
+            $chk->bind_param('s', $code);
+            $chk->execute();
+            $chk->store_result();
+            $exists = $chk->num_rows > 0;
+            $chk->close();
+            if (!$exists) return $code;
         }
-        $chk = $conn->prepare('SELECT id FROM `groups` WHERE join_code = ?');
-        $chk->bind_param('s', $code);
-        $chk->execute();
-        $chk->store_result();
-        $exists = $chk->num_rows > 0;
-        $chk->close();
-        if (!$exists) return $code;
+        return null;
     }
-    return null;
 }
 
 $joinCode = generateJoinCode($conn);

@@ -30,7 +30,8 @@ $sql = "SELECT l.id, l.name, l.user_id, l.group_id, l.created_at,
             (l.group_id IS NULL AND l.user_id = ?)
             OR
             (l.group_id IN (SELECT group_id FROM group_members WHERE user_id = ?))
-        ORDER BY l.created_at DESC";
+        ORDER BY l.created_at DESC
+        LIMIT 500";
 
 $stmt = $conn->prepare($sql);
 $stmt->bind_param('ii', $userId, $userId);

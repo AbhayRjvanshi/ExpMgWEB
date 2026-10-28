@@ -187,6 +187,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_user_read (user_id, is_read, created_at),
+    INDEX idx_notifications_user_time (user_id, created_at),
     INDEX idx_notif_created (created_at),
 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

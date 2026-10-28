@@ -93,6 +93,36 @@ function rotateCsrfToken(): string {
  * @return void
  */
 function verifyCsrf(): void {
+    // IP-based gate first: a cookieless attacker can drop the session cookie
+    // and force the "session token missing" path forever, so the block must
+    // be keyed on the IP (rate_limits), not on session state.
+    global $conn;
+    $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    if (isset($conn) && $conn instanceof mysqli
+        && function_exists('checkRateLimit')
+        && function_exists('rateLimitRetryAfter')) {
+        if (!checkRateLimit($conn, $clientIp, 'csrf_fail', 50, 600)) {
+            $retryAfter = rateLimitRetryAfter($conn, $clientIp, 'csrf_fail', 600);
+            logMessage('WARNING', 'CSRF verification blocked by rate limit', [
+                'ip' => $clientIp,
+                'endpoint' => $_SERVER['REQUEST_URI'] ?? 'unknown',
+                'retry_after' => $retryAfter
+            ]);
+
+            http_response_code(429);
+            header('Content-Type: application/json');
+            if ($retryAfter > 0) {
+                header('Retry-After: ' . $retryAfter);
+            }
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Too many failed security checks. Try again later.',
+                'retry_after' => $retryAfter
+            ]);
+            exit;
+        }
+    }
+
     // Check session token exists
     if (!isset($_SESSION['csrf_token'])) {
         logMessage('WARNING', 'CSRF verification failed: session token missing', [
@@ -226,11 +256,8 @@ function recordCsrfFailure(): void {
 
     // Also persist the failure by IP. Session-only counters are trivially
     // bypassed by an attacker who simply drops cookies, so cookieless/failed
-    // CSRF attempts must be visible in rate_limits as well.
-    if ($conn instanceof mysqli
-        && function_exists('checkRateLimit')
-        && function_exists('recordRateLimit')) {
-        checkRateLimit($conn, $ip, 'csrf_fail', 50, 600);
+    // CSRF attempts must be visible in rate_limits as well (50 / 10 min).
+    if ($conn instanceof mysqli && function_exists('recordRateLimit')) {
         recordRateLimit($conn, $ip, 'csrf_fail', 600);
     }
 

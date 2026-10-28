@@ -44,7 +44,8 @@ $stmt = $conn->prepare(
      LEFT JOIN users pb ON pb.id = e.paid_by
      WHERE e.group_id = ? AND e.type = 'group'
        AND e.expense_date BETWEEN ? AND ?
-     ORDER BY e.expense_date ASC, e.created_at ASC"
+     ORDER BY e.expense_date ASC, e.created_at ASC
+     LIMIT 500"
 );
 $stmt->bind_param('iss', $groupId, $startDate, $endDate);
 $stmt->execute();

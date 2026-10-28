@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/session.php';
 configureSecureSessionCookie();
 session_start();
+expmgSendSecurityHeaders();
 require_once __DIR__ . '/../api/helpers/csrf.php';
 
 // Show splash screen on fresh visit

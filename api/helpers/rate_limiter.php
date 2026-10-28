@@ -220,8 +220,18 @@ function cleanupRateLimits(mysqli $conn): void {
         return;
     }
 
+    // Action-aware retention. The API buckets (api_user / api_ip) use a
+    // 60-second window, so keeping an hour of rows wastes the table and slows
+    // every COUNT(*) on the hot path. Long-window actions (login, signup,
+    // csrf_fail, cooldown:*) keep the full hour.
+    $apiCutoff = date('Y-m-d H:i:s', time() - 120);
+    $stmt = $conn->prepare("DELETE FROM rate_limits WHERE action IN ('api_user', 'api_ip') AND attempted_at < ?");
+    $stmt->bind_param('s', $apiCutoff);
+    $stmt->execute();
+    $stmt->close();
+
     $cutoff = date('Y-m-d H:i:s', time() - 3600);
-    $stmt = $conn->prepare('DELETE FROM rate_limits WHERE attempted_at < ?');
+    $stmt = $conn->prepare("DELETE FROM rate_limits WHERE action NOT IN ('api_user', 'api_ip') AND attempted_at < ?");
     $stmt->bind_param('s', $cutoff);
     $stmt->execute();
     $stmt->close();

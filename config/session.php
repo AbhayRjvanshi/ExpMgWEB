@@ -64,3 +64,23 @@ if (!function_exists('ensureSecureSessionStarted')) {
         session_start();
     }
 }
+
+if (!function_exists('expmgSendSecurityHeaders')) {
+    /**
+     * Emit the runtime security headers (CSP + clickjacking/MIME/referrer).
+     *
+     * Kept in one place because api/bootstrap.php is still not included by any
+     * endpoint: api/middleware/auth.php sends them for every API response and
+     * public/index.php sends them for the SPA shell.
+     */
+    function expmgSendSecurityHeaders(): void {
+        if (headers_sent()) {
+            return;
+        }
+
+        header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'");
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+        header('Referrer-Policy: strict-origin-when-cross-origin');
+    }
+}

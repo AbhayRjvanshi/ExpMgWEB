@@ -32,12 +32,7 @@ require_once __DIR__ . '/../helpers/csrf.php';
 // Security headers for EVERY response produced by a protected endpoint —
 // including the 401/403/429 exits below, which never reach the body of
 // requireAuth(). (api/bootstrap.php remains unwired.)
-if (!headers_sent()) {
-    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'");
-    header('X-Content-Type-Options: nosniff');
-    header('X-Frame-Options: DENY');
-    header('Referrer-Policy: strict-origin-when-cross-origin');
-}
+expmgSendSecurityHeaders();
 
 /**
  * Require authentication for current request.

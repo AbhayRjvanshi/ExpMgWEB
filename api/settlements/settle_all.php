@@ -148,7 +148,10 @@ try {
         );
         $insertStmt->execute();
     }
-    // If everyone contributed equally (no settlements needed), insert a marker record
+    // If everyone contributed equally (no settlements needed), insert a marker
+    // record. Do NOT drop this 0.00 row: the settlement-lock lookups
+    // (MAX(period_end) per group, in expenses create/update/delete and
+    // price_unpriced) depend on a settlement row existing for the period.
     if (empty($settlements)) {
         $zeroAmount = 0.0;
         $insertStmt->bind_param(

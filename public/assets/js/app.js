@@ -109,7 +109,11 @@ window.closeAllHeaderPopovers = function (except) {
           }
         });
       }
-    } catch (_) {}
+    } catch (err) {
+      // Dots are an enhancement: keep the grid usable if the month fetch
+      // fails, but surface the reason instead of swallowing it silently.
+      console.warn('renderCalendar: failed to load month expenses', err);
+    }
 
     // Build grid HTML
     let html = '';
@@ -399,7 +403,9 @@ window.closeAllHeaderPopovers = function (except) {
       } else {
         sel.innerHTML = '<option value="">No members found</option>';
       }
-    } catch (_) {
+    } catch (err) {
+      // Group lookup is required to price a group expense, so degrade loudly.
+      console.warn('populatePaidByDropdown: failed to load group members', err);
       sel.innerHTML = '<option value="">Failed to load</option>';
     }
   }
@@ -568,7 +574,8 @@ window.closeAllHeaderPopovers = function (except) {
       } else {
         alert(res.error || 'Failed to delete.');
       }
-    } catch (_) {
+    } catch (err) {
+      console.warn('deleteExpense: request failed', err);
       alert('Network error.');
     }
   }
@@ -770,7 +777,8 @@ window.closeAllHeaderPopovers = function (except) {
           pollUnreadCount();
         });
       });
-    } catch (_) {
+    } catch (err) {
+      console.warn('loadNotifications: request failed', err);
       list.innerHTML = '';
       show(empty);
     }
@@ -870,7 +878,7 @@ window.closeAllHeaderPopovers = function (except) {
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.4);
-    } catch (_) {}
+    } catch (_) { /* intentional no-op: audio is a best-effort cue (autoplay policy) */ }
   }
 
   // ---- Polling ----
@@ -893,7 +901,14 @@ window.closeAllHeaderPopovers = function (except) {
         }
         firstPoll = false;
       }
-    } catch (_) {}
+    } catch (err) {
+      // Background poll every 10s: log the first failure only so an offline
+      // tab does not spam the console forever.
+      if (!window.__expmgPollWarned) {
+        window.__expmgPollWarned = true;
+        console.warn('pollUnreadCount: notification polling failed', err);
+      }
+    }
   }
 
   // Initial poll + interval
