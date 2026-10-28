@@ -29,88 +29,98 @@
 ```
 ExpMgWEB/
 ├── api/                        # All API endpoints (38 files)
-│   ├── bootstrap.php           # Security headers + CSP + session hardening
-│   │                           # ⚠ NOT YET included by endpoints (see Known Debt)
-│   ├── middleware/auth.php     # requireAuth() — include at top of every endpoint
+│   ├── bootstrap.php           # ⚠ Still included by ZERO files (see KD-02)
+│   ├── middleware/auth.php     # requireAuth() — first include of every endpoint;
+│   │                           #   boots config/session.php, emits CSP + security
+│   │                           #   headers, applies API rate limits, calls verifyCsrf()
 │   ├── helpers/
-│   │   ├── csrf.php            # verifyCsrf() — canonical CSRF check
-│   │   ├── validator.php       # validateDate(), parsePagination(), etc.
-│   │   ├── logger.php          # logMessage(level, message, context)
+│   │   ├── csrf.php            # verifyCsrf() — canonical CSRF check (+ IP gate 50/10min)
+│   │   ├── validator.php       # validateDate(), parsePagination(), paginationMeta()
+│   │   ├── logger.php          # logMessage(level, message, context) → logs/app.log
 │   │   ├── response.php        # apiSuccess(), apiError() — not yet used by all endpoints
-│   │   ├── rate_limiter.php    # checkRateLimit(), recordRateLimit()
-│   │   ├── outbox.php          # outboxQueueEvent() — durable async delivery
-│   │   ├── notification_store.php  # File/Redis notification abstraction (NOT wired to producers)
-│   │   └── notification_publisher.php  # publishGroupNotification() (NOT wired to producers)
-│   ├── services/               # Infrastructure services only (no business logic services)
+│   │   ├── rate_limiter.php    # checkRateLimit(), recordRateLimit(), cleanupRateLimits()
+│   │   ├── outbox.php          # outboxQueueEvent()/outboxStats() — only stats are live
+│   │   ├── notification_store.php  # File/Redis notification abstraction (KD-05: unwired)
+│   │   └── notification_publisher.php  # publishGroupNotification() (KD-05: unwired)
+│   ├── services/               # Infrastructure only — NONE on the HTTP path (KD-11)
 │   │   ├── RedisService.php    # Connection pool — returns null gracefully if Redis unavailable
 │   │   ├── CacheService.php    # Key-value cache abstraction
 │   │   ├── LockService.php     # Distributed lock with file fallback
-│   │   ├── HealthService.php   # Health metrics aggregation
+│   │   ├── HealthService.php   # Health aggregation (NOT used by system/health.php)
 │   │   ├── MetricsService.php  # Request/queue metrics
-│   │   ├── PredictiveHealthService.php
-│   │   ├── SystemOrchestrator.php
+│   │   ├── PredictiveHealthService.php   # reached only via process_outbox.php
+│   │   ├── SystemOrchestrator.php        # reached only via process_outbox.php
 │   │   ├── NotificationService_Redis.php  # Redis notification backend (not wired)
 │   │   ├── FileNotificationStore.php      # File notification backend (not wired)
-│   │   └── NotificationStore.php          # Thin store wrapper
+│   │   └── NotificationStore.php          # Store interface
 │   ├── expenses/               # create, update, delete, list, summary, categories, unpriced, price_unpriced
 │   ├── groups/                 # create, join, leave, delete, details, user_groups, remove_member
 │   ├── settlements/            # calculate, confirm, settle, settle_all, history, details, post_calculate, post_confirm
 │   ├── lists/                  # create, delete, details, user_lists, add_item, remove_item, check_item
 │   ├── budgets/                # get, set
-│   ├── notifications/          # count, list, history, read
-│   ├── workers/process_outbox.php
-│   └── system/health.php
+│   ├── notifications/          # count, list, history, read (MySQL-backed, read-only GETs)
+│   ├── workers/process_outbox.php   # CLI-only replay worker (403 over HTTP)
+│   └── system/health.php       # inline pressure/redis/outbox snapshot
 ├── config/
-│   ├── db.php                  # ⚠ HARDCODED credentials — does not read from .env (see Known Debt)
+│   ├── db.php                  # mysqli from env() — no hardcoded credentials (was KD-01)
 │   ├── env.php                 # phpdotenv loader — provides env() helper
-│   └── idempotency.php         # idempotencyBegin() / idempotencyFinish() (not yet wired to endpoints)
+│   ├── session.php             # NEW: configureSecureSessionCookie(),
+│   │                           #   ensureSecureSessionStarted(), expmgSendSecurityHeaders()
+│   └── idempotency.php         # idempotencyGuard()/idempotencyRespond() — wired to 11 POSTs
 ├── pages/                      # PHP page files included by public/index.php
-│   └── lists.php               # ⚠ Contains 370-line inline <script> block (see Known Debt)
+│   └── lists.php               # 253 lines; delegates all JS to assets/js/lists.js
 ├── public/
-│   ├── index.php               # SPA shell — routes ?page= to pages/
+│   ├── index.php               # SPA shell — routes ?page= to pages/ (+ CSP via session.php)
 │   └── assets/
 │       ├── js/
-│       │   ├── helpers.js      # Shared: $(), $$(), get(), post(), escapeHTML(), API constant
+│       │   ├── helpers.js      # Shared: $(), $$(), get(), post(), escapeHTML(), API,
+│       │   │                   #   per-intent Idempotency-Key cache
 │       │   ├── app.js          # Main SPA logic — loads after helpers.js
-│       │   └── lists.js        # ⚠ More complete lists module — NOT loaded by index.php (see Known Debt)
+│       │   └── lists.js        # Lists module — LOADED at pages/lists.php:253
 │       └── css/styles.css      # Design system — 9 CSS token variables, mint-to-emerald palette
 ├── data/
-│   ├── idempotency/            # File-backed idempotency store (may contain orphaned .lock files)
-│   └── locks/                  # LockService file locks (may contain stale files from crashed processes)
-├── logs/app.log                # ⚠ Web-accessible if served from project root (no .htaccess)
+│   ├── idempotency/            # File-backed idempotency store (orphan .lock files expire in 30s)
+│   └── locks/                  # LockService file locks (dormant service)
+├── logs/app.log                # 403 externally via root .htaccess (was KD-09)
 ├── scripts/
-│   └── stress/                 # Phase 5 stress scripts — pass Idempotency-Key but endpoints ignore it
+│   ├── cleanup_notifications.php    # cron/CLI, 7-day retention (403 over HTTP)
+│   └── stress/                 # Phase 5 stress scripts — Idempotency-Key now honoured
 ├── schema.sql                  # Full DB schema (source of truth)
-├── migration_v2.2–v2.6.sql     # Incremental migrations
-├── run_tests.php               # 525-test suite (sections 28–34 test planned-but-unbuilt features)
-├── CLAUDE.md                   # ← You are here
-└── .mcp.json                   # Project-scoped MCP server config
+├── migration_v2.2–v2.9.sql     # Incremental migrations (v2.9 = notification feed index)
+├── run_tests.php               # 537-test suite, 403 pass / 134 fail (sections 28–34 = spec)
+├── .htaccess                   # Root webroot lockdown (dotfiles, dumps, docs, internal dirs)
+├── AGENTS.md                   # ← You are here
+└── .mcp.json                   # Project-scoped MCP server config (403 via .htaccess)
 ```
 
 ---
 
-## Database Schema (13 Tables)
+## Database Schema (14 Tables)
 
 ```
-users                        — id, username, email, password_hash, created_at
+users                        — id, username, email, password (bcrypt), created_at, updated_at
 categories                   — id, name (seeded with 8+ defaults)
 groups                       — id, name, join_code, created_by (admin)
 group_members                — group_id, user_id, role (admin|member), joined_at
-expenses                     — id, user_id, group_id, category_id, amount, note,
-                               expense_date, paid_by, created_by, checked_by,
-                               is_post_settlement, is_personal
+expenses                     — id, user_id, paid_by, group_id, category_id, amount, note,
+                               expense_date, type (personal|group), is_post_settlement,
+                               created_by, checked_by, created_at, updated_at
 budgets                      — user_id, month (YYYY-MM), amount
-lists                        — id, user_id, group_id, name, created_by
-list_items                   — id, list_id, description, price, priority, is_checked,
-                               checked_at, checked_by, expense_id (FK → expenses)
-notifications                — id, user_id, type, message, reference_id, is_read, created_at
+lists                        — id, name, user_id, group_id, created_at
+list_items                   — id, list_id, description, category_id, priority, price,
+                               is_checked, checked_at, expense_created,
+                               expense_id (FK → expenses), added_by, created_at
+notifications                — id, user_id, message, type, reference_id, is_read, created_at
+                               (no event_id column — the ephemeral store is unwired)
 settlements                  — id, group_id, period_start, period_end, settled_by,
                                payer_id, payee_id, amount, settled_at
-settlement_confirmations     — id, settlement_id, user_id, confirmed_at
+settlement_confirmations     — id, group_id, user_id, period_start, period_end, confirmed_at
+                               (keyed by group+user+period — NOT by settlement_id)
 post_settlement_confirmations — id, group_id, user_id, period_start, period_end, confirmed_at
-rate_limits                  — action, identifier, count, window_start
+rate_limits                  — id, ip_address, action, attempted_at
+                               (indexes: idx_rate_ip_action, idx_rate_attempted)
 outbox_events                — id, event_type, payload, status, created_at, claimed_at,
-                               processed_at, retry_count, last_error
+                               processed_at, retry_count, last_error (write side unwired)
 ```
 
 ---
@@ -152,16 +162,18 @@ These are intentional incomplete states, not bugs to quietly resolve:
 
 | ID | What | Status | Safe to change? |
 |---|---|---|---|
-| KD-01 | `config/db.php` uses hardcoded `define()` — ignores `env()` | Broken by design during ZIP export | Fix: replace with `env('DB_HOST', ...)` etc. |
-| KD-02 | `api/bootstrap.php` defines CSP + session hardening but is included by 0 endpoints | Not wired — must be added to front controller | Fix: require in every endpoint or create front controller |
-| KD-03 | `public/assets/js/lists.js` has full rate-limit-aware implementation but is never loaded by `index.php` | Inline version in `lists.php` is active | Fix: add `<script src="assets/js/lists.js">` to index.php, remove inline block |
-| KD-04 | `config/idempotency.php` implements `idempotencyBegin()` / `idempotencyFinish()` but zero endpoints call either | Not wired — stress scripts send `Idempotency-Key` header but it is ignored | Fix: wrap all write endpoints |
-| KD-05 | All 16 notification producers use `INSERT INTO notifications` directly; `notification_publisher.php` and `notification_store.php` exist but are never called | Planned v2.5 migration incomplete | Fix: route all producers through `publishGroupNotification()` |
-| KD-06 | `ExpenseService.php`, `GroupService.php`, `SettlementService.php`, `ListService.php`, `BudgetService.php`, `NotificationService.php` are expected by tests (sections 28–34) but do not exist in this ZIP | Planned v1.7 service layer never built | These files are missing from the uploaded snapshot |
-| KD-07 | `api/notifications/list.php` and `history.php` run a table-wide DELETE on every read request | Cleanup should be in a cron job | Fix: move to `scripts/cleanup_notifications.php` |
-| KD-08 | `data/idempotency/` may contain orphaned `.lock` files from crashed processes | Manual cleanup or TTL check needed | Safe to delete `.lock` files older than 30 seconds |
-| KD-09 | `logs/app.log` is web-accessible if document root is project root | No `.htaccess` exists anywhere | Fix: move doc root to `public/`, or add `.htaccess` Deny |
-| KD-10 | `seed.sql` is git-tracked despite containing bcrypt hashes | Must be removed from history | `git rm --cached seed.sql` |
+| KD-01 | ~~`config/db.php` used hardcoded `define()`~~ | **FIXED** — reads `env('DB_*')` via `config/env.php` | Done |
+| KD-02 | `api/bootstrap.php` defines CSP + session hardening but is included by 0 endpoints | **Superseded** — the same hardening now lives in `config/session.php` (+ called from `auth.php` and `public/index.php`); bootstrap.php is still dead code | Either delete bootstrap.php or make it the single front-controller include |
+| KD-03 | ~~`public/assets/js/lists.js` never loaded~~ | **FIXED** — `pages/lists.php:253` loads `lists.js`; the 370-line inline block is gone | Done |
+| KD-04 | ~~`config/idempotency.php` unused~~ | **FIXED** — `idempotencyGuard()` / `idempotencyRespond()` wrap 11 POST endpoints; `helpers.js` sends a per-intent key | Done |
+| KD-05 | All notification producers use `INSERT INTO notifications`; `notification_publisher.php` / `notification_store.php` are never called | Planned v2.5 migration still incomplete — MySQL remains the only notification path | Route producers through `publishGroupNotification()` *and* migrate consumers together |
+| KD-06 | `ExpenseService.php`, `GroupService.php`, `SettlementService.php`, `ListService.php`, `BudgetService.php`, `NotificationService.php` are expected by test section 28 but do not exist | Planned v1.7 service layer never built (88 failing assertions) | Real implementation only — never stubs |
+| KD-07 | ~~`api/notifications/list.php` / `history.php` ran a DELETE on every GET~~ | **FIXED** — both are read-only; retention is `scripts/cleanup_notifications.php` (7 days) | Done |
+| KD-08 | `data/idempotency/` may contain orphaned `.lock` files | `idempotencyCleanupExpired()` sweeps `.lock` files older than 30 s (~1% of requests) | Safe to delete `.lock` files older than 30 s |
+| KD-09 | ~~`logs/app.log` web-accessible~~ | **FIXED** — root `.htaccess` denies `*.log` and `logs/` | Done (moving doc root to `public/` is still the stronger fix) |
+| KD-10 | ~~`seed.sql` tracked with bcrypt hashes~~ | **FIXED** — `seed.sql` is no longer tracked (`git ls-files` is clean) | History rewrite still optional |
+| KD-11 | Every file in `api/services/` is dormant: nothing outside `tests/`, `scripts/stress/` and the CLI worker includes them | `health.php` computes its snapshot inline; `PredictiveHealthService`/`SystemOrchestrator` are reachable only via `process_outbox.php` | Wire deliberately (and document), or delete |
+| KD-12 | `schema.sql` lacks the CHECK constraints (`chk_expense_amount`, `chk_budget_amount`, `chk_settlement_amount`, `chk_item_price`, `chk_max_members`), `idx_expense_date`, and there is no `migration_v1.8.sql` | Live DB has them; schema.sql drifted (7 failing assertions in section 29) | Sync schema.sql + add the missing migration |
 
 ---
 
@@ -180,11 +192,16 @@ Each endpoint file owns its full request lifecycle. The services in `api/service
 
 Do not assume these two systems are in sync. The publisher/store abstraction is dead code today.
 
-### CSRF — Two Functions, Use the Right One
-- `verifyCsrf()` in `api/helpers/csrf.php` — canonical, full implementation. Double-submit (cookie + header), failure recording, IP logging. **Use this one.**
-- `verifyCsrfToken()` in `api/middleware/auth.php` — simpler, no cookie check, no failure recording. Called by `requireAuth()` internally.
+### Sessions and Security Headers — `config/session.php`
+`api/middleware/auth.php` is the session owner for API traffic: it calls `configureSecureSessionCookie()` + `session_start()` before anything else (strict mode, cookies-only, `HttpOnly`, `SameSite=Lax`, `Secure` only on HTTPS), then `expmgSendSecurityHeaders()` (CSP, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`). `public/index.php` does the same for the SPA shell. Endpoints must **not** call `session_start()` themselves (test 27b enforces this).
 
-When adding CSRF verification manually, always call `verifyCsrf()`, never `verifyCsrfToken()`.
+`api/bootstrap.php` still contains a duplicate copy of this hardening and is included by **zero** files. Do not add it to endpoints — that would double-send headers. Either delete it or make it the single front-controller include (KD-02).
+
+### CSRF — One Implementation, Two Entry Points
+- `verifyCsrf()` in `api/helpers/csrf.php` — canonical. Double-submit (cookie + `X-CSRF-Token` header, with `$_SERVER` and POST-body fallbacks), failure recording, IP gate (50 failures / 10 min → `429`), `global $conn` for the rate limiter.
+- `verifyCsrfToken()` in `api/middleware/auth.php` — a thin wrapper that now delegates to `verifyCsrf()`. `requireAuth()` calls it on POST/PUT/PATCH/DELETE.
+
+When adding CSRF verification manually, always call `verifyCsrf()`. Do not re-implement token comparison.
 
 ### Redis Is Always Optional
 `RedisService::get()` / `set()` / `increment()` return `null` when Redis is not connected — this is intentional graceful degradation, not a bug. All callers must handle `null` returns and fall back to DB or file-store equivalents. Do not add `throw new Exception` to these return paths.
@@ -197,18 +214,20 @@ Every API endpoint must:
 
 ```php
 <?php
-session_start();
+// Session (hardened cookie flags) + CSP are booted by middleware/auth.php.
+header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';      // adjust path depth
 require_once __DIR__ . '/../../api/middleware/auth.php';
 require_once __DIR__ . '/../../api/helpers/logger.php';
-header('Content-Type: application/json');
 
-requireAuth();  // exits with 401 if not logged in; checks CSRF on POST/PUT/PATCH/DELETE
+requireAuth();  // exits 401 if not logged in; checks CSRF on POST/PUT/PATCH/DELETE
 
 // ... business logic ...
 
 echo json_encode(['ok' => true, ...]);
 ```
+
+Do **not** add `session_start()` to a protected endpoint — the middleware already started the hardened session, and test 27b fails the build if an inline call reappears.
 
 Response shape is always `{'ok': bool, ...}` — never bare arrays, never `{'success': bool}`.
 
@@ -237,11 +256,24 @@ Always wrap multi-step writes in `$conn->begin_transaction()` / `$conn->commit()
 
 ## Test Suite Notes
 
-`run_tests.php` has 35 sections, 525 tests total. **Sections 1–27 and 35 should all pass.** Sections 28–34 test planned-but-unbuilt features (service layer, pagination, ephemeral notifications) — failures there are expected against the current codebase.
+`run_tests.php` has 35 sections and **537 tests**. Current baseline: **403 passed / 134 failed**. Sections 28–34 assert planned-but-unbuilt features (service layer, pagination, ephemeral notifications), but they are **not** the only failures — do not claim "sections 1–27 pass".
 
-To run: `php run_tests.php` (XAMPP must be running with Apache + MySQL on default ports).
+Failure breakdown as of v2.16:
 
-The single known real failure: `FAIL: Consume notification` in `test_output.txt` is caused by a PHP Warning on line 570 that breaks the HTTP response stream in the XAMPP/Windows environment. It passes cleanly in `test_cross_check.txt` (Linux env run).
+| Section | Failures | Cause |
+|---|---|---|
+| 9, 22, 26 | 8 | cross-cutting checks: `validator.php` not included by every endpoint, amount/month validation messages, XSS/special-char DB assertions |
+| 28 | 88 | the planned business service layer does not exist (KD-06) |
+| 29 | 7 | `schema.sql` CHECK constraints / `idx_expense_date`, missing `migration_v1.8.sql` (KD-12) |
+| 30 | 7 | `response.php` adoption, GET-on-POST 405, validation-error 400 |
+| 31 | 2 | logger coverage in the missing services; expense-creation INFO log |
+| 32 | 7 | pagination migration (planned v2.1) |
+| 33 | 2 | login rate-limit row accounting |
+| 34 | 13 | ephemeral notification store (planned v2.5, KD-05) |
+
+To run: `php run_tests.php` (XAMPP must be running with Apache + MySQL on default ports). The runner is CLI-only and answers `403` over HTTP.
+
+The standalone `php tests/distributed_system_test.php` is **not** part of `run_tests.php`: it runs 21/25 against the dormant distributed stack (Redis aggregation, readiness, cache-pattern invalidation and the latency score are the four known failures).
 
 Do not "fix" test sections 28–34 by creating stub files that make assertions pass without implementing real behavior. The tests are specification, not cosmetic gates.
 
@@ -271,10 +303,13 @@ See `.mcp.json` (project root) and `.cursor/mcp.json` for configuration.
 | v1.7 | Planned: service layer extraction (ExpenseService etc.) — NOT BUILT |
 | v2.1 | Planned: pagination migration — partially built |
 | v2.5 | Planned: ephemeral notification system (file/Redis store) — built but not wired |
-| v2.6 | Latest migration in repo — `migration_v2.6.sql` |
-| v2.11 | Planned: lists.js external module migration — file exists, not loaded |
-| v2.14 | Current git HEAD (per README) |
-| v2.15 | Last commit: README audit corrections, .gitignore cleanup |
+| v2.6 | `migration_v2.6.sql` |
+| v2.8 | Performance index parity — `idx_settlement_period`, `idx_notif_created`, `idx_rate_attempted`, `idx_unpriced_lookup` |
+| v2.9 | `migration_v2.9_notification_index.sql` — `idx_notifications_user_time (user_id, created_at)` for the notification feed |
+| v2.11 | lists.js external module migration — loaded by `pages/lists.php` |
+| v2.14 | README audit baseline |
+| v2.15 | README audit corrections, .gitignore cleanup |
+| v2.16 | Security hardening & wiring (HEAD): webroot `.htaccess` lockdown, CLI-only gates, `config/session.php` + unified CSP/CSRF, idempotency wired to 11 POSTs, signup/login hardening, action-aware rate-limit retention, CSRF IP gate, read-only notification GETs. Suite: 403/134 of 537 |
 
 ---
 
@@ -284,15 +319,19 @@ See `.mcp.json` (project root) and `.cursor/mcp.json` for configuration.
 |---|---|
 | Change how auth works | `api/middleware/auth.php` |
 | Add a new API endpoint | Copy structure from `api/expenses/create.php` |
-| Change session/cookie policy | `api/bootstrap.php` (then wire it in) |
-| Fix CSRF verification | `api/helpers/csrf.php::verifyCsrf()` |
+| Change session/cookie policy | `config/session.php` — `configureSecureSessionCookie()` |
+| Change CSP / security headers | `config/session.php` — `expmgSendSecurityHeaders()` |
+| Fix CSRF verification | `api/helpers/csrf.php::verifyCsrf()` (+ IP gate) |
 | Change notification delivery | `api/helpers/notification_publisher.php` (then wire it to producers) |
-| Add idempotency to an endpoint | `config/idempotency.php::idempotencyBegin()` / `idempotencyFinish()` |
+| Add idempotency to an endpoint | `config/idempotency.php::idempotencyGuard()` / `idempotencyRespond()` |
+| Tune rate-limit retention | `api/helpers/rate_limiter.php::cleanupRateLimits()` |
 | Query settlement balances | `api/settlements/settlement_helpers.php::calculateSettlements()` |
 | Add a DB column | Update `schema.sql` AND write a `migration_vX.Y.sql` |
 | Change the design system | `public/assets/css/styles.css` — 9 CSS token variables at top |
 | Add shared JS utility | `public/assets/js/helpers.js` — loaded before `app.js` |
-| Run all tests | `php run_tests.php` from project root |
+| Block a new path from the web | root `.htaccess` (deny) + a local `Require all denied` file |
+| Run all tests | `php run_tests.php` from project root (CLI only) |
+| Run the distributed suite | `php tests/distributed_system_test.php` (CLI only, 21/25) |
 | Check app health | `GET /api/system/health.php` |
 
 ---

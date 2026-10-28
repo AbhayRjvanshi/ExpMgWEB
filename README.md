@@ -6,6 +6,7 @@ A web-based personal and group financial tracking application built with PHP, My
 
 ## Table of Contents
 
+- [Runtime Status](#runtime-status-audited-2026-10-28)
 - [Why This Project Is Needed](#why-this-project-is-needed)
 - [How It's Different](#hows-different)
 - [How the Project Can Scale](#how-the-project-can-scale)
@@ -20,6 +21,65 @@ A web-based personal and group financial tracking application built with PHP, My
 - [Changelog](#changelog)
 - [Architecture Notes](#architecture-notes)
 - [License](#license)
+
+---
+
+## Runtime Status (audited 2026-10-28)
+
+The changelog below describes what was **built**. This section describes what
+actually runs on a request today. The repository contains considerably more
+infrastructure than the request path reaches, so read this before extending or
+deploying the codebase.
+
+### Active request path
+
+| Component | Reached from | Role |
+|---|---|---|
+| `config/session.php` + `api/middleware/auth.php` | every `api/**` endpoint, `public/index.php` | Hardened session start (`use_strict_mode`, `HttpOnly`, `SameSite=Lax`, `Secure` only on HTTPS), CSP + `nosniff` + `X-Frame-Options: DENY` + `Referrer-Policy`, API rate limits (user 120/60s, IP 240/60s), CSRF check on mutating methods |
+| `api/helpers/csrf.php` | via `auth.php` | `verifyCsrf()` — `X-CSRF-Token` header / `$_SERVER` / POST body / double-submit cookie, plus an IP gate (50 failures per 10 min ⇒ `429`) |
+| `api/helpers/rate_limiter.php` | login, signup, `auth.php`, CSRF gate | DB-backed limiter on `rate_limits`; retention is action-aware (120 s for `api_user`/`api_ip`, 3600 s otherwise) |
+| `config/idempotency.php` | 11 POST endpoints | `idempotencyGuard()` / `idempotencyRespond()`; file backend by default, Redis optional. Requests without `Idempotency-Key` bypass it |
+| `api/helpers/logger.php` | everywhere | JSON-lines to `logs/app.log`, rotated to `app.log.1` at 10 MB |
+| `api/helpers/validator.php` | `expenses/list.php`, several endpoints | `parsePagination()` / `paginationMeta()` / `validateDate()` |
+| `api/helpers/outbox.php` | `api/system/health.php` | `outboxStats()` feeds queue pressure. **No live endpoint queues outbox events** |
+| `api/helpers/redis.php` | `health.php`, Redis rate-limit/idempotency backends | Optional Redis client; absent Redis degrades to DB/file |
+| `scripts/cleanup_notifications.php` | cron/CLI only (403 over HTTP) | 7-day notification retention; not scheduled by anything in this repo |
+
+### Dormant / CLI-worker-only foundations
+
+Built and covered by tests, but **not on any HTTP request path**:
+
+- `api/bootstrap.php` — included by **zero** files; its header/session hardening now lives in `config/session.php` + `api/middleware/auth.php`.
+- `api/workers/process_outbox.php` — CLI-only replay worker; its only consumer is `SystemOrchestrator`.
+- `api/services/*` — `RedisService`, `LockService`, `CacheService`, `MetricsService`, `HealthService`, `PredictiveHealthService`, `SystemOrchestrator`. Nothing outside the test suites/stress scripts includes them. In particular `api/system/health.php` does **not** use `HealthService` or `PredictiveHealthService`; it computes status inline from `outboxStats()` + `getRedis()`.
+- Notification abstraction — `api/helpers/notification_store.php`, `notification_publisher.php`, `api/services/NotificationStore.php`, `FileNotificationStore.php`, `NotificationService_Redis.php`, `NotificationService.php`. All producers still run `INSERT INTO notifications`; all consumers still read MySQL in `api/notifications/{count,list,read,history}.php`.
+- Business service layer (`ExpenseService`, `GroupService`, `SettlementService`, `ListService`, `BudgetService`, `NotificationService` variants) — **does not exist**; business logic remains in the endpoint files. Sections 28 and parts of 31/34 of the test suite specify it.
+
+### Security posture
+
+- Webroot: the root `.htaccess` denies dotfiles, `*.sql|md|log|txt|ini|lock|jsonl`, `composer.*`, `mcp.json`, `run_tests.php`, and `.git/`, `vendor/`, `graphify-out/`, `partials/`, `data/`, `logs/`, `config/`, `scripts/`, `tests/`. `partials/`, `graphify-out/` and `vendor/` carry their own deny file (`vendor/` is gitignored, so its copy is local-only; the root rule still covers it).
+- Every test runner and CLI script answers `403` over HTTP (`php_sapi_name() !== 'cli'`).
+- `GET /api/notifications/list.php` and `history.php` are read-only; retention runs in the cron script.
+- `idx_notifications_user_time (user_id, created_at)` backs the notification feed (`migration_v2.9_notification_index.sql`).
+
+### Test reality
+
+`php run_tests.php` reports **403 passed / 134 failed out of 537 tests**. The 134
+failures are not random:
+
+| Section | Failures | Cause |
+|---|---|---|
+| 9, 22, 26 | 8 | cross-cutting checks: `validator.php` not included by every endpoint, amount/month validation messages, XSS/special-character DB assertions |
+| 28 | 88 | the planned business service layer does not exist |
+| 29 | 7 | `schema.sql` lacks the CHECK constraints / `idx_expense_date`, `migration_v1.8.sql` absent |
+| 30 | 7 | `response.php` adoption, GET-on-POST 405, validation-error 400 |
+| 31 | 2 | logger coverage in the missing services; expense-creation INFO log |
+| 32 | 7 | pagination migration (planned v2.1) |
+| 33 | 2 | login rate-limit row accounting |
+| 34 | 13 | ephemeral notification store (planned v2.5) |
+
+`php tests/distributed_system_test.php` (standalone, not part of `run_tests.php`)
+runs 21/25 against the dormant distributed stack.
 
 ---
 
@@ -502,7 +562,7 @@ Expected output (last line):
 RESULTS: <N> passed, <N> failed out of <total> tests
 ```
 
-> **Note:** The test suite includes sections (28–34) that test planned-but-unfinished refactors. Running against the current codebase will show failures in those sections. Sections 1–27 and 35 should pass fully.
+> **Note:** sections 28-34 assert planned-but-unfinished refactors (service layer, pagination migration, ephemeral notification store). The current baseline is **403 passed / 134 failed out of 537 tests**; the remaining failures also include eight cross-cutting checks outside those sections (see [Runtime Status](#runtime-status-audited-2026-10-28)).
 
 ---
 
@@ -692,7 +752,7 @@ A significant update focusing on visual improvements and deep codebase cleanup.
 - `run_tests.php` updated to:
   - Understand the `NotificationStore` abstraction and the new service structure.
   - Treat non-endpoint helpers (`notifications_config.php`, `notification_publisher.php`, `redis.php`) as pure libraries (excluded from “all endpoints must…” tests).
-  - Continue to report **“RESULTS: 525 passed, 0 failed out of 525 tests”** for the current codebase.
+  - **Superseded:** the suite has grown to 537 tests; the current result is `RESULTS: 403 passed, 134 failed out of 537 tests` - see [Runtime Status](#runtime-status-audited-2026-10-28).
 
 **Redis status (important note):**
 - The **file-based notification backend remains the default and production-ready path** (`NOTIFICATIONS_BACKEND=file`).
@@ -771,7 +831,7 @@ For higher-volume deployments that already run Redis, the notification system ca
 - **`public/assets/js/app.js`** — `lastSeenNotifId` → `lastSeenEventId` (string comparison); `data-id` uses `event_id`; click handler sends `event_id`; consumed notifications fade out and are removed from DOM
 - **`schema.sql`** — `notifications` table comment updated (retained for backward compatibility)
 
-**New tests (477 → 525):**
+**New tests (477 at the time; the suite now totals 537):**
 - **Section 34: Ephemeral Notification System** (48 tests) — helper file existence and key function definitions; NotificationService structure (consume method, no markAsRead); endpoint integration (no db.php imports, event_id acceptance, backward compat); full publish → list → consume → verify-gone cycle; consume-all + zero count verification; pagination in list response; history endpoint uses service layer (no raw SQL); data directory existence and writability; all 4 producer services use `notification_store.php` (no INSERT INTO notifications); store constants (max 50, TTL 259200, rate limit); SHA-256 dedup; file locking; frontend event_id tracking
 
 ---
@@ -905,7 +965,7 @@ grep "Notification cleanup" logs/app.log
 - **SameSite=Lax policy** — changed from Strict to Lax; maintains CSRF protection while supporting OAuth redirects and email verification links
 - **CSRF failure monitoring** — tracks failures per session; logs CRITICAL alert when threshold exceeded (50 failures in 10 minutes)
 - **Content-Security-Policy** — restricts script sources, prevents inline script injection, mitigates XSS attacks
-- **Framework-level enforcement** — bootstrap.php ensures CSRF protection cannot be accidentally bypassed
+- **Framework-level enforcement** - as designed, `api/bootstrap.php` was meant to make CSRF protection impossible to bypass. It was never wired in (zero includes); the live enforcement point today is `api/middleware/auth.php` → `verifyCsrf()` in `api/helpers/csrf.php`
 - **Developer guardrails** — automated test suite verifies all endpoints reject requests without valid tokens
 
 **Attack prevention:**

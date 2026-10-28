@@ -11,13 +11,13 @@ if (php_sapi_name() !== 'cli') {
     exit;
 }
 
-require_once __DIR__ . '/../services/RedisService.php';
-require_once __DIR__ . '/../services/LockService.php';
-require_once __DIR__ . '/../services/HealthService.php';
-require_once __DIR__ . '/../services/CacheService.php';
-require_once __DIR__ . '/../services/MetricsService.php';
-require_once __DIR__ . '/../services/PredictiveHealthService.php';
-require_once __DIR__ . '/../helpers/logger.php';
+require_once __DIR__ . '/../api/services/RedisService.php';
+require_once __DIR__ . '/../api/services/LockService.php';
+require_once __DIR__ . '/../api/services/HealthService.php';
+require_once __DIR__ . '/../api/services/CacheService.php';
+require_once __DIR__ . '/../api/services/MetricsService.php';
+require_once __DIR__ . '/../api/services/PredictiveHealthService.php';
+require_once __DIR__ . '/../api/helpers/logger.php';
 
 /**
  * Distributed System Test Suite

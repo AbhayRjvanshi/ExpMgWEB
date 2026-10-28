@@ -1,12 +1,80 @@
 # Project Issues and Problems
 
+> Last reconciled: v2.16 (security hardening & wiring). Anything below that is
+> listed as "expected" is a planned-but-unbuilt feature, not a regression.
+
 ## Environment & Infrastructure
-- [ ] **Database Connection Failure (Critical)**: `run_tests.php` and `db_check.php` fail with `mysqli_sql_exception: No connection could be made because the target machine actively refused it`. MySQL is either not running on `127.0.0.1:3306` or rejecting the connection with current credentials.
+
+- [x] **Database Connection Failure (Fixed / not reproducible)**: This entry
+  referred to `run_tests.php` and `db_check.php` failing with
+  `mysqli_sql_exception: No connection could be made...`. MySQL now connects;
+  `config/db.php` reads `DB_*` from `.env` via `config/env.php` and the full
+  suite runs end to end. If it reappears, check that Apache **and** MySQL are
+  running on the default ports before touching code.
+- [x] **Web-accessible internals (Fixed)**: the root `.htaccess` now denies
+  dotfiles, `mcp.json`, `composer.*`, `run_tests.php`, `*.sql|md|log|txt|ini|lock|jsonl`,
+  and the `^(\.git|vendor|graphify-out|partials|data|logs|config|scripts|tests)(/|$)`
+  paths. `vendor/`, `partials/` and `graphify-out/` carry their own
+  `Require all denied` file as defence in depth.
+- [x] **Test/CLI scripts reachable over HTTP (Fixed)**: `run_tests.php`,
+  `tests/run_tests.php`, `tests/distributed_system_test.php`,
+  `scripts/cleanup_notifications.php` and `api/workers/process_outbox.php` all
+  return `403` unless `php_sapi_name() === 'cli'`.
 
 ## Features & Logic
-- [x] **Inconsistent Configuration (Fixed)**: All API endpoints and core components now use `config/db.php` which has been refactored to use the `env()` helper and `.env` variables via `config/env.php`.
-- [x] **JavaScript Split-Brain (Fixed)**: `pages/lists.php` massive inline `<script>` block has been removed and replaced with a link to the external (and improved) `public/assets/js/lists.js`.
-- [x] **Durable Outbox Schema Risks (Fixed)**: `api/helpers/outbox.php` no longer attempts brute-force `ALTER TABLE` migrations on every call. The logic relies on `schema.sql` and the `static` initialization cache is retained for request-level safety.
+
+- [x] **Inconsistent Configuration (Fixed)**: All API endpoints and core
+  components use `config/db.php`, which reads `.env` through the `env()` helper.
+- [x] **JavaScript Split-Brain (Fixed)**: `pages/lists.php` no longer carries an
+  inline `<script>` block; it loads `public/assets/js/lists.js` (line 253).
+- [x] **Durable Outbox Schema Risks (Fixed)**: `api/helpers/outbox.php` no
+  longer runs brute-force `ALTER TABLE` migrations on every call.
+- [x] **Unbounded notification retention on GET (Fixed)**: `api/notifications/list.php`
+  and `history.php` are read-only again; retention lives in
+  `scripts/cleanup_notifications.php` (7 days).
+- [x] **No idempotency on writes (Fixed)**: `idempotencyGuard()` /
+  `idempotencyRespond()` wrap 11 POST endpoints and `helpers.js` sends a
+  per-intent `Idempotency-Key` (3-second cache).
+- [ ] **Notification publisher/store never wired (KD-05)**: all producers still
+  `INSERT INTO notifications` and all consumers still read MySQL.
+  `notification_publisher.php`, `notification_store.php` and the
+  `api/services/Notification*` backends are dead code. Needs a single migration
+  of producers *and* consumers together.
+- [ ] **`api/bootstrap.php` is dead code (KD-02)**: included by zero files. Its
+  CSP/session hardening now lives in `config/session.php`. Either delete it or
+  make it the single front-controller include — do not add it to endpoints.
+- [ ] **Every `api/services/*` file is dormant (KD-11)**: `api/system/health.php`
+  computes its snapshot inline; only `process_outbox.php` reaches
+  `SystemOrchestrator`, and nothing outside the test suites includes the rest.
+- [ ] **Business service layer absent (KD-06)**: `ExpenseService`,
+  `GroupService`, `SettlementService`, `ListService`, `BudgetService`,
+  `NotificationService` do not exist; logic remains in the endpoint files.
+- [ ] **`schema.sql` drift (KD-12)**: missing CHECK constraints
+  (`chk_expense_amount`, `chk_budget_amount`, `chk_settlement_amount`,
+  `chk_item_price`, `chk_max_members`), `idx_expense_date`, and no
+  `migration_v1.8.sql`. The live DB has some of these; the file does not.
 
 ## Testing
-- [ ] **Incomplete Test Coverage**: `tests/run_tests.php` is failing immediately due to DB issues, so the actual logic coverage cannot be verified yet.
+
+- [x] **"Test suite failing immediately" (Fixed / obsolete)**: the suite now
+  completes. Current baseline: **403 passed, 134 failed out of 537 tests**
+  (`php run_tests.php`, CLI only).
+- [ ] **134 remaining failures are known and expected**: section 28 (88,
+  service layer), 29 (7, schema drift), 30 (7, `response.php` adoption /
+  405 / 400), 32 (7, pagination), 34 (13, ephemeral notifications), 31 (2),
+  33 (2), plus 8 cross-cutting assertions in sections 9/22/26. See
+  `README.md` → Runtime Status and `AGENTS.md` → Test Suite Notes for the full
+  breakdown.
+- [ ] **`tests/distributed_system_test.php` runs 21/25 standalone**: the four
+  failures (global health aggregation, readiness, cache pattern invalidation,
+  latency score) come from the dormant distributed stack and are out of scope
+  until those services are wired.
+- [ ] **No CSRF assertions in the suite**: the CSRF header/cookie/IP-gate paths
+  are verified only by ad-hoc probes, so a regression there would not fail CI.
+
+## Follow-ups (deliberately not fixed in v2.16)
+
+- Login rate-limit row accounting (test 33r/33s) and the `schema.sql` CHECK
+  constraints (29q/29r/29s) were left untouched to keep this pass at its
+  approved 403/134 target. Fixing them moves the number up; do it as a separate
+  change with its own baseline.

@@ -1,5 +1,28 @@
 # Distributed Architecture Implementation Guide
 
+> ## ⚠ Implementation status: built, not wired (as of v2.16)
+>
+> Everything described below exists in `api/services/`, but **no HTTP request
+> path reaches it**. Read this document as a design reference, not as a
+> description of runtime behaviour:
+>
+> - `api/system/health.php` does **not** use `HealthService` or
+>   `PredictiveHealthService` — it computes its snapshot inline from
+>   `outboxStats()` + `getRedis()`.
+> - `SystemOrchestrator` and `PredictiveHealthService` are reachable only from
+>   the CLI worker `api/workers/process_outbox.php`.
+> - `RedisService`, `LockService`, `CacheService`, `MetricsService` and
+>   `HealthService` are included by nothing outside `tests/` and
+>   `scripts/stress/`.
+> - The outbox write side is dormant: no live endpoint calls
+>   `outboxQueueEvent()`; only `outboxStats()` is used (by `health.php`).
+> - The four "Integration Points" snippets below are **proposals**, not code in
+>   the repository.
+>
+> The standalone suite `php tests/distributed_system_test.php` (CLI only) runs
+> 21/25 against this stack. See `AGENTS.md` → KD-11 and `README.md` → Runtime
+> Status.
+
 ## Overview
 
 This document describes the complete distributed-aware, cache-optimized, and predictive-health driven architecture upgrade for the ExpMgWEB backend system. All components are Redis-backed and gracefully degrade when Redis is unavailable.
@@ -280,6 +303,10 @@ $diag = PredictiveHealthService::getDiagnostics();
 
 ## Integration Points
 
+> **None of the snippets in this section are implemented.** They are the
+> proposed wiring; adding them requires an explicit decision because each one
+> puts a dormant service on the HTTP path.
+
 ### Request Handler
 
 Add metrics recording to request lifecycle:
@@ -367,21 +394,28 @@ while (true) {
 
 ## Testing
 
-Run the comprehensive test suite:
+Run the standalone suite from the project root (CLI only — it answers `403`
+over HTTP):
 
 ```bash
-php api/tests/distributed_system_test.php
+php tests/distributed_system_test.php
 ```
+
+**Current result: 21/25.** The four known failures are *Global health
+aggregation* (`No active nodes in aggregation`), *System readiness check*,
+*Cache invalidation by pattern* (`deleted 0`), and *High latency affects health
+score* (score 75, assertion expects lower). All four sit inside the dormant
+distributed stack and are expected until it is wired into a request path.
 
 **Test Coverage:**
 - ✓ Redis connection and basic operations
 - ✓ Lock acquisition, prevention, and retry
-- ✓ Node health publishing and global aggregation
-- ✓ Cache set/get, remember pattern, pattern invalidation
+- ✓ Node health publishing (aggregation shape covered, live aggregation fails)
+- ✓ Cache set/get, remember pattern (pattern invalidation fails)
 - ✓ Metrics collection and health scoring
 - ✓ Adaptive configuration generation
-- ✓ Failure injection (Redis unavailable, high latency)
-- ✓ Graceful degradation
+- ✓ Failure injection (Redis unavailable)
+- ✗ Global aggregation / readiness / pattern invalidation / latency score
 
 **Prerequisites:**
 - Redis server running on `REDIS_HOST:REDIS_PORT`
@@ -488,8 +522,10 @@ php api/tests/distributed_system_test.php
    docker run -d -p 6379:6379 redis:latest
    ```
 
-2. **Integrate metrics into request handlers:**
-   - Modify `api/bootstrap.php` to record metrics
+2. **Integrate metrics into request handlers (proposal only):**
+   - `api/bootstrap.php` is currently included by zero files, so it cannot be
+     the hook point until it is wired (KD-02) — use `config/session.php` /
+     `api/middleware/auth.php` instead
    - Add cache layer to GET endpoints
    - Add locks to critical operations
 
@@ -520,7 +556,7 @@ php api/tests/distributed_system_test.php
 | `api/services/CacheService.php` | Cache layer |
 | `api/services/MetricsService.php` | Metrics collection |
 | `api/services/PredictiveHealthService.php` | Health scoring & adaptive config |
-| `api/tests/distributed_system_test.php` | Comprehensive test suite |
+| `tests/distributed_system_test.php` | Comprehensive test suite (standalone, CLI only) |
 
 ---
 
