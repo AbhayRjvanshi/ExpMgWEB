@@ -8,11 +8,17 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/validator.php';
 
 requireAuth();
 
 $userId = (int) $_SESSION['user_id'];
 $listId = (int) ($_GET['list_id'] ?? 0);
+
+// Items are returned in full on purpose: the UI sums prices across the whole
+// list and filters client-side, so truncating a page would corrupt totals.
+// Pagination is still parsed and reported for endpoint parity.
+list($page, $limit, $offset) = parsePagination(500, 1000);
 
 if ($listId <= 0) {
     echo json_encode(['ok' => false, 'error' => 'Invalid list.']);
@@ -82,4 +88,13 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-echo json_encode(['ok' => true, 'list' => $list, 'items' => $items]);
+// Items are never truncated here, so the report is a single page covering all
+// of them rather than a slice of a larger set.
+$totalItems = count($items);
+
+echo json_encode([
+    'ok'         => true,
+    'list'       => $list,
+    'items'      => $items,
+    'pagination' => paginationMeta(1, max($totalItems, 1), $totalItems)
+]);

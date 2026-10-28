@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $userId = (int) $_SESSION['user_id'];
 require_once __DIR__ . '/../../config/idempotency.php';
+require_once __DIR__ . '/../helpers/validator.php';
 $idemCtx = idempotencyGuard($userId, 'groups/create');
 $name   = trim($_POST['name'] ?? '');
 

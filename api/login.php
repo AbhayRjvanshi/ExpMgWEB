@@ -11,6 +11,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/helpers/rate_limiter.php';
 require_once __DIR__ . '/helpers/csrf.php';
 require_once __DIR__ . '/helpers/logger.php';
+require_once __DIR__ . '/helpers/validator.php';
 
 // Only accept POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -56,6 +57,9 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows === 0) {
+    // Count unknown-email attempts too. Without this the limiter only sees
+    // wrong-password attempts, so probing for valid addresses is free.
+    recordRateLimit($conn, $ip, 'login', 900);
     logMessage('WARNING', 'Failed login attempt', [
         'email' => $email,
         'ip'    => $ip,

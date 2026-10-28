@@ -86,8 +86,9 @@ ExpMgWEB/
 │   ├── cleanup_notifications.php    # cron/CLI, 7-day retention (403 over HTTP)
 │   └── stress/                 # Phase 5 stress scripts — Idempotency-Key now honoured
 ├── schema.sql                  # Full DB schema (source of truth)
+├── migration_v1.8.sql          # CHECK-constraint + idx_expense_date parity (guarded, idempotent, NOT applied to live DB)
 ├── migration_v2.2–v2.9.sql     # Incremental migrations (v2.9 = notification feed index)
-├── run_tests.php               # 537-test suite, 403 pass / 134 fail (sections 28–34 = spec)
+├── run_tests.php               # 539-test suite, 427 pass / 112 fail (all failures catalogued in Test Suite Notes)
 ├── .htaccess                   # Root webroot lockdown (dotfiles, dumps, docs, internal dirs)
 ├── AGENTS.md                   # ← You are here
 └── .mcp.json                   # Project-scoped MCP server config (403 via .htaccess)
@@ -173,7 +174,7 @@ These are intentional incomplete states, not bugs to quietly resolve:
 | KD-09 | ~~`logs/app.log` web-accessible~~ | **FIXED** — root `.htaccess` denies `*.log` and `logs/` | Done (moving doc root to `public/` is still the stronger fix) |
 | KD-10 | ~~`seed.sql` tracked with bcrypt hashes~~ | **FIXED** — `seed.sql` is no longer tracked (`git ls-files` is clean) | History rewrite still optional |
 | KD-11 | Every file in `api/services/` is dormant: nothing outside `tests/`, `scripts/stress/` and the CLI worker includes them | `health.php` computes its snapshot inline; `PredictiveHealthService`/`SystemOrchestrator` are reachable only via `process_outbox.php` | Wire deliberately (and document), or delete |
-| KD-12 | `schema.sql` lacks the CHECK constraints (`chk_expense_amount`, `chk_budget_amount`, `chk_settlement_amount`, `chk_item_price`, `chk_max_members`), `idx_expense_date`, and there is no `migration_v1.8.sql` | Live DB has them; schema.sql drifted (7 failing assertions in section 29) | Sync schema.sql + add the missing migration |
+| KD-12 | ~~`schema.sql` lacked the CHECK constraints (`chk_expense_amount`, `chk_budget_amount`, `chk_settlement_amount`, `chk_item_price`, `chk_max_members`) and `idx_expense_date`; no `migration_v1.8.sql`~~ | **FIXED** — schema.sql carries all six objects and `migration_v1.8.sql` exists (idempotent, pre-flight guarded). **Deliberately unexecuted**: the live DB already has them, so running it there is a verified no-op; a fresh clone applies it once | Done |
 
 ---
 
@@ -256,26 +257,40 @@ Always wrap multi-step writes in `$conn->begin_transaction()` / `$conn->commit()
 
 ## Test Suite Notes
 
-`run_tests.php` has 35 sections and **537 tests**. Current baseline: **403 passed / 134 failed**. Sections 28–34 assert planned-but-unbuilt features (service layer, pagination, ephemeral notifications), but they are **not** the only failures — do not claim "sections 1–27 pass".
+`run_tests.php` has 35 sections and **539 tests**. Current baseline: **427 passed / 112 failed**. Every remaining failure is accounted for below; none are unknown.
 
-Failure breakdown as of v2.16:
+Failure breakdown as of the v2.17 safe set:
 
 | Section | Failures | Cause |
 |---|---|---|
-| 9, 22, 26 | 8 | cross-cutting checks: `validator.php` not included by every endpoint, amount/month validation messages, XSS/special-char DB assertions |
 | 28 | 88 | the planned business service layer does not exist (KD-06) |
-| 29 | 7 | `schema.sql` CHECK constraints / `idx_expense_date`, missing `migration_v1.8.sql` (KD-12) |
-| 30 | 7 | `response.php` adoption, GET-on-POST 405, validation-error 400 |
-| 31 | 2 | logger coverage in the missing services; expense-creation INFO log |
-| 32 | 7 | pagination migration (planned v2.1) |
-| 33 | 2 | login rate-limit row accounting |
-| 34 | 13 | ephemeral notification store (planned v2.5, KD-05) |
+| 34 | 11 | ephemeral notification store built but unwired: `NotificationService`/`consume()`, `read.php` still MySQL-backed, `history.php` raw SQL, service-level `notification_store` usage, frontend still keyed on numeric ids (KD-05) |
+| 31, 32 | 3 | `31j`, `32u`, `32v` scan the same missing service files for `logger.php`, `LIMIT`/`array_slice`, `paginationMeta` |
+| 30 | 7 | `response.php` adoption, GET-on-POST 405, validation-error 400 — deferred as its own 38-endpoint change |
+| 9, 22, 26 | 3 | write-time HTML-entity assertions — **rejected by design** (see below) |
+
+**Total: 88 + 11 + 3 + 7 + 3 = 112.**
+
+### Two standing policy decisions
+
+1. **Never store HTML-escaped entities in MySQL.** Raw text goes in (prepared statements), `esc()` escapes at render time. The three assertions that expect `O&#039;Brien` / `&lt;script&gt;` in the column are rejected: write-time escaping double-escapes on edit round-trips, breaks `LIKE` search, and corrupts exports.
+2. **Section 30 is deferred, not rejected.** Moving 38 endpoints onto `response.php`/`apiError` plus try/catch and the 405/400 contracts is a single self-contained change with its own regression surface.
+
+### Pagination ceilings (do not "normalise" these)
+
+| Endpoint(s) | Call | Why |
+|---|---|---|
+| `expenses/list.php` | `parsePagination(20, 50)` (date), 500/1000 (month) | tests `32l`–`32o` assert defaults 20/1 and cap 50 |
+| `notifications/list.php` | `parsePagination(30, 50)` | test `32s` asserts `pagination.limit === 30` |
+| `lists/user_lists.php`, `groups/user_groups.php`, `groups/details.php`, `lists/details.php`, `settlements/history.php`, `settlements/details.php`, `expenses/unpriced.php`, `notifications/history.php` | `parsePagination(500, 1000)` | these feeds never send `?limit=`; a 20-row default silently truncates dropdowns and rosters |
+
+`groups/details.php` paginates expenses but never members (max 10 per group), and `lists/details.php` returns all items (the UI sums every row) while still reporting `pagination` for endpoint parity.
 
 To run: `php run_tests.php` (XAMPP must be running with Apache + MySQL on default ports). The runner is CLI-only and answers `403` over HTTP.
 
 The standalone `php tests/distributed_system_test.php` is **not** part of `run_tests.php`: it runs 21/25 against the dormant distributed stack (Redis aggregation, readiness, cache-pattern invalidation and the latency score are the four known failures).
 
-Do not "fix" test sections 28–34 by creating stub files that make assertions pass without implementing real behavior. The tests are specification, not cosmetic gates.
+Do not "fix" the remaining sections by creating stub files that make assertions pass without implementing real behavior. The tests are specification, not cosmetic gates.
 
 ---
 
@@ -309,7 +324,8 @@ See `.mcp.json` (project root) and `.cursor/mcp.json` for configuration.
 | v2.11 | lists.js external module migration — loaded by `pages/lists.php` |
 | v2.14 | README audit baseline |
 | v2.15 | README audit corrections, .gitignore cleanup |
-| v2.16 | Security hardening & wiring (HEAD): webroot `.htaccess` lockdown, CLI-only gates, `config/session.php` + unified CSP/CSRF, idempotency wired to 11 POSTs, signup/login hardening, action-aware rate-limit retention, CSRF IP gate, read-only notification GETs. Suite: 403/134 of 537 |
+| v2.16 | Security hardening & wiring: webroot `.htaccess` lockdown, CLI-only gates, `config/session.php` + unified CSP/CSRF, idempotency wired to 11 POSTs, signup/login hardening, action-aware rate-limit retention, CSRF IP gate, read-only notification GETs. Suite: 403/134 of 537 |
+| v2.17 | Safe set: `schema.sql` CHECK/index parity + guarded `migration_v1.8.sql`, login attempt accounting for unknown emails, `paginationMeta()` on all 10 list endpoints with per-endpoint ceilings (30/50 notifications, 20/50 expenses, 500/1000 feeds), `validator.php` required by every endpoint, validation-message fixes (`numeric`, `greater than zero`, real month range), INFO log on expense creation, `event_id` compat alias. Suite: 427/112 of 539 |
 
 ---
 

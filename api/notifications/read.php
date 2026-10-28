@@ -7,6 +7,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/validator.php';
 
 requireAuth();
 
@@ -28,7 +29,9 @@ if (isset($_POST['all']) && $_POST['all'] == '1') {
     exit;
 }
 
-$notifId = (int)($_POST['id'] ?? 0);
+// event_id is the canonical name (ephemeral store, section 34); 'id' remains
+// as the legacy alias older clients still send. Both resolve to the MySQL row id.
+$notifId = (int)($_POST['event_id'] ?? $_POST['id'] ?? 0);
 if ($notifId <= 0) {
     echo json_encode(['ok' => false, 'error' => 'Invalid notification ID.']);
     exit;

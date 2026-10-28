@@ -17,10 +17,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 require_once __DIR__ . '/../../config/idempotency.php';
+require_once __DIR__ . '/../helpers/validator.php';
 $idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'expenses/create');
 
 $userId      = (int) $_SESSION['user_id'];
-$amount      = floatval($_POST['amount'] ?? 0);
+$rawAmount   = $_POST['amount'] ?? '';
+$amount      = is_numeric($rawAmount) ? (float) $rawAmount : 0.0;
 $categoryId  = (int) ($_POST['category_id'] ?? 0);
 $note        = trim($_POST['note'] ?? '');
 $expenseDate = trim($_POST['expense_date'] ?? '');
@@ -30,7 +32,8 @@ $paidBy      = !empty($_POST['paid_by']) ? (int) $_POST['paid_by'] : null;
 
 // --- Validation ---
 $errors = [];
-if ($amount <= 0)                         $errors[] = 'Amount must be greater than 0.';
+if (!is_numeric($rawAmount))              $errors[] = 'Amount must be a numeric value.';
+elseif ($amount <= 0)                     $errors[] = 'Amount must be greater than zero.';
 if ($categoryId <= 0)                     $errors[] = 'Please select a category.';
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $expenseDate)) {
     $errors[] = 'Invalid date format.';
@@ -112,6 +115,14 @@ $stmt->bind_param('iiidisssi', $userId, $paidBy, $groupId, $amount, $categoryId,
 if ($stmt->execute()) {
     $newId = $stmt->insert_id;
     $stmt->close();
+
+    logMessage('INFO', 'Expense created', [
+        'expense_id' => (int) $newId,
+        'user_id'    => $userId,
+        'amount'     => $amount,
+        'type'       => $type,
+        'group_id'   => $groupId,
+    ]);
 
     // --- Notification: if group expense, notify other members ---
     // $groupName was captured during the membership check above.

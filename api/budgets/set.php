@@ -16,12 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 requireAuth();
 
 require_once __DIR__ . '/../../config/idempotency.php';
+require_once __DIR__ . '/../helpers/validator.php';
 $userId = (int) $_SESSION['user_id'];
 $idemCtx = idempotencyGuard($userId, 'budgets/set');
 $month  = trim($_POST['month'] ?? '');
 $limit  = floatval($_POST['amount_limit'] ?? 0);
 
-if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
+// YYYY-MM with a real month range: the loose \d{2} form accepted 2026-15.
+if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) {
     echo json_encode(['ok' => false, 'error' => 'Invalid month format.']);
     exit;
 }

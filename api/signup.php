@@ -9,6 +9,7 @@ session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/helpers/rate_limiter.php';
 require_once __DIR__ . '/helpers/logger.php';
+require_once __DIR__ . '/helpers/validator.php';
 
 // Only accept POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

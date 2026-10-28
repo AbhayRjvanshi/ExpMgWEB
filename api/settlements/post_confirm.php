@@ -18,6 +18,7 @@ require_once __DIR__ . '/../helpers/logger.php';
 requireAuth();
 
 require_once __DIR__ . '/../../config/idempotency.php';
+require_once __DIR__ . '/../helpers/validator.php';
 $idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'settlements/post_confirm');
 
 $userId  = (int) $_SESSION['user_id'];

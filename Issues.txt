@@ -1,7 +1,7 @@
 # Project Issues and Problems
 
-> Last reconciled: v2.16 (security hardening & wiring). Anything below that is
-> listed as "expected" is a planned-but-unbuilt feature, not a regression.
+> Last reconciled: v2.17 (safe set). Anything below that is listed as "expected"
+> is a planned-but-unbuilt feature, not a regression.
 
 ## Environment & Infrastructure
 
@@ -49,22 +49,42 @@
 - [ ] **Business service layer absent (KD-06)**: `ExpenseService`,
   `GroupService`, `SettlementService`, `ListService`, `BudgetService`,
   `NotificationService` do not exist; logic remains in the endpoint files.
-- [ ] **`schema.sql` drift (KD-12)**: missing CHECK constraints
-  (`chk_expense_amount`, `chk_budget_amount`, `chk_settlement_amount`,
-  `chk_item_price`, `chk_max_members`), `idx_expense_date`, and no
-  `migration_v1.8.sql`. The live DB has some of these; the file does not.
+- [x] **`schema.sql` drift (KD-12, Fixed)**: `schema.sql` now defines
+  `chk_expense_amount`, `chk_budget_amount`, `chk_settlement_amount`,
+  `chk_item_price`, `chk_max_members` and `idx_expense_date`, matching the live
+  DB. `migration_v1.8.sql` exists with `INFORMATION_SCHEMA` guards and
+  pre-flight data checks; it is deliberately **not applied** here (verified
+  no-op — the live DB already has all six objects).
 
 ## Testing
 
 - [x] **"Test suite failing immediately" (Fixed / obsolete)**: the suite now
-  completes. Current baseline: **403 passed, 134 failed out of 537 tests**
+  completes. Current baseline: **427 passed, 112 failed out of 539 tests**
   (`php run_tests.php`, CLI only).
-- [ ] **134 remaining failures are known and expected**: section 28 (88,
-  service layer), 29 (7, schema drift), 30 (7, `response.php` adoption /
-  405 / 400), 32 (7, pagination), 34 (13, ephemeral notifications), 31 (2),
-  33 (2), plus 8 cross-cutting assertions in sections 9/22/26. See
-  `README.md` → Runtime Status and `AGENTS.md` → Test Suite Notes for the full
-  breakdown.
+- [ ] **112 remaining failures are known and expected**:
+  - 88 — section 28: the `ExpenseService` / `GroupService` /
+    `SettlementService` / `ListService` / `BudgetService` / `NotificationService`
+    layer does not exist (KD-06).
+  - 11 — section 34: ephemeral notification store built but unwired (KD-05).
+  - 3 — `31j`, `32u`, `32v`: scans of those same missing service files.
+  - 7 — section 30: `response.php` adoption, GET-on-POST 405, validation 400 —
+    deferred as one 38-endpoint change.
+  - 3 — sections 9/22/26: write-time HTML-entity assertions, **rejected by
+    design** (see the two policy decisions below).
+
+  Total: 88 + 11 + 3 + 7 + 3 = 112. See `README.md` → Runtime Status and
+  `AGENTS.md` → Test Suite Notes for the same breakdown.
+
+### Two standing policy decisions
+
+1. **Raw text in MySQL, escaping at render time.** The three assertions that
+   expect `O&#039;Brien` / `&lt;script&gt;` to be *stored* are rejected:
+   write-time escaping double-escapes on edit round-trips, breaks `LIKE` search
+   and corrupts exports. Prepared statements plus `esc()` in the UI are the
+   correct boundary.
+2. **Section 30 is deferred, not rejected.** The `response.php` rewrite plus
+   try/catch and the 405/400 contracts is a self-contained change with its own
+   regression surface.
 - [ ] **`tests/distributed_system_test.php` runs 21/25 standalone**: the four
   failures (global health aggregation, readiness, cache pattern invalidation,
   latency score) come from the dormant distributed stack and are out of scope
@@ -72,9 +92,19 @@
 - [ ] **No CSRF assertions in the suite**: the CSRF header/cookie/IP-gate paths
   are verified only by ad-hoc probes, so a regression there would not fail CI.
 
-## Follow-ups (deliberately not fixed in v2.16)
+## Follow-ups (deliberately deferred)
 
-- Login rate-limit row accounting (test 33r/33s) and the `schema.sql` CHECK
-  constraints (29q/29r/29s) were left untouched to keep this pass at its
-  approved 403/134 target. Fixing them moves the number up; do it as a separate
-  change with its own baseline.
+- **Section 30 `response.php` rewrite (7 tests)**: move 38 endpoints onto
+  `apiSuccess()` / `apiError()`, add try/catch, and return 405 for GET on
+  POST-only endpoints and 400 for validation errors. Deferred as one change so
+  its regression surface stays isolated.
+- **Section 28 service layer (88 tests) + KD-06**: implement the real
+  `*Service.php` classes; stubs are explicitly not acceptable.
+- **Section 34 ephemeral notification store (11 tests) + KD-05**: wire
+  `publishGroupNotification()` / `notification_store.php` for both producers and
+  consumers in a single migration.
+- **Frontend `event_id` adoption (`34x`)**: `app.js` still keys on numeric ids;
+  the API now exposes `event_id` as a compat alias over the MySQL id, so the JS
+  migration can land separately.
+- **`api/bootstrap.php` (KD-02)** and the dormant `api/services/` inventory
+  (KD-11): delete, or wire deliberately and document.

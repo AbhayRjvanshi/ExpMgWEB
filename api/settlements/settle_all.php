@@ -15,6 +15,7 @@ require_once __DIR__ . '/settlement_helpers.php';
 requireAuth();
 
 require_once __DIR__ . '/../../config/idempotency.php';
+require_once __DIR__ . '/../helpers/validator.php';
 $idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'settlements/settle_all');
 
 $userId  = (int) $_SESSION['user_id'];

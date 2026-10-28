@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 require_once __DIR__ . '/../../config/idempotency.php';
+require_once __DIR__ . '/../helpers/validator.php';
 $idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'expenses/update');
 
 $userId     = (int) $_SESSION['user_id'];

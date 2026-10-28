@@ -7,6 +7,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/validator.php';
 
 requireAuth();
 
@@ -35,6 +36,23 @@ if (!$stmt->get_result()->fetch_assoc()) {
 }
 $stmt->close();
 
+// The period total must stay independent of pagination, so it is aggregated
+// over the whole range rather than added up from the rows on this page.
+list($page, $limit, $offset) = parsePagination(500, 1000);
+
+$stmt = $conn->prepare(
+    "SELECT COUNT(*) AS cnt, COALESCE(SUM(e.amount), 0) AS period_total
+     FROM expenses e
+     WHERE e.group_id = ? AND e.type = 'group'
+       AND e.expense_date BETWEEN ? AND ?"
+);
+$stmt->bind_param('iss', $groupId, $startDate, $endDate);
+$stmt->execute();
+$totals = $stmt->get_result()->fetch_assoc();
+$totalCount = (int) $totals['cnt'];
+$total      = (float) $totals['period_total'];
+$stmt->close();
+
 $stmt = $conn->prepare(
     "SELECT e.id, e.amount, e.note, e.expense_date, e.user_id, e.paid_by,
             c.name AS category_name, u.username AS added_by, pb.username AS payer_username
@@ -45,16 +63,14 @@ $stmt = $conn->prepare(
      WHERE e.group_id = ? AND e.type = 'group'
        AND e.expense_date BETWEEN ? AND ?
      ORDER BY e.expense_date ASC, e.created_at ASC
-     LIMIT 500"
+     LIMIT ? OFFSET ?"
 );
-$stmt->bind_param('iss', $groupId, $startDate, $endDate);
+$stmt->bind_param('issii', $groupId, $startDate, $endDate, $limit, $offset);
 $stmt->execute();
 $result = $stmt->get_result();
 $expenses = [];
-$total = 0;
 while ($r = $result->fetch_assoc()) {
     $amt = (float) $r['amount'];
-    $total += $amt;
     $expenses[] = [
         'id'              => (int) $r['id'],
         'amount'          => $amt,
@@ -70,7 +86,8 @@ while ($r = $result->fetch_assoc()) {
 $stmt->close();
 
 echo json_encode([
-    'ok'       => true,
-    'expenses' => $expenses,
-    'total'    => round($total, 2)
+    'ok'         => true,
+    'expenses'   => $expenses,
+    'total'      => round($total, 2),
+    'pagination' => paginationMeta($page, $limit, $totalCount)
 ]);

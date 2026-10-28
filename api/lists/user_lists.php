@@ -7,10 +7,28 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/validator.php';
 
 requireAuth();
 
 $userId = (int) $_SESSION['user_id'];
+
+// High ceiling by design: the lists UI renders every list at once and never
+// sends ?limit=, so a 20-row default would silently truncate the sidebar.
+list($page, $limit, $offset) = parsePagination(500, 1000);
+
+$countSql = "SELECT COUNT(*) AS cnt
+        FROM lists l
+        WHERE
+            (l.group_id IS NULL AND l.user_id = ?)
+            OR
+            (l.group_id IN (SELECT group_id FROM group_members WHERE user_id = ?))";
+
+$stmt = $conn->prepare($countSql);
+$stmt->bind_param('ii', $userId, $userId);
+$stmt->execute();
+$totalLists = (int) $stmt->get_result()->fetch_assoc()['cnt'];
+$stmt->close();
 
 $sql = "SELECT l.id, l.name, l.user_id, l.group_id, l.created_at,
                u.username AS created_by,
@@ -31,10 +49,10 @@ $sql = "SELECT l.id, l.name, l.user_id, l.group_id, l.created_at,
             OR
             (l.group_id IN (SELECT group_id FROM group_members WHERE user_id = ?))
         ORDER BY l.created_at DESC
-        LIMIT 500";
+        LIMIT ? OFFSET ?";
 
 $stmt = $conn->prepare($sql);
-$stmt->bind_param('ii', $userId, $userId);
+$stmt->bind_param('iiii', $userId, $userId, $limit, $offset);
 $stmt->execute();
 $result = $stmt->get_result();
 $lists = [];
@@ -43,4 +61,8 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-echo json_encode(['ok' => true, 'lists' => $lists]);
+echo json_encode([
+    'ok'         => true,
+    'lists'      => $lists,
+    'pagination' => paginationMeta($page, $limit, $totalLists)
+]);

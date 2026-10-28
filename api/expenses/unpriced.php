@@ -8,22 +8,19 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/validator.php';
 
 requireAuth();
 
 $userId = (int) $_SESSION['user_id'];
 
+// High default ceiling: the "price your unpriced items" screen lists
+// everything at once and never sends ?limit=.
+list($page, $limit, $offset) = parsePagination(500, 1000);
+
 // Unpriced items: checked, no price, expense not created
 // Personal lists owned by user + group lists where user is a member
-$sql = "SELECT li.id, li.description, li.category_id, li.checked_at, li.list_id,
-               c.name AS category_name,
-               l.name AS list_name, l.group_id,
-               g.name AS group_name
-        FROM list_items li
-        JOIN lists l ON l.id = li.list_id
-        LEFT JOIN categories c ON c.id = li.category_id
-        LEFT JOIN `groups` g ON g.id = l.group_id
-        WHERE li.is_checked = 1
+$filter = "WHERE li.is_checked = 1
           AND li.price IS NULL
           AND li.expense_created = 0
           AND (
@@ -32,11 +29,33 @@ $sql = "SELECT li.id, li.description, li.category_id, li.checked_at, li.list_id,
               (l.group_id IS NOT NULL AND l.group_id IN (
                   SELECT group_id FROM group_members WHERE user_id = ?
               ))
-          )
-        ORDER BY li.checked_at DESC, li.created_at DESC";
+          )";
+
+$stmt = $conn->prepare(
+    "SELECT COUNT(*) AS cnt
+     FROM list_items li
+     JOIN lists l ON l.id = li.list_id
+     $filter"
+);
+$stmt->bind_param('ii', $userId, $userId);
+$stmt->execute();
+$totalItems = (int) $stmt->get_result()->fetch_assoc()['cnt'];
+$stmt->close();
+
+$sql = "SELECT li.id, li.description, li.category_id, li.checked_at, li.list_id,
+               c.name AS category_name,
+               l.name AS list_name, l.group_id,
+               g.name AS group_name
+        FROM list_items li
+        JOIN lists l ON l.id = li.list_id
+        LEFT JOIN categories c ON c.id = li.category_id
+        LEFT JOIN `groups` g ON g.id = l.group_id
+        $filter
+        ORDER BY li.checked_at DESC, li.created_at DESC
+        LIMIT ? OFFSET ?";
 
 $stmt = $conn->prepare($sql);
-$stmt->bind_param('ii', $userId, $userId);
+$stmt->bind_param('iiii', $userId, $userId, $limit, $offset);
 $stmt->execute();
 $result = $stmt->get_result();
 $items = [];
@@ -45,4 +64,8 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-echo json_encode(['ok' => true, 'items' => $items]);
+echo json_encode([
+    'ok'         => true,
+    'items'      => $items,
+    'pagination' => paginationMeta($page, $limit, $totalItems)
+]);

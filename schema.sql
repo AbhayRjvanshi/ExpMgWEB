@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS `groups` (
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
+    CONSTRAINT chk_max_members CHECK (max_members > 0),
+
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -102,6 +104,9 @@ CREATE TABLE IF NOT EXISTS expenses (
     INDEX idx_group_date  (group_id, expense_date),
     INDEX idx_post_settl  (group_id, is_post_settlement),
     INDEX idx_paid_by     (paid_by, expense_date),
+    INDEX idx_expense_date (expense_date),
+
+    CONSTRAINT chk_expense_amount CHECK (amount > 0),
 
     FOREIGN KEY (user_id)     REFERENCES users(id)      ON DELETE CASCADE,
     FOREIGN KEY (paid_by)     REFERENCES users(id)      ON DELETE SET NULL,
@@ -123,6 +128,7 @@ CREATE TABLE IF NOT EXISTS budgets (
     updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     UNIQUE KEY uq_user_month (user_id, budget_month),
+    CONSTRAINT chk_budget_amount CHECK (amount_limit > 0),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -161,6 +167,8 @@ CREATE TABLE IF NOT EXISTS list_items (
 
     INDEX idx_list_priority (list_id, priority, created_at),
     INDEX idx_unpriced_lookup (is_checked, expense_created, list_id, checked_at),
+
+    CONSTRAINT chk_item_price CHECK (price IS NULL OR price > 0),
 
     FOREIGN KEY (list_id)     REFERENCES lists(id)       ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id)  ON DELETE SET NULL,
@@ -209,6 +217,11 @@ CREATE TABLE IF NOT EXISTS settlements (
 
     INDEX idx_group_date (group_id, created_at),
     INDEX idx_settlement_period (group_id, period_start, period_end),
+
+    -- >= 0 (not > 0) on purpose: an all-equal period still writes a 0.00
+    -- marker row, and the settlement-lock MAX(period_end) lookups need it.
+    CONSTRAINT chk_settlement_amount CHECK (amount >= 0),
+
     FOREIGN KEY (group_id)   REFERENCES `groups`(id) ON DELETE CASCADE,
     FOREIGN KEY (settled_by) REFERENCES users(id)    ON DELETE CASCADE,
     FOREIGN KEY (payer_id)   REFERENCES users(id)    ON DELETE CASCADE,

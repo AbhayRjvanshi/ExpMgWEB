@@ -7,6 +7,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/validator.php';
 
 requireAuth();
 
@@ -29,6 +30,16 @@ if (!$stmt->get_result()->fetch_assoc()) {
 }
 $stmt->close();
 
+// Settlement history can grow without bound, so it is genuinely paginated.
+// Default ceiling stays high (500) so the UI keeps seeing full history.
+list($page, $limit, $offset) = parsePagination(500, 1000);
+
+$stmt = $conn->prepare('SELECT COUNT(*) AS cnt FROM settlements WHERE group_id = ?');
+$stmt->bind_param('i', $groupId);
+$stmt->execute();
+$totalSettlements = (int) $stmt->get_result()->fetch_assoc()['cnt'];
+$stmt->close();
+
 $stmt = $conn->prepare(
     'SELECT s.id, s.payer_id, s.payee_id, s.amount, s.period_start, s.period_end, s.created_at,
             payer.username AS payer_name, payee.username AS payee_name
@@ -37,9 +48,9 @@ $stmt = $conn->prepare(
      JOIN users payee ON payee.id = s.payee_id
      WHERE s.group_id = ?
      ORDER BY s.created_at DESC
-     LIMIT 50'
+     LIMIT ? OFFSET ?'
 );
-$stmt->bind_param('i', $groupId);
+$stmt->bind_param('iii', $groupId, $limit, $offset);
 $stmt->execute();
 $result = $stmt->get_result();
 $history = [];
@@ -58,4 +69,8 @@ while ($r = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-echo json_encode(['ok' => true, 'settlements' => $history]);
+echo json_encode([
+    'ok'          => true,
+    'settlements' => $history,
+    'pagination'  => paginationMeta($page, $limit, $totalSettlements)
+]);

@@ -40,7 +40,7 @@ deploying the codebase.
 | `api/helpers/rate_limiter.php` | login, signup, `auth.php`, CSRF gate | DB-backed limiter on `rate_limits`; retention is action-aware (120 s for `api_user`/`api_ip`, 3600 s otherwise) |
 | `config/idempotency.php` | 11 POST endpoints | `idempotencyGuard()` / `idempotencyRespond()`; file backend by default, Redis optional. Requests without `Idempotency-Key` bypass it |
 | `api/helpers/logger.php` | everywhere | JSON-lines to `logs/app.log`, rotated to `app.log.1` at 10 MB |
-| `api/helpers/validator.php` | `expenses/list.php`, several endpoints | `parsePagination()` / `paginationMeta()` / `validateDate()` |
+| `api/helpers/validator.php` | every `api/**` endpoint | `parsePagination()` / `paginationMeta()` / `validateDate()`. List endpoints page with 500/1000 ceilings (notifications 30/50, expenses 20/50) so dropdowns and feeds keep their full default view |
 | `api/helpers/outbox.php` | `api/system/health.php` | `outboxStats()` feeds queue pressure. **No live endpoint queues outbox events** |
 | `api/helpers/redis.php` | `health.php`, Redis rate-limit/idempotency backends | Optional Redis client; absent Redis degrades to DB/file |
 | `scripts/cleanup_notifications.php` | cron/CLI only (403 over HTTP) | 7-day notification retention; not scheduled by anything in this repo |
@@ -64,19 +64,29 @@ Built and covered by tests, but **not on any HTTP request path**:
 
 ### Test reality
 
-`php run_tests.php` reports **403 passed / 134 failed out of 537 tests**. The 134
-failures are not random:
+`php run_tests.php` reports **427 passed / 112 failed out of 539 tests**. The 112
+failures are not random, and every one of them is accounted for:
 
 | Section | Failures | Cause |
 |---|---|---|
-| 9, 22, 26 | 8 | cross-cutting checks: `validator.php` not included by every endpoint, amount/month validation messages, XSS/special-character DB assertions |
-| 28 | 88 | the planned business service layer does not exist |
-| 29 | 7 | `schema.sql` lacks the CHECK constraints / `idx_expense_date`, `migration_v1.8.sql` absent |
-| 30 | 7 | `response.php` adoption, GET-on-POST 405, validation-error 400 |
-| 31 | 2 | logger coverage in the missing services; expense-creation INFO log |
-| 32 | 7 | pagination migration (planned v2.1) |
-| 33 | 2 | login rate-limit row accounting |
-| 34 | 13 | ephemeral notification store (planned v2.5) |
+| 28 | 88 | the planned business service layer (`ExpenseService`, `GroupService`, `SettlementService`, `ListService`, `BudgetService`, `NotificationService`) does not exist (KD-06) |
+| 34 | 11 | ephemeral notification store is built but unwired: `NotificationService`/`consume()`, `read.php` still uses MySQL, `history.php` uses raw SQL, service-level `notification_store` usage, and the frontend still keys on numeric ids (KD-05) |
+| 31, 32 | 3 | `31j`, `32u`, `32v` scan the same missing service files for `logger.php`, `LIMIT`/`array_slice` and `paginationMeta` |
+| 30 | 7 | `response.php` adoption, GET-on-POST 405, validation-error 400 — deferred as a single 38-endpoint rewrite |
+| 9, 22, 26 | 3 | write-time HTML-entity assertions rejected by design (see policy below) |
+
+**Total: 88 + 11 + 3 + 7 + 3 = 112.**
+
+Two policy decisions are recorded here so they are not re-litigated:
+
+1. **Raw text in the database, escaping at render time.** The three rejected
+   assertions expect `O&#039;Brien` / `&lt;script&gt;` to be *stored* in MySQL.
+   That is a regression, not a fix: it double-escapes on edit round-trips,
+   breaks `LIKE` search, and corrupts exports. Prepared statements plus
+   `esc()` in the UI are the correct boundary.
+2. **Section 30 is deferred, not rejected.** Migrating 38 endpoints to
+   `response.php`/`apiError` plus try/catch and the 405/400 contracts is a
+   self-contained change with its own regression surface.
 
 `php tests/distributed_system_test.php` (standalone, not part of `run_tests.php`)
 runs 21/25 against the dormant distributed stack.
@@ -562,7 +572,7 @@ Expected output (last line):
 RESULTS: <N> passed, <N> failed out of <total> tests
 ```
 
-> **Note:** sections 28-34 assert planned-but-unfinished refactors (service layer, pagination migration, ephemeral notification store). The current baseline is **403 passed / 134 failed out of 537 tests**; the remaining failures also include eight cross-cutting checks outside those sections (see [Runtime Status](#runtime-status-audited-2026-10-28)).
+> **Note:** sections 28-34 assert planned-but-unfinished refactors (service layer, `response.php` rewrite, ephemeral notification store). The current baseline is **427 passed / 112 failed out of 539 tests**: 88 are the missing service layer (§28), 11 the unwired ephemeral notification store (§34), 3 service-file scans (`31j`, `32u`, `32v`), 7 the deferred `response.php` rewrite (§30), and 3 write-time HTML-escaping assertions rejected by design (§9/§22/§26). See [Runtime Status](#runtime-status-audited-2026-10-28).
 
 ---
 
@@ -752,7 +762,7 @@ A significant update focusing on visual improvements and deep codebase cleanup.
 - `run_tests.php` updated to:
   - Understand the `NotificationStore` abstraction and the new service structure.
   - Treat non-endpoint helpers (`notifications_config.php`, `notification_publisher.php`, `redis.php`) as pure libraries (excluded from “all endpoints must…” tests).
-  - **Superseded:** the suite has grown to 537 tests; the current result is `RESULTS: 403 passed, 134 failed out of 537 tests` - see [Runtime Status](#runtime-status-audited-2026-10-28).
+  - **Superseded:** the suite has grown to 539 tests; the current result is `RESULTS: 427 passed, 112 failed out of 539 tests` - see [Runtime Status](#runtime-status-audited-2026-10-28).
 
 **Redis status (important note):**
 - The **file-based notification backend remains the default and production-ready path** (`NOTIFICATIONS_BACKEND=file`).
@@ -831,7 +841,7 @@ For higher-volume deployments that already run Redis, the notification system ca
 - **`public/assets/js/app.js`** — `lastSeenNotifId` → `lastSeenEventId` (string comparison); `data-id` uses `event_id`; click handler sends `event_id`; consumed notifications fade out and are removed from DOM
 - **`schema.sql`** — `notifications` table comment updated (retained for backward compatibility)
 
-**New tests (477 at the time; the suite now totals 537):**
+**New tests (477 at the time; the suite now totals 539):**
 - **Section 34: Ephemeral Notification System** (48 tests) — helper file existence and key function definitions; NotificationService structure (consume method, no markAsRead); endpoint integration (no db.php imports, event_id acceptance, backward compat); full publish → list → consume → verify-gone cycle; consume-all + zero count verification; pagination in list response; history endpoint uses service layer (no raw SQL); data directory existence and writability; all 4 producer services use `notification_store.php` (no INSERT INTO notifications); store constants (max 50, TTL 259200, rate limit); SHA-256 dedup; file locking; frontend event_id tracking
 
 ---

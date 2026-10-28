@@ -8,6 +8,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/validator.php';
 
 requireAuth(false); // false: heartbeat poll — check limits but don't INSERT 2 rows every 10s tick
 

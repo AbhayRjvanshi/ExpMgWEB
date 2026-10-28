@@ -6,19 +6,31 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/validator.php';
 
 requireAuth();
 
 $userId = (int)$_SESSION['user_id'];
+
+// High ceiling by design: group dropdowns load everything and never send
+// ?limit=, so the generic 20-row default would truncate the list.
+list($page, $limit, $offset) = parsePagination(500, 1000);
+
+$stmt = $conn->prepare('SELECT COUNT(*) AS cnt FROM group_members WHERE user_id = ?');
+$stmt->bind_param('i', $userId);
+$stmt->execute();
+$totalGroups = (int) $stmt->get_result()->fetch_assoc()['cnt'];
+$stmt->close();
 
 $stmt = $conn->prepare(
     'SELECT g.id, g.name, gm.role
      FROM `groups` g
      JOIN group_members gm ON gm.group_id = g.id
      WHERE gm.user_id = ?
-     ORDER BY g.name'
+     ORDER BY g.name
+     LIMIT ? OFFSET ?'
 );
-$stmt->bind_param('i', $userId);
+$stmt->bind_param('iii', $userId, $limit, $offset);
 $stmt->execute();
 $result = $stmt->get_result();
 $groups = [];
@@ -27,4 +39,8 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-echo json_encode(['ok' => true, 'groups' => $groups]);
+echo json_encode([
+    'ok'         => true,
+    'groups'     => $groups,
+    'pagination' => paginationMeta($page, $limit, $totalGroups)
+]);
