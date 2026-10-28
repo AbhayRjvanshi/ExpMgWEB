@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/session.php';
+configureSecureSessionCookie();
 session_start();
 $loggedIn = isset($_SESSION['user_id']);
 $redirect = $loggedIn ? 'index.php' : '../pages/login.php';

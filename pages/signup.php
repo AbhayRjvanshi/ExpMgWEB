@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/session.php';
+configureSecureSessionCookie();
 session_start();
 $rateLimitRetryAfter = isset($_SESSION['rate_limit_retry_after']) ? (int) $_SESSION['rate_limit_retry_after'] : 0;
 unset($_SESSION['rate_limit_retry_after']);
@@ -57,13 +59,13 @@ if (isset($_SESSION['user_id'])) {
         <div class="form-group">
           <label for="password">Password</label>
           <input type="password" id="password" name="password" class="form-input"
-                 placeholder="Min 6 characters" required minlength="6" />
+                 placeholder="Min 8 characters" required minlength="8" />
         </div>
 
         <div class="form-group">
           <label for="confirm_password">Confirm Password</label>
           <input type="password" id="confirm_password" name="confirm_password" class="form-input"
-                 placeholder="Re-enter password" required minlength="6" />
+                 placeholder="Re-enter password" required minlength="8" />
         </div>
 
         <button type="submit" class="btn w-full mt-1">Sign Up</button>

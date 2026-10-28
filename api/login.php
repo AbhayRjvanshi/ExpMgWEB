@@ -4,6 +4,8 @@
  * Expects POST: email, password
  * On success: sets session and redirects to dashboard (public/index.php).
  */
+require_once __DIR__ . '/../config/session.php';
+configureSecureSessionCookie();
 session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/helpers/rate_limiter.php';
@@ -54,6 +56,11 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows === 0) {
+    logMessage('WARNING', 'Failed login attempt', [
+        'email' => $email,
+        'ip'    => $ip,
+        'reason' => 'unknown_email'
+    ]);
     $_SESSION['auth_error'] = 'Invalid email or password.';
     $_SESSION['old_email']  = $email;
     $stmt->close();
@@ -67,6 +74,11 @@ $stmt->close();
 // Verify password
 if (!password_verify($password, $user['password'])) {
     recordRateLimit($conn, $ip, 'login', 900);
+    logMessage('WARNING', 'Failed login attempt', [
+        'email'  => $email,
+        'ip'     => $ip,
+        'reason' => 'bad_password'
+    ]);
     $_SESSION['auth_error'] = 'Invalid email or password.';
     $_SESSION['old_email']  = $email;
     header('Location: ../pages/login.php');

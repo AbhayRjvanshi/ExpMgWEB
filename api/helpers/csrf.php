@@ -39,7 +39,9 @@ function generateCsrfToken(): string {
             'expires' => 0,              // Session cookie
             'path' => '/',
             'domain' => '',
-            'secure' => false,           // Set to true in production with HTTPS
+            // Only sent over HTTPS when the request itself is HTTPS.
+            'secure' => (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+                        || (int) ($_SERVER['SERVER_PORT'] ?? 80) === 443,
             'httponly' => false,         // Must be readable by JavaScript
             'samesite' => 'Lax'
         ]
@@ -110,17 +112,23 @@ function verifyCsrf(): void {
         exit;
     }
 
-    // Get headers (case-insensitive)
-    $headers = getallheaders();
-    if ($headers === false) {
-        $headers = [];
+    // Request token: X-CSRF-Token header (any SAPI), with explicit
+    // $_SERVER and POST-body fallbacks so native form posts keep working.
+    $headers = [];
+    if (function_exists('getallheaders')) {
+        $rawHeaders = getallheaders();
+        if (is_array($rawHeaders)) {
+            // Normalize header keys to lowercase for case-insensitive lookup
+            $headers = array_change_key_case($rawHeaders, CASE_LOWER);
+        }
     }
-    
-    // Normalize header keys to lowercase for case-insensitive lookup
-    $headers = array_change_key_case($headers, CASE_LOWER);
 
-    // Check request header token exists
-    if (!isset($headers['x-csrf-token'])) {
+    $headerToken = (string) ($headers['x-csrf-token']
+        ?? ($_SERVER['HTTP_X_CSRF_TOKEN']
+        ?? ($_POST['csrf_token'] ?? '')));
+
+    // Check request token exists
+    if ($headerToken === '') {
         logMessage('WARNING', 'CSRF verification failed: request token missing', [
             'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
             'endpoint' => $_SERVER['REQUEST_URI'] ?? 'unknown',
@@ -138,7 +146,6 @@ function verifyCsrf(): void {
         exit;
     }
 
-    $headerToken = $headers['x-csrf-token'];
     $sessionToken = $_SESSION['csrf_token'];
 
     // Timing-attack resistant comparison (session token vs header token)
@@ -215,7 +222,18 @@ function verifyCsrfIfNeeded(): void {
  */
 function recordCsrfFailure(): void {
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    
+    global $conn;
+
+    // Also persist the failure by IP. Session-only counters are trivially
+    // bypassed by an attacker who simply drops cookies, so cookieless/failed
+    // CSRF attempts must be visible in rate_limits as well.
+    if ($conn instanceof mysqli
+        && function_exists('checkRateLimit')
+        && function_exists('recordRateLimit')) {
+        checkRateLimit($conn, $ip, 'csrf_fail', 50, 600);
+        recordRateLimit($conn, $ip, 'csrf_fail', 600);
+    }
+
     // Initialize failure tracking in session
     if (!isset($_SESSION['csrf_failures'])) {
         $_SESSION['csrf_failures'] = [];

@@ -4,7 +4,7 @@
  * GET: list_id
  * Sort: high first, then moderate, then low. Within same priority → oldest first.
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';

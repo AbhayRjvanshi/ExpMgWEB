@@ -5,7 +5,7 @@
  * Business rule: a user can create at most 5 groups.
  * Returns JSON with the new group + join code.
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
@@ -18,6 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $userId = (int) $_SESSION['user_id'];
+require_once __DIR__ . '/../../config/idempotency.php';
+$idemCtx = idempotencyGuard($userId, 'groups/create');
 $name   = trim($_POST['name'] ?? '');
 
 if ($name === '' || strlen($name) > 100) {
@@ -81,7 +83,7 @@ $stmt->bind_param('ii', $groupId, $userId);
 $stmt->execute();
 $stmt->close();
 
-echo json_encode([
+idempotencyRespond($idemCtx, [
     'ok'   => true,
     'group' => [
         'id'        => $groupId,
@@ -89,4 +91,4 @@ echo json_encode([
         'join_code' => $joinCode,
         'role'      => 'admin'
     ]
-]);
+], 200);

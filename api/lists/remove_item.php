@@ -5,7 +5,7 @@
  * Any member can remove from a group list. Owner can remove from personal list.
  * Notifies other group members.
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';

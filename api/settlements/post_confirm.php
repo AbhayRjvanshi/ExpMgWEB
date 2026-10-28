@@ -9,13 +9,16 @@
  * and confirmations are cleared.
  */
 require_once __DIR__ . '/settlement_helpers.php';
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/logger.php';
 
 requireAuth();
+
+require_once __DIR__ . '/../../config/idempotency.php';
+$idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'settlements/post_confirm');
 
 $userId  = (int) $_SESSION['user_id'];
 $groupId = (int) ($_POST['group_id'] ?? 0);
@@ -280,11 +283,11 @@ if ($remaining <= 0) {
         $nStmt->execute();
         $nStmt->close();
 
-        echo json_encode([
+        idempotencyRespond($idemCtx, [
             'ok'          => true,
             'all_settled' => true,
             'message'     => 'All members have confirmed. Late expenses settlement is complete! Past records updated.'
-        ]);
+        ], 200);
     } catch (Exception $e) {
         $conn->rollback();
         logMessage('ERROR', 'Post-settlement finalization failed', [
@@ -307,10 +310,10 @@ if ($remaining <= 0) {
     $nStmt->execute();
     $nStmt->close();
 
-    echo json_encode([
+    idempotencyRespond($idemCtx, [
         'ok'          => true,
         'all_settled' => false,
         'remaining'   => $remaining,
         'message'     => 'Your confirmation has been recorded.'
-    ]);
+    ], 200);
 }

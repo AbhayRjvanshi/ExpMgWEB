@@ -4,7 +4,7 @@
  * POST: item_id, price
  * The expense is recorded with the original checked_at date, not the current date.
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
@@ -15,6 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
     exit;
 }
+
+require_once __DIR__ . '/../../config/idempotency.php';
+$idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'expenses/price_unpriced');
 
 $userId = (int) $_SESSION['user_id'];
 $itemId = (int) ($_POST['item_id'] ?? 0);
@@ -152,7 +155,7 @@ try {
     }
 
     $conn->commit();
-    echo json_encode(['ok' => true, 'expense_id' => $expenseId, 'is_post_settlement' => (bool)$isPostSettlement]);
+    idempotencyRespond($idemCtx, ['ok' => true, 'expense_id' => $expenseId, 'is_post_settlement' => (bool)$isPostSettlement], 200);
 } catch (Exception $e) {
     $conn->rollback();
     logMessage('ERROR', 'Unpriced pricing transaction failed', [

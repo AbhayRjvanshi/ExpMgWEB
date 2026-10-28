@@ -3,12 +3,15 @@
  * api/settlements/settle.php — Record a settlement.
  * POST: group_id, payer_id, payee_id, amount, period_start, period_end
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 
 requireAuth();
+
+require_once __DIR__ . '/../../config/idempotency.php';
+$idemCtx    = idempotencyGuard((int) $_SESSION['user_id'], 'settlements/settle');
 
 $userId     = (int) $_SESSION['user_id'];
 $groupId    = (int) ($_POST['group_id'] ?? 0);
@@ -84,7 +87,7 @@ try {
     $stmt->close();
     $conn->commit();
 
-    echo json_encode(['ok' => true, 'message' => 'Settlement recorded.', 'id' => $newId]);
+    idempotencyRespond($idemCtx, ['ok' => true, 'message' => 'Settlement recorded.', 'id' => $newId], 200);
 } catch (Exception $e) {
     $conn->rollback();
     logMessage('ERROR', 'Settlement insert transaction failed', [

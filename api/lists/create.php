@@ -3,7 +3,7 @@
  * api/lists/create.php — Create a new list (personal or group).
  * POST: name, group_id (optional — omit or empty for personal)
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';

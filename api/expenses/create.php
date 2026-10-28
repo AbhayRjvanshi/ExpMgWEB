@@ -4,7 +4,7 @@
  * POST: amount, category_id, note, expense_date, type, group_id (optional)
  * Returns JSON.
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
@@ -15,6 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
     exit;
 }
+
+require_once __DIR__ . '/../../config/idempotency.php';
+$idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'expenses/create');
 
 $userId      = (int) $_SESSION['user_id'];
 $amount      = floatval($_POST['amount'] ?? 0);
@@ -125,7 +128,7 @@ if ($stmt->execute()) {
         $notifStmt->close();
     }
 
-    echo json_encode(['ok' => true, 'id' => $newId]);
+    idempotencyRespond($idemCtx, ['ok' => true, 'id' => $newId], 200);
 } else {
     echo json_encode(['ok' => false, 'error' => 'Failed to save expense.']);
     $stmt->close();

@@ -5,7 +5,7 @@
  * Returns members, contributions, per-person share, settlement instructions.
  */
 require_once __DIR__ . '/settlement_helpers.php';
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';

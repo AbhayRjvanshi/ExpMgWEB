@@ -16,15 +16,28 @@
  *   }
  */
 
-// Ensure session is started before checking auth
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Secure session bootstrap. MUST run before any session_start(): cookie
+// params and session.use_strict_mode are only honoured while no session is
+// active. Every protected endpoint includes this file before touching
+// $_SESSION, so the hardened flags apply universally.
+require_once __DIR__ . '/../../config/session.php';
+ensureSecureSessionStarted();
 
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../helpers/response.php';
 require_once __DIR__ . '/../helpers/logger.php';
 require_once __DIR__ . '/../helpers/rate_limiter.php';
+require_once __DIR__ . '/../helpers/csrf.php';
+
+// Security headers for EVERY response produced by a protected endpoint —
+// including the 401/403/429 exits below, which never reach the body of
+// requireAuth(). (api/bootstrap.php remains unwired.)
+if (!headers_sent()) {
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'");
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+}
 
 /**
  * Require authentication for current request.
@@ -55,7 +68,7 @@ function requireAuth(bool $recordUsage = true): void {
 
     // ---- 1. Session-dependent checks (hold the session lock) ----
     if (!isset($_SESSION['user_id']) || $_SESSION['user_id'] === '') {
-        logMessage('WARNING', 'Authentication failed: no session user_id', [
+        logMessage('WARNING', 'Authentication failed: Unauthorized (no session user_id)', [
             'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
             'method' => $_SERVER['REQUEST_METHOD'] ?? 'GET',
             'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
@@ -63,7 +76,7 @@ function requireAuth(bool $recordUsage = true): void {
 
         http_response_code(401);
         header('Content-Type: application/json');
-        echo json_encode(['ok' => false, 'error' => 'Unauthorized']);
+        echo json_encode(['ok' => false, 'error' => 'Authentication required']);
         exit;
     }
 
@@ -103,14 +116,6 @@ function requireAuth(bool $recordUsage = true): void {
     // from the same user run in parallel instead of queueing on flock(LOCK_EX).
     session_write_close();
 
-    // Security headers (best-effort, before any body output; centralized here
-    // because api/bootstrap.php is not included by any endpoint).
-    if (!headers_sent()) {
-        header('X-Content-Type-Options: nosniff');
-        header('X-Frame-Options: DENY');
-        header('Referrer-Policy: strict-origin-when-cross-origin');
-    }
-
     // ---- 3. Rate limiting (DB-only; does not touch $_SESSION) ----
     // Per-user API limit: 120 requests per 60 seconds.
     // Per-IP API limit: 240 requests per 60 seconds (burst allowance).
@@ -127,7 +132,7 @@ function requireAuth(bool $recordUsage = true): void {
             header('Retry-After: ' . $retryAfter);
             echo json_encode([
                 'ok' => false,
-                'error' => 'Rate limited',
+                'error' => 'Too many requests. Rate limited.',
                 'retry_after' => $retryAfter,
                 'limited_by' => 'user'
             ]);
@@ -140,7 +145,7 @@ function requireAuth(bool $recordUsage = true): void {
             header('Retry-After: ' . $retryAfter);
             echo json_encode([
                 'ok' => false,
-                'error' => 'Rate limited',
+                'error' => 'Too many requests. Rate limited.',
                 'retry_after' => $retryAfter,
                 'limited_by' => 'ip'
             ]);
@@ -161,7 +166,7 @@ function requireAuth(bool $recordUsage = true): void {
             header('Retry-After: ' . $retryAfter);
             echo json_encode([
                 'ok' => false,
-                'error' => 'Rate limited',
+                'error' => 'Too many requests. Rate limited.',
                 'retry_after' => $retryAfter,
                 'limited_by' => $verdict['limited_by']
             ]);
@@ -173,65 +178,15 @@ function requireAuth(bool $recordUsage = true): void {
 /**
  * Verify CSRF token for POST/PUT/PATCH/DELETE requests.
  *
- * Checks:
- *   - X-CSRF-Token header matches session token
- *   - Or CSRF token in POST data matches session token (fallback)
+ * Thin delegating wrapper. The canonical implementation lives in
+ * api/helpers/csrf.php::verifyCsrf(), which supports the X-CSRF-Token header,
+ * the $_SERVER fallback, a POST-body token, and the double-submit cookie —
+ * and records failures by IP in rate_limits.
  *
  * Returns HTTP 403 Forbidden if token is missing or invalid.
  *
  * @return void
  */
 function verifyCsrfToken(): void {
-    $sessionToken = $_SESSION['csrf_token'] ?? null;
-
-    if (!$sessionToken) {
-        logMessage('WARNING', 'CSRF verification failed: no session token', [
-            'user_id' => $_SESSION['user_id'] ?? null,
-            'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
-            'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
-        ]);
-
-        http_response_code(403);
-        header('Content-Type: application/json');
-        echo json_encode(['ok' => false, 'error' => 'CSRF token missing']);
-        exit;
-    }
-
-    // Try header first (recommended for AJAX)
-    $headerToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-
-    // Try POST data as fallback
-    $postToken = $_POST['csrf_token'] ?? '';
-
-    // Try cookie for double-submit defense
-    $cookieToken = $_COOKIE['csrf_token'] ?? '';
-
-    $tokenValid = false;
-
-    // Check header against session token (timing-attack resistant)
-    if ($headerToken && hash_equals($sessionToken, $headerToken)) {
-        $tokenValid = true;
-    }
-    // Check POST data against session token
-    elseif ($postToken && hash_equals($sessionToken, $postToken)) {
-        $tokenValid = true;
-    }
-    // Check double-submit cookie against session token
-    elseif ($cookieToken && hash_equals($sessionToken, $cookieToken)) {
-        $tokenValid = true;
-    }
-
-    if (!$tokenValid) {
-        logMessage('WARNING', 'CSRF verification failed: token mismatch', [
-            'user_id' => $_SESSION['user_id'] ?? null,
-            'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
-            'method' => $_SERVER['REQUEST_METHOD'] ?? '',
-            'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
-        ]);
-
-        http_response_code(403);
-        header('Content-Type: application/json');
-        echo json_encode(['ok' => false, 'error' => 'CSRF token invalid']);
-        exit;
-    }
+    verifyCsrf();
 }

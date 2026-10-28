@@ -4,7 +4,7 @@
  * POST: group_id
  * Admin cannot leave — they must delete the group instead (or transfer, future feature).
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';

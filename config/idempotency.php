@@ -303,3 +303,64 @@ function idempotencyFinish(?array $ctx, int $status, array $body): void {
         }
     }
 }
+
+/**
+ * Release any lock/handle held by an idempotency context WITHOUT writing a
+ * response snapshot.
+ */
+function idempotencyReleaseContext(array $ctx): void {
+    $redis = $ctx['redis'] ?? null;
+    if (is_object($redis) && method_exists($redis, 'setex')) {
+        idempotencyReleaseRedisLock($redis, $ctx['lock_key'] ?? null, $ctx['lock_token'] ?? null);
+        return;
+    }
+
+    if (!empty($ctx['lock_handle'])) {
+        flock($ctx['lock_handle'], LOCK_UN);
+        fclose($ctx['lock_handle']);
+    }
+}
+
+/**
+ * Convenience guard for state-changing endpoints.
+ *
+ * Returns the context for a fresh request, or replays the cached response and
+ * exits. A replay only releases the lock — it must never re-finish (re-write)
+ * the cached snapshot.
+ *
+ * Returns null when the request carried no Idempotency-Key (feature bypass),
+ * so existing sequential callers/tests are unaffected.
+ */
+function idempotencyGuard(int $userId, string $route): ?array {
+    $ctx = idempotencyBegin($userId, $route);
+    if ($ctx === null) {
+        return null;
+    }
+
+    if (!empty($ctx['replay'])) {
+        $status = (int) ($ctx['status'] ?? 200);
+        $body = is_array($ctx['body'] ?? null)
+            ? $ctx['body']
+            : ['ok' => false, 'error' => 'Invalid idempotency replay body.'];
+
+        idempotencyReleaseContext($ctx);
+
+        http_response_code($status);
+        header('Content-Type: application/json');
+        echo json_encode($body);
+        exit;
+    }
+
+    return $ctx;
+}
+
+/**
+ * Persist the response snapshot (when a context exists) and emit it.
+ */
+function idempotencyRespond(?array $ctx, array $body, int $status = 200): void {
+    idempotencyFinish($ctx, $status, $body);
+    http_response_code($status);
+    header('Content-Type: application/json');
+    echo json_encode($body);
+    exit;
+}

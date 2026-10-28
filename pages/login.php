@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/session.php';
+configureSecureSessionCookie();
 session_start();
 $rateLimitRetryAfter = isset($_SESSION['rate_limit_retry_after']) ? (int) $_SESSION['rate_limit_retry_after'] : 0;
 unset($_SESSION['rate_limit_retry_after']);

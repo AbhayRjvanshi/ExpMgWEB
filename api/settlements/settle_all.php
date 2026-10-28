@@ -5,7 +5,7 @@
  * Only the group admin can perform this action.
  * Calculates current settlements and records them all at once.
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
@@ -13,6 +13,9 @@ require_once __DIR__ . '/../helpers/logger.php';
 require_once __DIR__ . '/settlement_helpers.php';
 
 requireAuth();
+
+require_once __DIR__ . '/../../config/idempotency.php';
+$idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'settlements/settle_all');
 
 $userId  = (int) $_SESSION['user_id'];
 $groupId = (int) ($_POST['group_id'] ?? 0);
@@ -170,7 +173,7 @@ try {
     $nStmt->execute();
     $nStmt->close();
 
-    echo json_encode(['ok' => true, 'message' => 'All expenses have been settled.', 'count' => count($settlements)]);
+    idempotencyRespond($idemCtx, ['ok' => true, 'message' => 'All expenses have been settled.', 'count' => count($settlements)], 200);
 } catch (Exception $e) {
     $conn->rollback();
     logMessage('ERROR', 'Settle all failed', [

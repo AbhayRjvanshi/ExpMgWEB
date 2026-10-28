@@ -3,9 +3,12 @@
  * api/signup.php — Handle new user registration.
  * Expects POST: username, email, password, confirm_password
  */
+require_once __DIR__ . '/../config/session.php';
+configureSecureSessionCookie();
 session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/helpers/rate_limiter.php';
+require_once __DIR__ . '/helpers/logger.php';
 
 // Only accept POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -49,8 +52,8 @@ if ($username === '' || strlen($username) < 3 || strlen($username) > 50) {
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     $errors[] = 'Please enter a valid email address.';
 }
-if (strlen($password) < 6) {
-    $errors[] = 'Password must be at least 6 characters.';
+if (strlen($password) < 8) {
+    $errors[] = 'Password must be at least 8 characters.';
 }
 if ($password !== $confirm) {
     $errors[] = 'Passwords do not match.';
@@ -82,15 +85,54 @@ $hash = password_hash($password, PASSWORD_BCRYPT);
 $stmt = $conn->prepare('INSERT INTO users (username, email, password) VALUES (?, ?, ?)');
 $stmt->bind_param('sss', $username, $email, $hash);
 
-if ($stmt->execute()) {
-    recordRateLimit($conn, $ip, 'signup', 3600);
-    $_SESSION['auth_success'] = 'Account created! Please sign in.';
-    $stmt->close();
-    header('Location: ../pages/login.php');
-    exit;
-} else {
-    $_SESSION['auth_error'] = 'Something went wrong. Please try again.';
+$insertOk  = false;
+$duplicate = false;
+
+// Concurrent signups can slip past the SELECT pre-check above; MySQL's
+// UNIQUE constraints are the real guard. PHP 8.1+ runs mysqli in exception
+// mode, but keep the errno fallback for configs that disable it.
+try {
+    $insertOk = $stmt->execute();
+} catch (mysqli_sql_exception $e) {
+    if ((int) $e->getCode() === 1062 || (int) $conn->errno === 1062) {
+        $duplicate = true;
+    } else {
+        logMessage('ERROR', 'User registration insert failed', [
+            'username' => $username,
+            'ip'       => $ip,
+            'error'    => $e->getMessage(),
+        ]);
+    }
+}
+
+if (!$insertOk && !$duplicate && (int) $conn->errno === 1062) {
+    $duplicate = true;
+}
+
+if ($duplicate) {
+    $_SESSION['auth_error'] = 'Username or email already taken.';
+    $_SESSION['old_username'] = $username;
+    $_SESSION['old_email']    = $email;
     $stmt->close();
     header('Location: ../pages/signup.php');
     exit;
 }
+
+if ($insertOk) {
+    $newUserId = (int) $conn->insert_id;
+    recordRateLimit($conn, $ip, 'signup', 3600);
+    logMessage('INFO', 'New user registered', [
+        'user_id'  => $newUserId,
+        'username' => $username,
+        'ip'       => $ip,
+    ]);
+    $_SESSION['auth_success'] = 'Account created! Please sign in.';
+    $stmt->close();
+    header('Location: ../pages/login.php');
+    exit;
+}
+
+$_SESSION['auth_error'] = 'Something went wrong. Please try again.';
+$stmt->close();
+header('Location: ../pages/signup.php');
+exit;

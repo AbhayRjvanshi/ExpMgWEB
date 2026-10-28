@@ -5,7 +5,7 @@
  * Permission: personal → owner only; group → admin only.
  * Returns JSON.
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
@@ -16,6 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
     exit;
 }
+
+require_once __DIR__ . '/../../config/idempotency.php';
+$idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'expenses/delete');
 
 $userId    = (int) $_SESSION['user_id'];
 $expenseId = (int) ($_POST['id'] ?? 0);
@@ -100,7 +103,7 @@ if ($stmt->execute()) {
         $n->close();
     }
 
-    echo json_encode(['ok' => true]);
+    idempotencyRespond($idemCtx, ['ok' => true], 200);
 } else {
     $stmt->close();
     echo json_encode(['ok' => false, 'error' => 'Failed to delete expense.']);

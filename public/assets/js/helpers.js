@@ -300,6 +300,41 @@ function normalizeErrorResult(body, status, retryAfter, limitedBy) {
   return base;
 }
 
+// ── Per-intent idempotency keys ──────────────────────────────────────────
+// A double-click (or Enter pressed twice) produces two identical requests.
+// Generating a fresh key per call would defeat server-side dedup, so the key
+// is cached per method + URL + canonical payload for 3 seconds and reused.
+const EXPMG_IDEMPOTENCY_TTL_MS = 3000;
+const expmgIdempotencyCache = new Map();
+
+function canonicalIdempotencyPayload(data) {
+  const entries = [];
+  for (const [k, v] of Object.entries(data || {})) {
+    if (v === null || v === undefined) continue;
+    if (k === '_idempotencyKey') continue;
+    entries.push([k, String(v)]);
+  }
+  entries.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  return entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+}
+
+function getIdempotencyKey(method, url, data) {
+  if (data && data._idempotencyKey) return String(data._idempotencyKey);
+
+  const now = Date.now();
+  for (const [k, entry] of expmgIdempotencyCache) {
+    if (entry.expires <= now) expmgIdempotencyCache.delete(k);
+  }
+
+  const cacheKey = `${String(method).toUpperCase()}:${url}:${canonicalIdempotencyPayload(data)}`;
+  const hit = expmgIdempotencyCache.get(cacheKey);
+  if (hit && hit.expires > now) return hit.key;
+
+  const key = `${now.toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  expmgIdempotencyCache.set(cacheKey, { key, expires: now + EXPMG_IDEMPOTENCY_TTL_MS });
+  return key;
+}
+
 async function requestJson(method, url, data) {
   const remaining = getRateLimitRemainingSeconds();
   if (remaining > 0) {
@@ -318,11 +353,13 @@ async function requestJson(method, url, data) {
       expmgMissingCsrfWarningLogged = true;
       console.warn('CSRF token missing for mutating request:', method, url);
     }
+    init.headers['Idempotency-Key'] = getIdempotencyKey(method, url, data);
   }
 
   if (method === 'POST') {
     const fd = new FormData();
     for (const [k, v] of Object.entries(data || {})) {
+      if (k === '_idempotencyKey') continue;
       if (v !== null && v !== undefined) fd.append(k, v);
     }
     init.body = fd;

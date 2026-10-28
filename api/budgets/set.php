@@ -3,7 +3,7 @@
  * api/budgets/set.php — Create or update a monthly budget.
  * POST: month (YYYY-MM), amount_limit (number > 0)
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
@@ -15,7 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 requireAuth();
 
+require_once __DIR__ . '/../../config/idempotency.php';
 $userId = (int) $_SESSION['user_id'];
+$idemCtx = idempotencyGuard($userId, 'budgets/set');
 $month  = trim($_POST['month'] ?? '');
 $limit  = floatval($_POST['amount_limit'] ?? 0);
 
@@ -36,7 +38,7 @@ $stmt = $conn->prepare($sql);
 $stmt->bind_param('isd', $userId, $month, $limit);
 
 if ($stmt->execute()) {
-    echo json_encode(['ok' => true, 'message' => 'Budget saved.']);
+    idempotencyRespond($idemCtx, ['ok' => true, 'message' => 'Budget saved.'], 200);
 } else {
     echo json_encode(['ok' => false, 'error' => 'Failed to save budget.']);
 }

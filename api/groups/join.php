@@ -4,7 +4,7 @@
  * POST: join_code
  * Business rule: max 10 members per group.
  */
-session_start();
+// Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
@@ -17,6 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $userId   = (int) $_SESSION['user_id'];
+require_once __DIR__ . '/../../config/idempotency.php';
+$idemCtx  = idempotencyGuard($userId, 'groups/join');
 $joinCode = strtoupper(trim($_POST['join_code'] ?? ''));
 
 if ($joinCode === '') {
@@ -80,11 +82,11 @@ $nStmt->bind_param('siii', $msg, $groupId, $groupId, $userId);
 $nStmt->execute();
 $nStmt->close();
 
-echo json_encode([
+idempotencyRespond($idemCtx, [
     'ok' => true,
     'group' => [
         'id'   => $groupId,
         'name' => $group['name'],
         'role' => 'member'
     ]
-]);
+], 200);
