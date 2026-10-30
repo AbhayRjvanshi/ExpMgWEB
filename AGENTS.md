@@ -28,7 +28,7 @@
 
 ```
 ExpMgWEB/
-├── api/                        # All API endpoints (38 files)
+├── api/                        # All API endpoints (42 files)
 │   ├── bootstrap.php           # ⚠ Still included by ZERO files (see KD-02)
 │   ├── middleware/auth.php     # requireAuth() — first include of every endpoint;
 │   │                           #   boots config/session.php, emits CSP + security
@@ -101,12 +101,14 @@ ExpMgWEB/
 ```
 users                        — id, username, email, password (bcrypt), created_at, updated_at
 categories                   — id, name (seeded with 8+ defaults)
-groups                       — id, name, join_code, created_by (admin)
-group_members                — group_id, user_id, role (admin|member), joined_at
+groups                       — id, name, join_code, created_by (admin), max_members,
+                               created_at, updated_at
+group_members                — id, group_id, user_id, role (admin|member), joined_at
 expenses                     — id, user_id, paid_by, group_id, category_id, amount, note,
                                expense_date, type (personal|group), is_post_settlement,
                                created_by, checked_by, created_at, updated_at
-budgets                      — user_id, month (YYYY-MM), amount
+budgets                      — id, user_id, budget_month (YYYY-MM), amount_limit,
+                               created_at, updated_at
 lists                        — id, name, user_id, group_id, created_at
 list_items                   — id, list_id, description, category_id, priority, price,
                                is_checked, checked_at, expense_created,
@@ -114,14 +116,16 @@ list_items                   — id, list_id, description, category_id, priority
 notifications                — id, user_id, message, type, reference_id, is_read, created_at
                                (no event_id column — the ephemeral store is unwired)
 settlements                  — id, group_id, period_start, period_end, settled_by,
-                               payer_id, payee_id, amount, settled_at
+                               payer_id, payee_id, amount, created_at
 settlement_confirmations     — id, group_id, user_id, period_start, period_end, confirmed_at
                                (keyed by group+user+period — NOT by settlement_id)
-post_settlement_confirmations — id, group_id, user_id, period_start, period_end, confirmed_at
+post_settlement_confirmations — id, group_id, user_id, confirmed_at
+                               (keyed by group+user, not by period)
 rate_limits                  — id, ip_address, action, attempted_at
                                (indexes: idx_rate_ip_action, idx_rate_attempted)
-outbox_events                — id, event_type, payload, status, created_at, claimed_at,
-                               processed_at, retry_count, last_error (write side unwired)
+outbox_events                — id, event_key, event_type, payload_json, status, retry_count,
+                               next_attempt_at, processing_since, last_error, processed_at,
+                               created_at, updated_at (write side unwired)
 ```
 
 ---
@@ -304,7 +308,7 @@ See `.mcp.json` (project root) and `.cursor/mcp.json` for configuration.
 | `git` | Blame, diff, log — understand why a line exists before changing it |
 | `fetch` | Live PHP 8 / Chart.js / jsPDF / Redis docs — prevents hallucinated signatures |
 | `sequential-thinking` | Step-by-step reasoning chains for settlement logic and race conditions |
-| `mysql` | **Read-only** live DB queries against all 13 tables (INSERT/UPDATE/DELETE disabled) |
+| `mysql` | **Read-only** live DB queries against all 14 tables (INSERT/UPDATE/DELETE disabled) |
 | `context7` | Version-accurate library documentation injected on demand |
 | `redis` | Inspect live Redis keys — disable if Redis not running locally |
 

@@ -346,7 +346,7 @@ ExpMgWEB/
 ├── scripts/
 │   ├── cleanup_notifications.php  # Automated 3-day notification retention (cron job)
 │   └── CRON_SETUP.md              # Cron job configuration and monitoring guide
-├── schema.sql                 # Full database schema (13 tables)
+├── schema.sql                 # Full database schema (14 tables)
 ├── seed.sql                   # Demo data (3 users, expenses, group, lists)
 ├── run_tests.php              # Test runner entry point (includes tests/run_tests.php)
 ├── migration_v2.2.sql         # Upgrade 9 migration (rate_limits table)

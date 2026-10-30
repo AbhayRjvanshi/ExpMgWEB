@@ -10,8 +10,11 @@ function hide(el) { el && el.classList.add('hidden'); }
 
 function escapeHTML(str) {
   const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
+  d.textContent = str ?? '';
+  // innerHTML encodes & < > but NOT quotes, and this helper is used inside
+  // double-quoted attributes (e.g. data-member-name in pages/groups.php), so
+  // a username containing a quote could break out of the attribute.
+  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function getCsrfToken() {

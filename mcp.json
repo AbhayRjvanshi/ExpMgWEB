@@ -33,7 +33,7 @@
         "ALLOW_UPDATE_OPERATION": "false",
         "ALLOW_DELETE_OPERATION": "false"
       },
-      "description": "Read-only live DB access — all 13 tables"
+      "description": "Read-only live DB access — all 14 tables"
     },
     "context7": {
       "command": "npx",

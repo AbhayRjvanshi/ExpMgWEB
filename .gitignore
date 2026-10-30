@@ -8,9 +8,8 @@
 .env.*
 !.env.example
 
-# config/db.php has hardcoded DB credentials (host, user, pass)
-# Use env.php + .env for environment-based config instead.
-config/db.php
+# NOTE: config/db.php is tracked on purpose. It reads config/env.php and holds
+# no credentials, and every endpoint requires it - ignoring it broke fresh clones.
 
 # ========== DEPENDENCIES ==========
 # Composer-managed packages — rebuild with: composer install
@@ -40,6 +39,12 @@ seed.sql
 modified_files.txt
 git_status.txt
 scratch_cleanup.php
+
+# ========== TOOL / AST CACHE OUTPUT ==========
+# graphify-out/ is generated analysis output (AST cache, reports) - it is
+# reproducible locally and must not be tracked. The local .htaccess stays on
+# disk so the directory is never served, but it is not version-controlled.
+graphify-out/
 
 # ========== IDE & EDITOR FILES ==========
 # VS Code
@@ -73,6 +78,7 @@ migrations/tmp/
 # - schema.sql, migration_v*.sql
 # - composer.json (not composer.lock — lock is platform-specific)
 # - config/env.php (safe — contains only loader logic and safe defaults)
+# - config/db.php (env-driven, no secrets — required by every endpoint)
 # - config/idempotency.php
 # - api/, pages/, public/, scripts/, tests/, partials/
 # - .env.example

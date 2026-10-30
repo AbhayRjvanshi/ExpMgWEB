@@ -278,7 +278,9 @@ window.closeAllHeaderPopovers = function (except) {
 
   function expenseCardHTML(e) {
     const badgeCls = e.type === 'group' ? 'badge-group' : 'badge-personal';
-    const badgeLabel = e.type === 'group' ? (e.group_name || 'Group') : 'Personal';
+    // Group names are user-controlled and pass length-only validation, so they
+    // must be escaped before landing in the badge markup below.
+    const badgeLabel = e.type === 'group' ? escapeHTML(e.group_name || 'Group') : 'Personal';
 
     // Status dot: blue=personal, green=unsettled group, gray=settled group
     let dotCls = 'exp-status-dot exp-dot-personal'; // blue
@@ -301,7 +303,7 @@ window.closeAllHeaderPopovers = function (except) {
             <span class="exp-amount">${parseFloat(e.amount).toFixed(2)}</span>
             <span class="exp-badge ${badgeCls}">${badgeLabel}</span>
           </div>
-          <div class="exp-cat">${e.category_name} · by ${e.added_by}${e.type === 'group' && e.payer_username ? ` · paid by ${e.payer_username}` : ''}</div>
+          <div class="exp-cat">${escapeHTML(e.category_name)} · by ${escapeHTML(e.added_by)}${e.type === 'group' && e.payer_username ? ` · paid by ${escapeHTML(e.payer_username)}` : ''}</div>
           ${e.note ? `<div class="exp-note">${escapeHTML(e.note)}</div>` : ''}
           ${actions}
         </div>
