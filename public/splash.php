@@ -90,6 +90,9 @@ $redirect = $loggedIn ? 'index.php' : '../pages/login.php';
 </head>
 <body>
 <script src="assets/js/theme-init.js"></script>
+  <div class="splash" id="splashScreen" data-redirect='<?= htmlspecialchars(json_encode($redirect), ENT_QUOTES, "UTF-8") ?>'>
+    <!-- Logo: bar-chart with dollar coin — mirrors the reference image -->
+    <div class="splash-logo">
       <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
         <!-- Chart bars -->
         <rect x="8"  y="36" width="8" height="20" rx="2" fill="currentColor" opacity="0.45"/>

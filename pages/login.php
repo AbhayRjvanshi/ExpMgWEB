@@ -37,6 +37,14 @@ $loginCsrfToken = getCsrfToken();
 </head>
 <body data-retry-after="<?= (int) $rateLimitRetryAfter ?>" data-retry-message="Too many login attempts. Please wait before trying again.">
 <script src="../public/assets/js/theme-init.js"></script>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <h1>Welcome Back</h1>
+      <p class="subtitle">Sign in to your expense dashboard</p>
+
+      <?php if (isset($_SESSION['auth_error'])): ?>
+        <div class="alert alert-error"><?= htmlspecialchars($_SESSION['auth_error']); unset($_SESSION['auth_error']); ?></div>
+      <?php endif; ?>
       <?php if (isset($_SESSION['auth_success'])): ?>
         <div class="alert alert-success"><?= htmlspecialchars($_SESSION['auth_success']); unset($_SESSION['auth_success']); ?></div>
       <?php endif; ?>
