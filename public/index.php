@@ -37,7 +37,7 @@ $page     = $_GET['page'] ?? 'home';
   <?php if ($page === 'expenses'): ?>
   <!-- Chart.js (only on the Expenses tab — charts live there; synchronous so
        the page's inline chart scripts can use it immediately) -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous"></script>
   <?php endif; ?>
   <!-- jsPDF + autoTable (deferred — only needed when a PDF button is clicked;
        defer executes before DOMContentLoaded, so click handlers find them) -->
@@ -47,22 +47,7 @@ $page     = $_GET['page'] ?? 'home';
   <script src="assets/js/helpers.js?v=<?= @filemtime(__DIR__ . '/assets/js/helpers.js') ?: 1 ?>"></script>
 </head>
 <body>
-<script>
-  /* Theme bootstrap — runs before paint (body exists here) so palette and
-     dark/light mode never flash. localStorage keys: expmg_palette,
-     expmg_theme_mode. Default palette is Botanical Emerald (green). */
-  (function () {
-    try {
-      var p = localStorage.getItem('expmg_palette');
-      if (p === 'indigo' || p === 'sand' || p === 'cobalt') {
-        document.body.setAttribute('data-palette', p);
-      }
-      if (localStorage.getItem('expmg_theme_mode') === 'dark') {
-        document.body.classList.add('theme-dark');
-      }
-    } catch (_) { /* localStorage unavailable */ }
-  })();
-</script>
+<script src="assets/js/theme-init.js"></script>
   <div class="page-shell">
 
     <!-- Top header (sticky, frosted) -->

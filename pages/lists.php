@@ -253,4 +253,4 @@ if (!defined('EXPMG_PAGE')) { http_response_code(404); exit; }
 </style>
 
 <!-- ===== Lists JS ===== -->
-<script src="assets/js/lists.js?v=<?= @filemtime(__DIR__ . '/../public/assets/js/lists.js') ?: 1 ?>"></script>
+<script src="../public/assets/js/lists.js?v=<?= @filemtime(__DIR__ . '/../public/assets/js/lists.js') ?: 1 ?>"></script>

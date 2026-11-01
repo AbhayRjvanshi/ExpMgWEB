@@ -89,23 +89,7 @@ $redirect = $loggedIn ? 'index.php' : '../pages/login.php';
   </style>
 </head>
 <body>
-<script>
-  (function () {
-    try {
-      var p = localStorage.getItem('expmg_palette');
-      if (p === 'indigo' || p === 'sand' || p === 'cobalt') {
-        document.body.setAttribute('data-palette', p);
-      }
-      if (localStorage.getItem('expmg_theme_mode') === 'dark') {
-        document.body.classList.add('theme-dark');
-      }
-    } catch (_) { /* localStorage unavailable */ }
-  })();
-</script>
-
-  <div class="splash" id="splashScreen">
-    <!-- Logo: bar-chart with dollar coin — mirrors the reference image -->
-    <div class="splash-logo">
+<script src="assets/js/theme-init.js"></script>
       <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
         <!-- Chart bars -->
         <rect x="8"  y="36" width="8" height="20" rx="2" fill="currentColor" opacity="0.45"/>
@@ -127,18 +111,7 @@ $redirect = $loggedIn ? 'index.php' : '../pages/login.php';
     // Mark splash as seen so index.php / login.php won't loop back
     $_SESSION['splash_seen'] = true;
   ?>
-  <script>
-    (function () {
-      var redirect = <?= json_encode($redirect) ?>;
-      // After 3.4 s start fade-out (0.6 s), total ≈ 4 s then redirect
-      setTimeout(function () {
-        document.getElementById('splashScreen').classList.add('fade-out');
-        setTimeout(function () {
-          window.location.href = redirect;
-        }, 600);
-      }, 3400);
-    })();
-  </script>
+  <script src="assets/js/splash.js"></script>
 
 </body>
 </html>

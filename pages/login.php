@@ -35,28 +35,8 @@ $loginCsrfToken = getCsrfToken();
   <link rel="stylesheet" href="../public/assets/css/styles.css?v=<?= @filemtime(__DIR__ . '/../public/assets/css/styles.css') ?: 1 ?>" />
   <script src="../public/assets/js/helpers.js?v=<?= @filemtime(__DIR__ . '/../public/assets/js/helpers.js') ?: 1 ?>"></script>
 </head>
-<body>
-<script>
-  (function () {
-    try {
-      var p = localStorage.getItem('expmg_palette');
-      if (p === 'indigo' || p === 'sand' || p === 'cobalt') {
-        document.body.setAttribute('data-palette', p);
-      }
-      if (localStorage.getItem('expmg_theme_mode') === 'dark') {
-        document.body.classList.add('theme-dark');
-      }
-    } catch (_) { /* localStorage unavailable */ }
-  })();
-</script>
-  <div class="auth-wrapper">
-    <div class="auth-card">
-      <h1>Welcome Back</h1>
-      <p class="subtitle">Sign in to your expense dashboard</p>
-
-      <?php if (isset($_SESSION['auth_error'])): ?>
-        <div class="alert alert-error"><?= htmlspecialchars($_SESSION['auth_error']); unset($_SESSION['auth_error']); ?></div>
-      <?php endif; ?>
+<body data-retry-after="<?= (int) $rateLimitRetryAfter ?>" data-retry-message="Too many login attempts. Please wait before trying again.">
+<script src="../public/assets/js/theme-init.js"></script>
       <?php if (isset($_SESSION['auth_success'])): ?>
         <div class="alert alert-success"><?= htmlspecialchars($_SESSION['auth_success']); unset($_SESSION['auth_success']); ?></div>
       <?php endif; ?>
@@ -85,13 +65,6 @@ $loginCsrfToken = getCsrfToken();
     </div>
   </div>
 
-  <script>
-    (function () {
-      var retryAfter = <?= (int) $rateLimitRetryAfter ?>;
-      if (retryAfter > 0 && window.ExpMgStatus && typeof window.ExpMgStatus.showCooldown === 'function') {
-        window.ExpMgStatus.showCooldown(retryAfter, 'Too many login attempts. Please wait before trying again.');
-      }
-    })();
-  </script>
+  <script src="../public/assets/js/auth-page.js"></script>
 </body>
 </html>

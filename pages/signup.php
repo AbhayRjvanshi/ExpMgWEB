@@ -33,7 +33,7 @@ $signupCsrfToken = getCsrfToken();
   <link rel="stylesheet" href="../public/assets/css/styles.css?v=<?= @filemtime(__DIR__ . '/../public/assets/css/styles.css') ?: 1 ?>" />
   <script src="../public/assets/js/helpers.js?v=<?= @filemtime(__DIR__ . '/../public/assets/js/helpers.js') ?: 1 ?>"></script>
 </head>
-<body>
+<body data-retry-after="<?= (int) $rateLimitRetryAfter ?>" data-retry-message="Too many signup attempts. Please wait before trying again.">
   <div class="auth-wrapper">
     <div class="auth-card">
       <h1>Create Account</h1>
@@ -83,23 +83,6 @@ $signupCsrfToken = getCsrfToken();
     </div>
   </div>
 
-  <script>
-    // Client-side password match check
-    document.getElementById('signupForm').addEventListener('submit', function(e) {
-      const pw  = document.getElementById('password').value;
-      const cpw = document.getElementById('confirm_password').value;
-      if (pw !== cpw) {
-        e.preventDefault();
-        alert('Passwords do not match.');
-      }
-    });
-
-    (function () {
-      var retryAfter = <?= (int) $rateLimitRetryAfter ?>;
-      if (retryAfter > 0 && window.ExpMgStatus && typeof window.ExpMgStatus.showCooldown === 'function') {
-        window.ExpMgStatus.showCooldown(retryAfter, 'Too many signup attempts. Please wait before trying again.');
-      }
-    })();
-  </script>
+  <script src="../public/assets/js/auth-page.js"></script>
 </body>
 </html>
