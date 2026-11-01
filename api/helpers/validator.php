@@ -124,6 +124,30 @@ function validateAmount(float $amount, string $fieldName): void {
 }
 
 /**
+ * H3/M6 (PENTEST/highly sever/ + moderately sever/): normalize a money input.
+ *
+ * Returns the value rounded to 2 decimals, or NULL when the input is not a
+ * usable positive amount:
+ *   - non-numeric strings (including locale commas such as '1,5');
+ *   - values that round to 0.00 (sub-cent inputs such as 0.001 -- under
+ *     strict SQL mode these would violate chk_expense_amount and crash);
+ *   - anything above the 99,999,999.00 business ceiling (1e300 and
+ *     9999999999999 were silently truncated by MariaDB in non-strict mode).
+ *
+ * Callers map NULL to their own existing validation-error response.
+ */
+function normalizeMoney($raw): ?float {
+    if (!is_numeric($raw)) {
+        return null;
+    }
+    $v = round((float) $raw, 2);
+    if ($v < 0.01 || $v > 99999999.00) {
+        return null;
+    }
+    return $v;
+}
+
+/**
  * Validate that a date string is in YYYY-MM-DD format.
  *
  * @param string $dateString The date to validate

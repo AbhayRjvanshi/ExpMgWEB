@@ -1,4 +1,7 @@
 <?php
+// M1 (PENTEST/moderately sever/M1.md): include-only fragment. Direct hits
+// leak absolute paths via PHP warnings -- reject them at the door.
+if (!defined('EXPMG_PAGE')) { http_response_code(404); exit; }
 /**
  * pages/groups.php — Group management.
  * Included by public/index.php when page=groups.

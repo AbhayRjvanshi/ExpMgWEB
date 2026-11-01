@@ -162,6 +162,15 @@ try {
         $insertStmt->execute();
     }
     $insertStmt->close();
+    // C1 (PENTEST/highly sever/C1.md): settle_all is the admin force-settle
+    // path — it finalizes the period by itself, so any lingering confirmation
+    // rows for this group are cleared here exactly like confirm.php does
+    // after its own finalization. This keeps the two writers' post-conditions
+    // identical (confirmations table empty for settled groups).
+    $delStmt = $conn->prepare('DELETE FROM settlement_confirmations WHERE group_id = ?');
+    $delStmt->bind_param('i', $groupId);
+    $delStmt->execute();
+    $delStmt->close();
     $conn->commit();
 
     // Notify group members about settlement

@@ -2,6 +2,15 @@
 -- Expense Manager — Database Schema
 -- Run this file in phpMyAdmin or the MySQL CLI:
 --   mysql -u root -p < schema.sql
+--
+-- ACCOUNT BOOTSTRAP (H1, PENTEST/highly sever/H1.md): the application must
+-- connect through the least-privilege `expmg_app` account, never root:
+--   CREATE USER 'expmg_app'@'localhost' IDENTIFIED BY '<generated>';
+--   CREATE USER 'expmg_app'@'127.0.0.1' IDENTIFIED BY '<generated>';
+--   GRANT SELECT, INSERT, UPDATE, DELETE ON ExpMgWEB.* TO 'expmg_app'@'localhost';
+--   GRANT SELECT, INSERT, UPDATE, DELETE ON ExpMgWEB.* TO 'expmg_app'@'127.0.0.1';
+--   GRANT DROP ON ExpMgWEB.rate_limits TO 'expmg_app'@'localhost';
+--   GRANT DROP ON ExpMgWEB.rate_limits TO 'expmg_app'@'127.0.0.1';
 -- ============================================================
 
 -- Create the database (idempotent)
@@ -259,7 +268,7 @@ CREATE TABLE IF NOT EXISTS post_settlement_confirmations (
     user_id       INT UNSIGNED NOT NULL,
     confirmed_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    UNIQUE KEY uq_ps_group_user (group_id, user_id),
+    UNIQUE KEY uq_ps_conf (group_id, user_id),
     FOREIGN KEY (group_id)  REFERENCES `groups`(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id)   REFERENCES users(id)    ON DELETE CASCADE
 ) ENGINE=InnoDB;

@@ -10,6 +10,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/helpers/rate_limiter.php';
 require_once __DIR__ . '/helpers/logger.php';
 require_once __DIR__ . '/helpers/validator.php';
+require_once __DIR__ . '/helpers/csrf.php';
 
 // Only accept POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -37,6 +38,11 @@ if (!checkRateLimit($conn, $ip, 'signup', 3, 3600)) {
     header('Location: ../pages/signup.php');
     exit;
 }
+
+// L-3 (PENTEST/low severity/L-3.md): signup-CSRF closed (forced account
+// creation from the victim's browser/IP, which also burned the victim's
+// 3-per-hour signup quota). Token rendered by pages/signup.php.
+verifyCsrf();
 
 // Gather & trim input
 $username = trim($_POST['username'] ?? '');

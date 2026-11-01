@@ -22,11 +22,15 @@ $idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'expenses/price_unpriced
 
 $userId = (int) $_SESSION['user_id'];
 $itemId = (int) ($_POST['item_id'] ?? 0);
-$price  = floatval($_POST['price'] ?? 0);
+// H3: round to 2dp + business ceiling (0.01 .. 99999999.00) -- the priced
+// amount flows straight into expenses.amount (DECIMAL(12,2)).
+$priceRaw = $_POST['price'] ?? 0;
+$price  = is_numeric($priceRaw) ? round((float) $priceRaw, 2) : 0.0;
 $paidBy = !empty($_POST['paid_by']) ? (int) $_POST['paid_by'] : null;
 
 if ($itemId <= 0) { echo json_encode(['ok' => false, 'error' => 'Invalid item.']); exit; }
 if ($price <= 0)  { echo json_encode(['ok' => false, 'error' => 'Price must be greater than 0.']); exit; }
+if ($price > 99999999.00) { echo json_encode(['ok' => false, 'error' => 'Price must be at most 99999999.00.']); exit; }
 
 // Fetch the unpriced item
 $stmt = $conn->prepare(

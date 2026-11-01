@@ -5,6 +5,10 @@ session_start();
 expmgSendSecurityHeaders();
 require_once __DIR__ . '/../api/helpers/csrf.php';
 
+// M1 (PENTEST/moderately sever/M1.md): the pages/*.php fragments are
+// include-only. This constant is the include-context contract they check.
+define('EXPMG_PAGE', true);
+
 // Show splash screen on fresh visit
 if (empty($_SESSION['splash_seen'])) {
     header('Location: splash.php');

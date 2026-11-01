@@ -118,6 +118,29 @@ function requireAuth(bool $recordUsage = true): void {
     $userKey = 'user:' . $userId;
     $ipKey = 'ip:' . $ip;
 
+    // H2 (PENTEST/highly sever/H2.md): heartbeat endpoints used to skip
+    // RECORDING entirely ($recordUsage = false), which meant the counting
+    // limiter could never trip — notifications/count.php took 130 consecutive
+    // requests without a single 429. Heartbeats now get their own
+    // always-recorded bucket (30/60s per user; the client polls every 10s).
+    if (!$recordUsage) {
+        if (!checkRateLimit($conn, $userKey, 'api_heartbeat', 30, 60)) {
+            $retryAfter = rateLimitRetryAfter($conn, $userKey, 'api_heartbeat', 60);
+            http_response_code(429);
+            header('Content-Type: application/json');
+            header('Retry-After: ' . $retryAfter);
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Too many requests. Rate limited.',
+                'retry_after' => $retryAfter,
+                'limited_by' => 'user'
+            ]);
+            exit;
+        }
+        recordRateLimit($conn, $userKey, 'api_heartbeat', 60);
+        return;
+    }
+
     if (is_object(rateLimiterRedis())) {
         // Redis backend: granular per-key checks (cheap Redis round-trips).
         if (!checkRateLimit($conn, $userKey, 'api_user', 120, 60)) {

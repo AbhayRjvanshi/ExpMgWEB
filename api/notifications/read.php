@@ -41,6 +41,18 @@ if ($notifId <= 0) {
 $stmt = $conn->prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?');
 $stmt->bind_param('ii', $notifId, $userId);
 $stmt->execute();
+// L-1/G-4 (PENTEST/low severity/): the mark-all branch already returns the
+// affected count; the single-id branch now does too. A zero count covers
+// "doesn't exist" and "not yours" identically (no enumeration oracle), and
+// the WARNING log makes probing visible without changing the wire contract.
+$marked = $stmt->affected_rows;
 $stmt->close();
 
-echo json_encode(['ok' => true]);
+if ($marked === 0) {
+    logMessage('WARNING', 'Notification mark had no effect', [
+        'user_id' => $userId,
+        'event_id' => $notifId,
+    ]);
+}
+
+echo json_encode(['ok' => true, 'marked' => $marked]);

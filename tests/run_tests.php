@@ -124,6 +124,26 @@ function extractCsrfToken(string $headers): string {
     return '';
 }
 
+/**
+ * L-3 (PENTEST/low severity/L-3.md): fetch a form CSRF token for the pre-auth
+ * endpoints. Fresh-visit pages redirect to splash.php first, so this hits
+ * splash (sets splash_seen + a fresh session), then the page itself (renders
+ * the hidden token + the csrf cookie). Returns:
+ *   ['cookie' => 'PHPSESSID=…; csrf_token=…', 'token' => '…']
+ */
+function fetchFormToken(string $pagePath): array {
+    global $baseUrl;
+    $splash = http('GET', "$baseUrl/public/splash.php");
+    $sess   = extractSession($splash['headers']);
+    $page   = http('GET', "$baseUrl/{$pagePath}", [], $sess);
+    $tok    = extractCsrfToken($page['headers']);
+    if ($tok === '' && preg_match('/name="csrf_token"\s+value="([0-9a-f]+)"/', $page['body'], $m)) {
+        $tok = $m[1];
+    }
+    $cookie = trim(($sess !== '' ? $sess . '; ' : '') . 'csrf_token=' . $tok, '; ');
+    return ['cookie' => $cookie, 'token' => $tok];
+}
+
 /** POST to API, return json (auto-attaches cookie + CSRF header + CSRF cookie) */
 function apiPost(string $path, array $data, string $cookie, string $csrfToken = ''): array {
     global $baseUrl, $csrfTokens;
@@ -224,12 +244,14 @@ test("Categories seeded", (int)$catCount >= 8, "Found $catCount");
 echo "\n── 2. Auth: Signup / Login / Logout ──\n";
 
 // Signup user A
+$tSignup = fetchFormToken('pages/signup.php');
 $r = http('POST', "$baseUrl/api/signup.php", [
     'username'         => 'testuser_a',
     'email'            => 'a@exptest.local',
     'password'         => 'Test1234!',
-    'confirm_password' => 'Test1234!'
-]);
+    'confirm_password' => 'Test1234!',
+    'csrf_token'       => $tSignup['token']
+], $tSignup['cookie']);
 test("Signup user A", $r['status'] === 302 || $r['status'] === 200 || $r['status'] === 303,
      "HTTP {$r['status']}");
 
@@ -238,8 +260,9 @@ $r = http('POST', "$baseUrl/api/signup.php", [
     'username'         => 'testuser_b',
     'email'            => 'b@exptest.local',
     'password'         => 'Test1234!',
-    'confirm_password' => 'Test1234!'
-]);
+    'confirm_password' => 'Test1234!',
+    'csrf_token'       => $tSignup['token']
+], $tSignup['cookie']);
 test("Signup user B", $r['status'] === 302 || $r['status'] === 200 || $r['status'] === 303);
 
 // Signup user C (for 3-member group tests)
@@ -247,8 +270,9 @@ $r = http('POST', "$baseUrl/api/signup.php", [
     'username'         => 'testuser_c',
     'email'            => 'c@exptest.local',
     'password'         => 'Test1234!',
-    'confirm_password' => 'Test1234!'
-]);
+    'confirm_password' => 'Test1234!',
+    'csrf_token'       => $tSignup['token']
+], $tSignup['cookie']);
 test("Signup user C", $r['status'] === 302 || $r['status'] === 200 || $r['status'] === 303);
 
 // Duplicate signup should fail or redirect with error
@@ -256,35 +280,42 @@ $r = http('POST', "$baseUrl/api/signup.php", [
     'username'         => 'testuser_a',
     'email'            => 'a@exptest.local',
     'password'         => 'Test1234!',
-    'confirm_password' => 'Test1234!'
-]);
+    'confirm_password' => 'Test1234!',
+    'csrf_token'       => $tSignup['token']
+], $tSignup['cookie']);
 test("Duplicate signup rejected", $r['status'] === 302 || $r['status'] === 200);
 
 // Login user A
+$tLoginA = fetchFormToken('pages/login.php');
 $r = http('POST', "$baseUrl/api/login.php", [
     'email'    => 'a@exptest.local',
-    'password' => 'Test1234!'
-]);
+    'password' => 'Test1234!',
+    'csrf_token' => $tLoginA['token']
+], $tLoginA['cookie']);
 $cookieA = extractSession($r['headers']);
 $csrfA = extractCsrfToken($r['headers']);
 if ($csrfA) $csrfTokens[$cookieA] = $csrfA;
-test("Login user A — session obtained", $cookieA !== '', "Cookie: $cookieA");
+test("Login user A � session obtained", $cookieA !== '', "Cookie: $cookieA");
 
 // Login user B
+$tLoginB = fetchFormToken('pages/login.php');
 $r = http('POST', "$baseUrl/api/login.php", [
     'email'    => 'b@exptest.local',
-    'password' => 'Test1234!'
-]);
+    'password' => 'Test1234!',
+    'csrf_token' => $tLoginB['token']
+], $tLoginB['cookie']);
 $cookieB = extractSession($r['headers']);
 $csrfB = extractCsrfToken($r['headers']);
 if ($csrfB) $csrfTokens[$cookieB] = $csrfB;
 test("Login user B — session obtained", $cookieB !== '');
 
 // Login user C
+$tLoginC = fetchFormToken('pages/login.php');
 $r = http('POST', "$baseUrl/api/login.php", [
     'email'    => 'c@exptest.local',
-    'password' => 'Test1234!'
-]);
+    'password' => 'Test1234!',
+    'csrf_token' => $tLoginC['token']
+], $tLoginC['cookie']);
 $cookieC = extractSession($r['headers']);
 $csrfC = extractCsrfToken($r['headers']);
 if ($csrfC) $csrfTokens[$cookieC] = $csrfC;
@@ -306,10 +337,12 @@ test("User A ID retrieved", $userA > 0, "ID=$userA");
 test("User B ID retrieved", $userB > 0, "ID=$userB");
 
 // Wrong password login
+$tLoginW = fetchFormToken('pages/login.php');
 $r = http('POST', "$baseUrl/api/login.php", [
     'email'    => 'a@exptest.local',
-    'password' => 'WRONGPASSWORD'
-]);
+    'password' => 'WRONGPASSWORD',
+    'csrf_token' => $tLoginW['token']
+], $tLoginW['cookie']);
 // Should redirect back to login (not set session)
 test("Wrong password rejected", strpos($r['headers'], 'login.php') !== false || $r['status'] === 200);
 
@@ -1517,10 +1550,12 @@ foreach ($noAuthEndpoints as [$method, $path, $data]) {
 }
 
 // 27d: Login sets login_time in session
+$t27d = fetchFormToken('pages/login.php');
 $loginR = http('POST', "$baseUrl/api/login.php", [
     'email'    => 'a@exptest.local',
-    'password' => 'Test1234!'
-]);
+    'password' => 'Test1234!',
+    'csrf_token' => $t27d['token']
+], $t27d['cookie']);
 $freshCookie = extractSession($loginR['headers']);
 test("Login returns fresh session", $freshCookie !== '');
 // Access an auth endpoint — should succeed (proves login_time is set)
@@ -2163,10 +2198,12 @@ $logFile = __DIR__ . '/../logs/app.log';
 file_put_contents($logFile, '');
 
 // 31e: Login triggers INFO log entry
+$t31e = fetchFormToken('pages/login.php');
 $r31 = http('POST', "$baseUrl/api/login.php", [
     'email'    => 'a@exptest.local',
-    'password' => 'Test1234!'
-]);
+    'password' => 'Test1234!',
+    'csrf_token' => $t31e['token']
+], $t31e['cookie']);
 $logLines = file_exists($logFile) ? file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
 $loginLogs = array_filter($logLines, fn($l) => stripos($l, 'login successful') !== false);
 test("31e: Login creates INFO log entry", count($loginLogs) >= 1);
@@ -2194,10 +2231,12 @@ test("31g: Login log level is INFO", ($loginLog['level'] ?? '') === 'INFO');
 
 // 31h: Failed login triggers WARNING log
 file_put_contents($logFile, '');
+$t31h = fetchFormToken('pages/login.php');
 $r31 = http('POST', "$baseUrl/api/login.php", [
     'email'    => 'a@exptest.local',
-    'password' => 'WrongPassword!'
-]);
+    'password' => 'WrongPassword!',
+    'csrf_token' => $t31h['token']
+], $t31h['cookie']);
 $logLines = file_exists($logFile) ? file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
 $failLogs = array_filter($logLines, fn($l) => stripos($l, 'Failed login') !== false);
 test("31h: Failed login creates WARNING log", count($failLogs) >= 1);
@@ -2281,12 +2320,14 @@ if ($logTestExpId) {
 
 // 31n: Signup logs new user registration
 file_put_contents($logFile, '');
+$t31n = fetchFormToken('pages/signup.php');
 $r31 = http('POST', "$baseUrl/api/signup.php", [
     'username'         => 'logtest_user',
     'email'            => 'logtest@exptest.local',
     'password'         => 'Test1234!',
-    'confirm_password' => 'Test1234!'
-]);
+    'confirm_password' => 'Test1234!',
+    'csrf_token'       => $t31n['token']
+], $t31n['cookie']);
 $logLines = file_exists($logFile) ? file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
 $signupLogs = array_filter($logLines, fn($l) => strpos($l, 'New user registered') !== false);
 test("31n: Signup logs INFO event", count($signupLogs) >= 1);
@@ -2486,17 +2527,20 @@ test("33q: auth.php calls checkRateLimit for API", strpos($authContent, 'checkRa
 
 // 33r: Login rate limit — make 5 failed login attempts, 6th should be blocked
 $conn->query("TRUNCATE TABLE rate_limits");
+$t33 = fetchFormToken('pages/login.php');
 for ($i = 0; $i < 5; $i++) {
     http('POST', "$baseUrl/api/login.php", [
         'email' => 'ratelimit@exptest.local',
-        'password' => 'wrongpass'
-    ]);
+        'password' => 'wrongpass',
+        'csrf_token' => $t33['token']
+    ], $t33['cookie']);
 }
 // 6th attempt should be rate-limited
 $r6 = http('POST', "$baseUrl/api/login.php", [
     'email' => 'ratelimit@exptest.local',
-    'password' => 'wrongpass'
-]);
+    'password' => 'wrongpass',
+    'csrf_token' => $t33['token']
+], $t33['cookie']);
 // Check the redirect goes to login.php (rate limited) — verify rate_limits table has entries
 $rlCount = $conn->query("SELECT COUNT(*) AS cnt FROM rate_limits WHERE action = 'login'")->fetch_assoc()['cnt'];
 test("33r: Login rate limit records attempts", (int)$rlCount >= 5);

@@ -2,6 +2,12 @@
 /**
  * api/settlements/settle.php — Record a settlement.
  * POST: group_id, payer_id, payee_id, amount, period_start, period_end
+ *
+ * C1/C2/C3 (PENTEST/highly sever/): every write now goes through the gated
+ * recordSettlement() in settlement_helpers.php. This endpoint validates the
+ * actor (admin), the dates (calendar-valid, ordered, not in the future) and
+ * the amount ceiling, then delegates. The confirmation gate, member-party
+ * check, computed-transfer match and duplicate guard all live in the helper.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
 header('Content-Type: application/json');
@@ -12,26 +18,47 @@ requireAuth();
 
 require_once __DIR__ . '/../../config/idempotency.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../settlements/settlement_helpers.php';
 $idemCtx    = idempotencyGuard((int) $_SESSION['user_id'], 'settlements/settle');
 
 $userId     = (int) $_SESSION['user_id'];
 $groupId    = (int) ($_POST['group_id'] ?? 0);
 $payerId    = (int) ($_POST['payer_id'] ?? 0);
 $payeeId    = (int) ($_POST['payee_id'] ?? 0);
-$amount     = (float) ($_POST['amount'] ?? 0);
 $periodStart = trim($_POST['period_start'] ?? '');
 $periodEnd   = trim($_POST['period_end'] ?? '');
 
-if ($groupId <= 0 || $payerId <= 0 || $payeeId <= 0 || $amount <= 0) {
+// H3: amount normalized + ceilinged (0.01 .. 99999999.00). Sub-cent inputs
+// (0.001) and overflows (1e300) now fail here instead of inside MySQL.
+$amount = normalizeMoney($_POST['amount'] ?? null);
+
+if ($groupId <= 0 || $payerId <= 0 || $payeeId <= 0 || $amount === null) {
     echo json_encode(['ok' => false, 'error' => 'Invalid settlement data.']);
     exit;
 }
-if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $periodStart) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $periodEnd)) {
+
+// C2: calendar-valid dates (the shape-only regex accepted 2026-02-30, which
+// MariaDB then coerced to 0000-00-00 and poisoned the settlement cursor).
+try {
+    validateDate($periodStart, 'period_start');
+    validateDate($periodEnd, 'period_end');
+} catch (Exception $e) {
+    logMessage('ERROR', 'Rejected settlement period dates', [
+        'user_id' => $userId,
+        'group_id' => $groupId,
+        'reason'  => $e->getMessage(),
+    ]);
     echo json_encode(['ok' => false, 'error' => 'Invalid date format.']);
     exit;
 }
 if ($periodStart > $periodEnd) {
     echo json_encode(['ok' => false, 'error' => 'Invalid period: start date is after end date.']);
+    exit;
+}
+// C2 (future-lock DoS): a far-future period_end would arm the settlement lock
+// against every date that will ever exist, freezing the group's bookkeeping.
+if ($periodEnd > date('Y-m-d')) {
+    echo json_encode(['ok' => false, 'error' => 'Invalid period: end date cannot be in the future.']);
     exit;
 }
 
@@ -51,50 +78,12 @@ if ($membership['role'] !== 'admin') {
     exit;
 }
 
-// Duplicate guard + INSERT inside a transaction so a double-click cannot
-// record the same settlement twice.
-$conn->begin_transaction();
-try {
-    $dup = $conn->prepare(
-        'SELECT id FROM settlements
-         WHERE group_id = ? AND payer_id = ? AND payee_id = ? AND amount = ?
-           AND period_start = ? AND period_end = ?
-         LIMIT 1'
-    );
-    $dup->bind_param('iiidss', $groupId, $payerId, $payeeId, $amount, $periodStart, $periodEnd);
-    $dup->execute();
-    $dupRow = $dup->get_result()->fetch_assoc();
-    $dup->close();
-
-    if ($dupRow) {
-        $conn->rollback();
-        echo json_encode(['ok' => false, 'error' => 'This settlement has already been recorded.']);
-        exit;
-    }
-
-    $stmt = $conn->prepare(
-        'INSERT INTO settlements (group_id, settled_by, payer_id, payee_id, amount, period_start, period_end)
-         VALUES (?, ?, ?, ?, ?, ?, ?)'
-    );
-    $stmt->bind_param('iiiidss', $groupId, $userId, $payerId, $payeeId, $amount, $periodStart, $periodEnd);
-
-    if (!$stmt->execute()) {
-        $stmt->close();
-        $conn->rollback();
-        echo json_encode(['ok' => false, 'error' => 'Failed to record settlement.']);
-        exit;
-    }
-    $newId = (int) $stmt->insert_id;
-    $stmt->close();
-    $conn->commit();
-
-    idempotencyRespond($idemCtx, ['ok' => true, 'message' => 'Settlement recorded.', 'id' => $newId], 200);
-} catch (Exception $e) {
-    $conn->rollback();
-    logMessage('ERROR', 'Settlement insert transaction failed', [
-        'group_id' => $groupId,
-        'user_id' => $userId,
-        'error' => $e->getMessage()
-    ]);
-    echo json_encode(['ok' => false, 'error' => 'Failed to record settlement.']);
+// Gated writer: C3 member parties + C1 confirmation gate + computed-transfer
+// match + duplicate guard, all inside one transaction (see settlement_helpers.php).
+$result = recordSettlement($conn, $groupId, $userId, $payerId, $payeeId, $amount, $periodStart, $periodEnd);
+if (!$result['ok']) {
+    echo json_encode(['ok' => false, 'error' => $result['error']]);
+    exit;
 }
+
+idempotencyRespond($idemCtx, ['ok' => true, 'message' => 'Settlement recorded.', 'id' => $result['id']], 200);

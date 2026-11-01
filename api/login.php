@@ -43,6 +43,13 @@ if (!checkRateLimit($conn, $ip, 'login', 5, 900)) {
 $email    = trim($_POST['email'] ?? '');
 $password = $_POST['password']   ?? '';
 
+// L-3 (PENTEST/low severity/L-3.md): login-CSRF closed. The token is rendered
+// by pages/login.php (hidden field + cookie); verifyCsrf() compares it against
+// the session. Without this, an attacker's page could silently log the victim
+// into the attacker's account. Runs AFTER the rate limiter so token-less
+// probing consumes the existing csrf_fail gate (50/10 min).
+verifyCsrf();
+
 // ---------- Validation ----------
 if ($email === '' || $password === '') {
     $_SESSION['auth_error'] = 'Please fill in all fields.';

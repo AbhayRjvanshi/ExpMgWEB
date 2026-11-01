@@ -13,6 +13,14 @@
 
 $projectRoot = dirname(__DIR__);
 
+// M1 (PENTEST/moderately sever/M1.md): never render PHP errors into HTTP
+// responses -- they leak absolute paths (display_errors was On by default).
+// APP_DEBUG=1 re-enables display for local debugging; everything is always
+// logged via log_errors=On (php.ini).
+$appDebug = in_array(strtolower((string) (env('APP_DEBUG', '0') ?? '0')), ['1', 'true', 'on'], true);
+@ini_set('display_errors', $appDebug ? '1' : '0');
+@ini_set('log_errors', '1');
+
 // Optional Composer autoload (needed for vlucas/phpdotenv)
 $autoload = $projectRoot . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
 if (file_exists($autoload)) {

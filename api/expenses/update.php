@@ -21,23 +21,33 @@ require_once __DIR__ . '/../../config/idempotency.php';
 require_once __DIR__ . '/../helpers/validator.php';
 $idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'expenses/update');
 
-$userId     = (int) $_SESSION['user_id'];
+$userId      = (int) $_SESSION['user_id'];
 $expenseId  = (int) ($_POST['id'] ?? 0);
-$amount     = floatval($_POST['amount'] ?? 0);
-$categoryId = (int) ($_POST['category_id'] ?? 0);
-$note       = trim($_POST['note'] ?? '');
-$type       = ($_POST['type'] ?? 'personal') === 'group' ? 'group' : 'personal';
-$groupId    = !empty($_POST['group_id']) ? (int) $_POST['group_id'] : null;
-$paidBy     = !empty($_POST['paid_by']) ? (int) $_POST['paid_by'] : null;
+// L-5 (PENTEST/low severity/L-5.md): field-merge PATCH semantics. The old
+// replace-all behaviour required the full payload and -- for the fields
+// without hard validation (note, group_id, paid_by) -- silently wiped them
+// with ok:true when a partial payload passed the two hard gates.
+// Omitted fields now inherit the stored values.
+$amountRaw  = $_POST['amount'] ?? null;
+$amount     = $amountRaw !== null && is_numeric($amountRaw) ? round((float) $amountRaw, 2) : null;
+$categoryId = isset($_POST['category_id']) ? (int) $_POST['category_id'] : null;
+$note       = array_key_exists('note', $_POST) ? trim($_POST['note']) : null;
+$typeRaw    = $_POST['type'] ?? null;
+$type       = $typeRaw === null ? null : ($typeRaw === 'group' ? 'group' : 'personal');
+$groupId    = isset($_POST['group_id']) && $_POST['group_id'] !== '' ? (int) $_POST['group_id'] : (array_key_exists('group_id', $_POST) ? null : null);
+$paidBy     = isset($_POST['paid_by']) && $_POST['paid_by'] !== '' ? (int) $_POST['paid_by'] : (array_key_exists('paid_by', $_POST) ? null : null);
 
 if ($expenseId <= 0)  { echo json_encode(['ok' => false, 'error' => 'Invalid expense ID.']); exit; }
-if ($amount <= 0)     { echo json_encode(['ok' => false, 'error' => 'Amount must be > 0.']); exit; }
-if ($categoryId <= 0) { echo json_encode(['ok' => false, 'error' => 'Select a category.']); exit; }
-// Note length guard (expenses.note is VARCHAR(255))
-if (mb_strlen($note) > 255) { echo json_encode(['ok' => false, 'error' => 'Note is too long (max 255 characters).']); exit; }
+if ($amount !== null && $amount <= 0)     { echo json_encode(['ok' => false, 'error' => 'Amount must be > 0.']); exit; }
+if ($amount !== null && $amount > 99999999.00) { echo json_encode(['ok' => false, 'error' => 'Amount must be at most 99999999.00.']); exit; }
+if ($typeRaw !== null && !in_array($type, ['personal', 'group'], true)) {
+    echo json_encode(['ok' => false, 'error' => 'Type must be personal or group.']); exit;
+}
+if ($categoryId !== null && $categoryId <= 0) { echo json_encode(['ok' => false, 'error' => 'Select a category.']); exit; }
+if ($note !== null && mb_strlen($note) > 255) { echo json_encode(['ok' => false, 'error' => 'Note is too long (max 255 characters).']); exit; }
 
 // Fetch existing expense
-$stmt = $conn->prepare('SELECT user_id, group_id, type, expense_date FROM expenses WHERE id = ?');
+$stmt = $conn->prepare('SELECT user_id, group_id, type, expense_date, amount, category_id, note, paid_by FROM expenses WHERE id = ?');
 $stmt->bind_param('i', $expenseId);
 $stmt->execute();
 $existing = $stmt->get_result()->fetch_assoc();
@@ -47,6 +57,14 @@ if (!$existing) {
     echo json_encode(['ok' => false, 'error' => 'Expense not found.']);
     exit;
 }
+
+// L-5: merge omitted fields from the stored row.
+$amount     = $amount     ?? (float) $existing['amount'];
+$categoryId = $categoryId ?? (int) $existing['category_id'];
+$note       = $note       ?? (string) $existing['note'];
+$type       = $type       ?? (string) $existing['type'];
+$groupId    = array_key_exists('group_id', $_POST) ? $groupId : ($existing['group_id'] !== null ? (int) $existing['group_id'] : null);
+$paidBy     = array_key_exists('paid_by', $_POST) ? $paidBy  : ($existing['paid_by']  !== null ? (int) $existing['paid_by']  : null);
 
 // --- Settlement lock check: block if expense is within a settled period ---
 if ($existing['type'] === 'group' && $existing['group_id']) {
@@ -103,6 +121,9 @@ if ($existing['type'] === 'personal') {
 
 // For personal expenses, payer is always the current user
 if ($type !== 'group') $paidBy = $userId;
+// L-5: a personal expense never keeps a group attachment (create.php
+// semantics); with merge semantics this matters when converting group -> personal.
+if ($type !== 'group') $groupId = null;
 
 // --- Update ---
 $stmt = $conn->prepare(

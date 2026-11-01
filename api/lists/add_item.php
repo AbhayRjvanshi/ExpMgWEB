@@ -23,11 +23,19 @@ $listId      = (int) ($_POST['list_id'] ?? 0);
 $description = trim($_POST['description'] ?? '');
 $categoryId  = !empty($_POST['category_id']) ? (int) $_POST['category_id'] : null;
 $priority    = $_POST['priority'] ?? 'low';
-$price       = isset($_POST['price']) && $_POST['price'] !== '' ? floatval($_POST['price']) : null;
+$price       = isset($_POST['price']) && $_POST['price'] !== '' ? round((float) $_POST['price'], 2) : null;
 
-if ($price !== null && $price < 0) $price = null;
-
-if (!in_array($priority, ['high', 'moderate', 'low'])) $priority = 'low';
+// M6 (PENTEST/moderately sever/M6.md): reject instead of silently coercing.
+// 'urgent' used to become 'low' and price '-5' used to become NULL (turning a
+// priced item into an unpriced one) -- both now fail with an explicit error.
+if (!in_array($priority, ['high', 'moderate', 'low'], true)) {
+    echo json_encode(['ok' => false, 'error' => 'Priority must be high, moderate or low.']);
+    exit;
+}
+if ($price !== null && ($price < 0.01 || $price > 99999999.00)) {
+    echo json_encode(['ok' => false, 'error' => 'Price must be between 0.01 and 99999999.00.']);
+    exit;
+}
 if ($listId <= 0)          { echo json_encode(['ok' => false, 'error' => 'Invalid list.']); exit; }
 if ($description === '')   { echo json_encode(['ok' => false, 'error' => 'Description is required.']); exit; }
 

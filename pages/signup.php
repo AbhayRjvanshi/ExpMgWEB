@@ -16,6 +16,11 @@ if (isset($_SESSION['user_id'])) {
     header('Location: ../public/index.php');
     exit;
 }
+
+// L-3 (PENTEST/low severity/L-3.md): render the CSRF token the API will
+// verify (see pages/login.php for the rationale).
+require_once __DIR__ . '/../api/helpers/csrf.php';
+$signupCsrfToken = getCsrfToken();
 ?>
 <!doctype html>
 <html lang="en">
@@ -42,6 +47,7 @@ if (isset($_SESSION['user_id'])) {
       <?php endif; ?>
 
       <form action="../api/signup.php" method="POST" id="signupForm">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($signupCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
         <div class="form-group">
           <label for="username">Username</label>
           <input type="text" id="username" name="username" class="form-input"

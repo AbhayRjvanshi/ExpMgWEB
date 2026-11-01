@@ -22,11 +22,17 @@ $idemCtx = idempotencyGuard((int) $_SESSION['user_id'], 'expenses/create');
 
 $userId      = (int) $_SESSION['user_id'];
 $rawAmount   = $_POST['amount'] ?? '';
-$amount      = is_numeric($rawAmount) ? (float) $rawAmount : 0.0;
+// H3: round to 2dp first so sub-cent inputs (0.001) fail the > 0 check here
+// instead of crashing on chk_expense_amount inside strict-mode MySQL.
+$amount      = is_numeric($rawAmount) ? round((float) $rawAmount, 2) : 0.0;
 $categoryId  = (int) ($_POST['category_id'] ?? 0);
 $note        = trim($_POST['note'] ?? '');
 $expenseDate = trim($_POST['expense_date'] ?? '');
-$type        = ($_POST['type'] ?? 'personal') === 'group' ? 'group' : 'personal';
+// M6: exact-match the discriminator -- anything that is not exactly 'group'
+// used to silently become a PERSONAL expense (money vanishing from the group
+// ledger with ok:true).
+$typeRaw     = $_POST['type'] ?? 'personal';
+$type        = $typeRaw === 'group' ? 'group' : 'personal';
 $groupId     = !empty($_POST['group_id']) ? (int) $_POST['group_id'] : null;
 $paidBy      = !empty($_POST['paid_by']) ? (int) $_POST['paid_by'] : null;
 
@@ -34,6 +40,10 @@ $paidBy      = !empty($_POST['paid_by']) ? (int) $_POST['paid_by'] : null;
 $errors = [];
 if (!is_numeric($rawAmount))              $errors[] = 'Amount must be a numeric value.';
 elseif ($amount <= 0)                     $errors[] = 'Amount must be greater than zero.';
+elseif ($amount > 99999999.00)            $errors[] = 'Amount must be at most 99999999.00.';
+if (!empty($_POST['type']) && !in_array($typeRaw, ['personal', 'group'], true)) {
+    $errors[] = 'Type must be personal or group.';
+}
 if ($categoryId <= 0)                     $errors[] = 'Please select a category.';
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $expenseDate)) {
     $errors[] = 'Invalid date format.';

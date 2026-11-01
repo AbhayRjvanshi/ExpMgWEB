@@ -54,6 +54,7 @@ function rateLimiterCooldownWindow(string $action = ''): int {
         'signup'   => 3600,  // 1 hour — matches signup window
         'api_user' => 60,    // 1 minute — matches API per-user window
         'api_ip'   => 60,    // 1 minute — matches API per-IP window
+        'api_heartbeat' => 60, // H2: heartbeat bucket window
     ];
     return $map[$action] ?? 60;
 }

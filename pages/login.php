@@ -16,6 +16,13 @@ if (isset($_SESSION['user_id'])) {
     header('Location: ../public/index.php');
     exit;
 }
+
+// L-3 (PENTEST/low severity/L-3.md): render the CSRF token the API will
+// verify. Pre-auth pages previously shipped no token at all, which left
+// login.php/signup.php open to login-CSRF (victim silently logged into the
+// attacker's account).
+require_once __DIR__ . '/../api/helpers/csrf.php';
+$loginCsrfToken = getCsrfToken();
 ?>
 <!doctype html>
 <html lang="en">
@@ -55,6 +62,7 @@ if (isset($_SESSION['user_id'])) {
       <?php endif; ?>
 
       <form action="../api/login.php" method="POST">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($loginCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
         <div class="form-group">
           <label for="email">Email</label>
           <input type="email" id="email" name="email" class="form-input"
