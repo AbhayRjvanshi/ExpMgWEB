@@ -4,11 +4,12 @@
  * GET ?group_id=N&start=YYYY-MM-DD&end=YYYY-MM-DD
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
 require_once __DIR__ . '/../helpers/logger.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
 
 requireAuth();
 
@@ -18,7 +19,7 @@ $startDate = trim($_GET['start'] ?? '');
 $endDate   = trim($_GET['end'] ?? '');
 
 if ($groupId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid group.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid group.']));
     exit;
 }
 // Full calendar validation, not just the shape: the old regex accepted
@@ -29,13 +30,18 @@ if ($groupId <= 0) {
 try {
     validateDate($startDate, 'start');
     validateDate($endDate, 'end');
+    // L-2 (PENTEST/low severity/L-2.md): reject reversed ranges --
+    // settle.php checks this; the reader must too.
+    if ($startDate > $endDate) {
+        throw new Exception('start date is after end date');
+    }
 } catch (Exception $e) {
     logMessage('ERROR', 'Rejected settlement period dates', [
         'user_id' => $userId,
         'group_id' => $groupId,
         'reason'  => $e->getMessage(),
     ]);
-    echo json_encode(['ok' => false, 'error' => 'Invalid date format.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid date format.']));
     exit;
 }
 
@@ -45,7 +51,7 @@ $stmt->bind_param('ii', $groupId, $userId);
 $stmt->execute();
 if (!$stmt->get_result()->fetch_assoc()) {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'Not a member of this group.']);
+    apiResponse((['ok' => false, 'error' => 'Not a member of this group.']));
     exit;
 }
 $stmt->close();
@@ -99,9 +105,20 @@ while ($r = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-echo json_encode([
+apiResponse(([
     'ok'         => true,
     'expenses'   => $expenses,
     'total'      => round($total, 2),
     'pagination' => paginationMeta($page, $limit, $totalCount)
-]);
+]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

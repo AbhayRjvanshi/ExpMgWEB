@@ -4,15 +4,17 @@
  * POST: group_id, user_id
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -21,7 +23,7 @@ $groupId  = (int) ($_POST['group_id'] ?? 0);
 $targetId = (int) ($_POST['user_id'] ?? 0);
 
 if ($groupId <= 0 || $targetId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid request.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid request.']));
     exit;
 }
 
@@ -33,7 +35,7 @@ $actorMembership = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$actorMembership || $actorMembership['role'] !== 'admin') {
-    echo json_encode(['ok' => false, 'error' => 'Only the group admin can remove members.']);
+    apiResponse((['ok' => false, 'error' => 'Only the group admin can remove members.']));
     exit;
 }
 
@@ -50,13 +52,13 @@ $targetMembership = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$targetMembership) {
-    echo json_encode(['ok' => false, 'error' => 'User is not a member of this group.']);
+    apiResponse((['ok' => false, 'error' => 'User is not a member of this group.']));
     exit;
 }
 
 // Keep exactly one effective admin by disallowing admin removal from this endpoint.
 if ($targetMembership['role'] === 'admin') {
-    echo json_encode(['ok' => false, 'error' => 'Admin cannot be removed from the group.']);
+    apiResponse((['ok' => false, 'error' => 'Admin cannot be removed from the group.']));
     exit;
 }
 
@@ -66,7 +68,7 @@ $ok = $stmt->execute();
 $stmt->close();
 
 if (!$ok) {
-    echo json_encode(['ok' => false, 'error' => 'Failed to remove member.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to remove member.']));
     exit;
 }
 
@@ -85,8 +87,19 @@ $nStmt->bind_param('isi', $targetId, $msg, $groupId);
 $nStmt->execute();
 $nStmt->close();
 
-echo json_encode([
+apiResponse(([
     'ok' => true,
     'removed_user_id' => $targetId,
     'removed_username' => $targetMembership['username']
-]);
+]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

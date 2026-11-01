@@ -4,15 +4,17 @@
  * POST: name, group_id (optional — omit or empty for personal)
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -21,7 +23,7 @@ $name    = trim($_POST['name'] ?? '');
 $groupId = !empty($_POST['group_id']) ? (int) $_POST['group_id'] : null;
 
 if ($name === '' || strlen($name) > 100) {
-    echo json_encode(['ok' => false, 'error' => 'List name is required (max 100 chars).']);
+    apiResponse((['ok' => false, 'error' => 'List name is required (max 100 chars).']));
     exit;
 }
 
@@ -33,7 +35,7 @@ if ($groupId) {
     $chk->store_result();
     if ($chk->num_rows === 0) {
         $chk->close();
-        echo json_encode(['ok' => false, 'error' => 'You are not a member of this group.']);
+        apiResponse((['ok' => false, 'error' => 'You are not a member of this group.']));
         exit;
     }
     $chk->close();
@@ -45,8 +47,19 @@ $stmt->bind_param('sii', $name, $userId, $groupId);
 if ($stmt->execute()) {
     $newId = $stmt->insert_id;
     $stmt->close();
-    echo json_encode(['ok' => true, 'list' => ['id' => $newId, 'name' => $name, 'group_id' => $groupId]]);
+    apiResponse((['ok' => true, 'list' => ['id' => $newId, 'name' => $name, 'group_id' => $groupId]]));
 } else {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'Failed to create list.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to create list.']));
+}
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
 }

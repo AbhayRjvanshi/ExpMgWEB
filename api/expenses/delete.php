@@ -6,14 +6,16 @@
  * Returns JSON.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -25,7 +27,7 @@ $userId    = (int) $_SESSION['user_id'];
 $expenseId = (int) ($_POST['id'] ?? 0);
 
 if ($expenseId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid expense ID.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid expense ID.']));
     exit;
 }
 
@@ -37,7 +39,7 @@ $existing = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$existing) {
-    echo json_encode(['ok' => false, 'error' => 'Expense not found.']);
+    apiResponse((['ok' => false, 'error' => 'Expense not found.']));
     exit;
 }
 
@@ -50,7 +52,7 @@ if ($existing['type'] === 'group' && $existing['group_id']) {
     $lockRow = $lockStmt->get_result()->fetch_assoc();
     $lockStmt->close();
     if ($lockRow && $lockRow['last_end'] && $existing['expense_date'] <= $lockRow['last_end']) {
-        echo json_encode(['ok' => false, 'error' => 'This expense date has already been settled and cannot be modified.']);
+        apiResponse((['ok' => false, 'error' => 'This expense date has already been settled and cannot be modified.']));
         exit;
     }
 }
@@ -58,7 +60,7 @@ if ($existing['type'] === 'group' && $existing['group_id']) {
 // --- Permission check ---
 if ($existing['type'] === 'personal') {
     if ((int)$existing['user_id'] !== $userId) {
-        echo json_encode(['ok' => false, 'error' => 'You can only delete your own personal expenses.']);
+        apiResponse((['ok' => false, 'error' => 'You can only delete your own personal expenses.']));
         exit;
     }
 } else {
@@ -70,7 +72,7 @@ if ($existing['type'] === 'personal') {
     $role = $chk->get_result()->fetch_assoc();
     $chk->close();
     if (!$role || $role['role'] !== 'admin') {
-        echo json_encode(['ok' => false, 'error' => 'Only the group admin can delete group expenses.']);
+        apiResponse((['ok' => false, 'error' => 'Only the group admin can delete group expenses.']));
         exit;
     }
 }
@@ -107,5 +109,16 @@ if ($stmt->execute()) {
     idempotencyRespond($idemCtx, ['ok' => true], 200);
 } else {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'Failed to delete expense.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to delete expense.']));
+}
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
 }

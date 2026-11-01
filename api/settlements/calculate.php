@@ -5,8 +5,9 @@
  * Returns members, contributions, per-person share, settlement instructions.
  */
 require_once __DIR__ . '/settlement_helpers.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
@@ -17,7 +18,7 @@ $userId  = (int) $_SESSION['user_id'];
 $groupId = (int) ($_GET['group_id'] ?? 0);
 
 if ($groupId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid group.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid group.']));
     exit;
 }
 
@@ -29,7 +30,7 @@ $membership = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$membership) {
-    echo json_encode(['ok' => false, 'error' => 'You are not a member of this group.']);
+    apiResponse((['ok' => false, 'error' => 'You are not a member of this group.']));
     exit;
 }
 
@@ -64,7 +65,7 @@ $stmt->close();
 
 $memberCount = count($members);
 if ($memberCount === 0) {
-    echo json_encode(['ok' => false, 'error' => 'No members in group.']);
+    apiResponse((['ok' => false, 'error' => 'No members in group.']));
     exit;
 }
 
@@ -189,7 +190,7 @@ $psStmt->execute();
 $postSettlementCount = (int) $psStmt->get_result()->fetch_assoc()['cnt'];
 $psStmt->close();
 
-echo json_encode([
+apiResponse(([
     'ok'              => true,
     'group_id'        => $groupId,
     'member_count'    => $memberCount,
@@ -204,4 +205,15 @@ echo json_encode([
     'confirmed_count' => count($confirmedUserIds),
     'user_confirmed'  => $userConfirmed,
     'post_settlement_count' => $postSettlementCount
-]);
+]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

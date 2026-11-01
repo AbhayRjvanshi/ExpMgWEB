@@ -10,9 +10,11 @@
  * check, computed-transfer match and duplicate guard all live in the helper.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
@@ -33,7 +35,7 @@ $periodEnd   = trim($_POST['period_end'] ?? '');
 $amount = normalizeMoney($_POST['amount'] ?? null);
 
 if ($groupId <= 0 || $payerId <= 0 || $payeeId <= 0 || $amount === null) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid settlement data.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid settlement data.']));
     exit;
 }
 
@@ -48,17 +50,17 @@ try {
         'group_id' => $groupId,
         'reason'  => $e->getMessage(),
     ]);
-    echo json_encode(['ok' => false, 'error' => 'Invalid date format.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid date format.']));
     exit;
 }
 if ($periodStart > $periodEnd) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid period: start date is after end date.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid period: start date is after end date.']));
     exit;
 }
 // C2 (future-lock DoS): a far-future period_end would arm the settlement lock
 // against every date that will ever exist, freezing the group's bookkeeping.
 if ($periodEnd > date('Y-m-d')) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid period: end date cannot be in the future.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid period: end date cannot be in the future.']));
     exit;
 }
 
@@ -70,11 +72,11 @@ $membership = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$membership) {
-    echo json_encode(['ok' => false, 'error' => 'Not a member of this group.']);
+    apiResponse((['ok' => false, 'error' => 'Not a member of this group.']));
     exit;
 }
 if ($membership['role'] !== 'admin') {
-    echo json_encode(['ok' => false, 'error' => 'Only the group admin can record settlements.']);
+    apiResponse((['ok' => false, 'error' => 'Only the group admin can record settlements.']));
     exit;
 }
 
@@ -82,8 +84,19 @@ if ($membership['role'] !== 'admin') {
 // match + duplicate guard, all inside one transaction (see settlement_helpers.php).
 $result = recordSettlement($conn, $groupId, $userId, $payerId, $payeeId, $amount, $periodStart, $periodEnd);
 if (!$result['ok']) {
-    echo json_encode(['ok' => false, 'error' => $result['error']]);
+    apiResponse((['ok' => false, 'error' => $result['error']]));
     exit;
 }
 
 idempotencyRespond($idemCtx, ['ok' => true, 'message' => 'Settlement recorded.', 'id' => $result['id']], 200);
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

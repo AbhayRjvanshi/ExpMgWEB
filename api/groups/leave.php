@@ -5,15 +5,17 @@
  * Admin cannot leave — they must delete the group instead (or transfer, future feature).
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -21,7 +23,7 @@ $userId  = (int) $_SESSION['user_id'];
 $groupId = (int) ($_POST['group_id'] ?? 0);
 
 if ($groupId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid group.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid group.']));
     exit;
 }
 
@@ -33,12 +35,12 @@ $member = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$member) {
-    echo json_encode(['ok' => false, 'error' => 'You are not a member of this group.']);
+    apiResponse((['ok' => false, 'error' => 'You are not a member of this group.']));
     exit;
 }
 
 if ($member['role'] === 'admin') {
-    echo json_encode(['ok' => false, 'error' => 'Admin cannot leave the group. Delete the group instead.']);
+    apiResponse((['ok' => false, 'error' => 'Admin cannot leave the group. Delete the group instead.']));
     exit;
 }
 
@@ -68,4 +70,15 @@ $nStmt->bind_param('sii', $msg, $groupId, $groupId);
 $nStmt->execute();
 $nStmt->close();
 
-echo json_encode(['ok' => true]);
+apiResponse((['ok' => true]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

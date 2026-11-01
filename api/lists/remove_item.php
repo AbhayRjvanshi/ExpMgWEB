@@ -6,22 +6,24 @@
  * Notifies other group members.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
 $userId = (int) $_SESSION['user_id'];
 $itemId = (int) ($_POST['item_id'] ?? 0);
 
-if ($itemId <= 0) { echo json_encode(['ok' => false, 'error' => 'Invalid item.']); exit; }
+if ($itemId <= 0) { apiResponse((['ok' => false, 'error' => 'Invalid item.'])); exit; }
 
 // Fetch item + list info
 $stmt = $conn->prepare(
@@ -35,7 +37,7 @@ $stmt->execute();
 $item = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-if (!$item) { echo json_encode(['ok' => false, 'error' => 'Item not found.']); exit; }
+if (!$item) { apiResponse((['ok' => false, 'error' => 'Item not found.'])); exit; }
 
 $groupId = $item['group_id'] ? (int)$item['group_id'] : null;
 
@@ -45,11 +47,11 @@ if ($groupId) {
     $chk->bind_param('ii', $groupId, $userId);
     $chk->execute();
     $chk->store_result();
-    if ($chk->num_rows === 0) { $chk->close(); echo json_encode(['ok' => false, 'error' => 'Access denied.']); exit; }
+    if ($chk->num_rows === 0) { $chk->close(); apiResponse((['ok' => false, 'error' => 'Access denied.'])); exit; }
     $chk->close();
 } else {
     if ((int)$item['list_owner'] !== $userId) {
-        echo json_encode(['ok' => false, 'error' => 'Access denied.']);
+        apiResponse((['ok' => false, 'error' => 'Access denied.']));
         exit;
     }
 }
@@ -76,8 +78,19 @@ if ($stmt->execute()) {
         $n->close();
     }
 
-    echo json_encode(['ok' => true]);
+    apiResponse((['ok' => true]));
 } else {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'Failed to remove item.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to remove item.']));
+}
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
 }

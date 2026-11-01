@@ -5,14 +5,16 @@
  * Returns JSON.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -98,7 +100,7 @@ if ($type === 'group') {
 }
 
 if (!empty($errors)) {
-    echo json_encode(['ok' => false, 'error' => implode(' ', $errors)]);
+    apiResponse((['ok' => false, 'error' => implode(' ', $errors)]));
     exit;
 }
 
@@ -110,7 +112,7 @@ if ($type === 'group' && $groupId) {
     $lockRow = $lockStmt->get_result()->fetch_assoc();
     $lockStmt->close();
     if ($lockRow && $lockRow['last_end'] && $expenseDate <= $lockRow['last_end']) {
-        echo json_encode(['ok' => false, 'error' => 'This expense date has already been settled and cannot be modified.']);
+        apiResponse((['ok' => false, 'error' => 'This expense date has already been settled and cannot be modified.']));
         exit;
     }
 }
@@ -151,6 +153,17 @@ if ($stmt->execute()) {
 
     idempotencyRespond($idemCtx, ['ok' => true, 'id' => $newId], 200);
 } else {
-    echo json_encode(['ok' => false, 'error' => 'Failed to save expense.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to save expense.']));
     $stmt->close();
+}
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
 }

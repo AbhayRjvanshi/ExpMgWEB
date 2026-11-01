@@ -4,12 +4,14 @@
  * POST: month (YYYY-MM), amount_limit (number > 0)
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -26,15 +28,15 @@ $limit  = is_numeric($limitRaw) ? round((float) $limitRaw, 2) : 0.0;
 
 // YYYY-MM with a real month range: the loose \d{2} form accepted 2026-15.
 if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid month format.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid month format.']));
     exit;
 }
 if ($limit <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Budget must be greater than zero.']);
+    apiResponse((['ok' => false, 'error' => 'Budget must be greater than zero.']));
     exit;
 }
 if ($limit > 99999999.00) {
-    echo json_encode(['ok' => false, 'error' => 'Budget must be at most 99999999.00.']);
+    apiResponse((['ok' => false, 'error' => 'Budget must be at most 99999999.00.']));
     exit;
 }
 
@@ -66,6 +68,17 @@ if ($stmt->execute()) {
     idempotencyRespond($idemCtx, ['ok' => true, 'message' => 'Budget saved.', 'previous' => $previous], 200);
 } else {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'Failed to save budget.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to save budget.']));
 }
 $stmt->close();
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

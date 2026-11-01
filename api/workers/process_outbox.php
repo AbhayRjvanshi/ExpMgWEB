@@ -3,9 +3,7 @@
 // Hard CLI-only gate. Runs before auth.php so the replay worker is not even
 // reachable as an authenticated HTTP endpoint.
 if (php_sapi_name() !== 'cli') {
-    http_response_code(403);
-    header('Content-Type: application/json');
-    echo json_encode(['ok' => false, 'error' => 'Forbidden: CLI execution only.']);
+    apiResponse((['ok' => false, 'error' => 'Forbidden: CLI execution only.']), 403);
     exit;
 }
 

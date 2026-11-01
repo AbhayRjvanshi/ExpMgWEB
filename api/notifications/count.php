@@ -5,10 +5,11 @@
  * Only counts notifications created today (daily lifecycle).
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
 
 requireAuth(false); // false: heartbeat poll — check limits but don't INSERT 2 rows every 10s tick
 
@@ -35,4 +36,15 @@ if ($row) {
     $latest = ['id' => (int)$row['id'], 'message' => $row['message'], 'type' => $row['type'], 'created_at' => $row['created_at']];
 }
 
-echo json_encode(['ok' => true, 'count' => $cnt, 'latest' => $latest]);
+apiResponse((['ok' => true, 'count' => $cnt, 'latest' => $latest]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

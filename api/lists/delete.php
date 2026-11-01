@@ -5,15 +5,17 @@
  * Personal list → only owner. Group list → admin or list creator only.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -21,7 +23,7 @@ $userId = (int) $_SESSION['user_id'];
 $listId = (int) ($_POST['list_id'] ?? 0);
 
 if ($listId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid list.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid list.']));
     exit;
 }
 
@@ -32,7 +34,7 @@ $list = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$list) {
-    echo json_encode(['ok' => false, 'error' => 'List not found.']);
+    apiResponse((['ok' => false, 'error' => 'List not found.']));
     exit;
 }
 
@@ -45,17 +47,17 @@ if ($list['group_id']) {
     $role = $chk->get_result()->fetch_assoc();
     $chk->close();
     if (!$role) {
-        echo json_encode(['ok' => false, 'error' => 'Access denied.']);
+        apiResponse((['ok' => false, 'error' => 'Access denied.']));
         exit;
     }
     // Only admin or the list creator can delete a group list
     if ($role['role'] !== 'admin' && (int)$list['user_id'] !== $userId) {
-        echo json_encode(['ok' => false, 'error' => 'Only the group admin or list creator can delete this list.']);
+        apiResponse((['ok' => false, 'error' => 'Only the group admin or list creator can delete this list.']));
         exit;
     }
 } else {
     if ((int)$list['user_id'] !== $userId) {
-        echo json_encode(['ok' => false, 'error' => 'You can only delete your own personal lists.']);
+        apiResponse((['ok' => false, 'error' => 'You can only delete your own personal lists.']));
         exit;
     }
 }
@@ -64,8 +66,19 @@ $stmt = $conn->prepare('DELETE FROM lists WHERE id = ?');
 $stmt->bind_param('i', $listId);
 if ($stmt->execute()) {
     $stmt->close();
-    echo json_encode(['ok' => true]);
+    apiResponse((['ok' => true]));
 } else {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'Failed to delete list.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to delete list.']));
+}
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
 }

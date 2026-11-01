@@ -9,10 +9,11 @@
  * Only returns notifications created today. Older ones are auto-cleaned.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
 
 requireAuth();
 
@@ -65,9 +66,20 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-echo json_encode([
+apiResponse(([
     'ok'            => true,
     'notifications' => $notifs,
     'unread_count'  => $unreadCount,
     'pagination'    => paginationMeta($page, $limit, $totalCount)
-]);
+]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

@@ -6,8 +6,9 @@
  * Returns members, contributions, settlements for post-settlement expenses only.
  */
 require_once __DIR__ . '/settlement_helpers.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
@@ -18,7 +19,7 @@ $userId  = (int) $_SESSION['user_id'];
 $groupId = (int) ($_GET['group_id'] ?? 0);
 
 if ($groupId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid group.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid group.']));
     exit;
 }
 
@@ -30,7 +31,7 @@ $membership = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$membership) {
-    echo json_encode(['ok' => false, 'error' => 'You are not a member of this group.']);
+    apiResponse((['ok' => false, 'error' => 'You are not a member of this group.']));
     exit;
 }
 
@@ -57,7 +58,7 @@ $stmt->close();
 
 $memberCount = count($members);
 if ($memberCount === 0) {
-    echo json_encode(['ok' => false, 'error' => 'No members in group.']);
+    apiResponse((['ok' => false, 'error' => 'No members in group.']));
     exit;
 }
 
@@ -81,14 +82,14 @@ while ($r = $contribRes->fetch_assoc()) {
 $stmt->close();
 
 if (empty($expenses)) {
-    echo json_encode([
+    apiResponse(([
         'ok'           => true,
         'has_expenses' => false,
         'total_spend'  => 0,
         'expenses'     => [],
         'members'      => [],
         'settlements'  => []
-    ]);
+    ]));
     exit;
 }
 
@@ -153,7 +154,7 @@ $stmt->close();
 
 $userConfirmed = in_array($userId, $confirmedUserIds);
 
-echo json_encode([
+apiResponse(([
     'ok'              => true,
     'has_expenses'    => true,
     'group_id'        => $groupId,
@@ -166,4 +167,15 @@ echo json_encode([
     'confirmed_users' => $confirmedUserIds,
     'confirmed_count' => count($confirmedUserIds),
     'user_confirmed'  => $userConfirmed
-]);
+]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

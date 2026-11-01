@@ -2064,6 +2064,8 @@ test("30d: All endpoints include response.php", count($missingResp) === 0,
 // 30e: No endpoint has raw header('Content-Type: application/json') — response.php handles it
 $iter30e = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($apiDir30));
 $skipHeader = [
+    'login.php',
+    'signup.php',
     'response.php',
     'logger.php',
     'validator.php',

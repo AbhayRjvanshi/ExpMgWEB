@@ -8,18 +8,26 @@
  *   budget {amount_limit} | null
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
 
 requireAuth();
 
 $userId = (int) $_SESSION['user_id'];
 $month  = trim($_GET['month'] ?? '');
 
+// M4: real month range (the shape check accepted 2026-13 and 2026-40).
+try {
+    validateMonth($month, 'month');
+} catch (Exception $e) {
+    apiResponse(['ok' => false, 'error' => 'Invalid month format.'], 400);
+}
+
 if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
-    echo json_encode(['ok' => false, 'error' => 'Provide ?month=YYYY-MM']);
+    apiResponse((['ok' => false, 'error' => 'Provide ?month=YYYY-MM']));
     exit;
 }
 
@@ -117,7 +125,7 @@ $stmt->execute();
 $budgetRow = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-echo json_encode([
+apiResponse(([
     'ok'             => true,
     'total_spent'    => (float) $totals['total_spent'],
     'personal_total' => (float) $totals['personal_total'],
@@ -127,4 +135,15 @@ echo json_encode([
     'by_day'         => $byDay,
     'budget'         => $budgetRow ? (float) $budgetRow['amount_limit'] : null,
     'month'          => $month
-]);
+]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

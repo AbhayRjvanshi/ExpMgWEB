@@ -6,14 +6,16 @@
  * Returns JSON.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -37,14 +39,14 @@ $type       = $typeRaw === null ? null : ($typeRaw === 'group' ? 'group' : 'pers
 $groupId    = isset($_POST['group_id']) && $_POST['group_id'] !== '' ? (int) $_POST['group_id'] : (array_key_exists('group_id', $_POST) ? null : null);
 $paidBy     = isset($_POST['paid_by']) && $_POST['paid_by'] !== '' ? (int) $_POST['paid_by'] : (array_key_exists('paid_by', $_POST) ? null : null);
 
-if ($expenseId <= 0)  { echo json_encode(['ok' => false, 'error' => 'Invalid expense ID.']); exit; }
-if ($amount !== null && $amount <= 0)     { echo json_encode(['ok' => false, 'error' => 'Amount must be > 0.']); exit; }
-if ($amount !== null && $amount > 99999999.00) { echo json_encode(['ok' => false, 'error' => 'Amount must be at most 99999999.00.']); exit; }
+if ($expenseId <= 0)  { apiResponse((['ok' => false, 'error' => 'Invalid expense ID.'])); exit; }
+if ($amount !== null && $amount <= 0)     { apiResponse((['ok' => false, 'error' => 'Amount must be > 0.'])); exit; }
+if ($amount !== null && $amount > 99999999.00) { apiResponse((['ok' => false, 'error' => 'Amount must be at most 99999999.00.'])); exit; }
 if ($typeRaw !== null && !in_array($type, ['personal', 'group'], true)) {
-    echo json_encode(['ok' => false, 'error' => 'Type must be personal or group.']); exit;
+    apiResponse((['ok' => false, 'error' => 'Type must be personal or group.'])); exit;
 }
-if ($categoryId !== null && $categoryId <= 0) { echo json_encode(['ok' => false, 'error' => 'Select a category.']); exit; }
-if ($note !== null && mb_strlen($note) > 255) { echo json_encode(['ok' => false, 'error' => 'Note is too long (max 255 characters).']); exit; }
+if ($categoryId !== null && $categoryId <= 0) { apiResponse((['ok' => false, 'error' => 'Select a category.'])); exit; }
+if ($note !== null && mb_strlen($note) > 255) { apiResponse((['ok' => false, 'error' => 'Note is too long (max 255 characters).'])); exit; }
 
 // Fetch existing expense
 $stmt = $conn->prepare('SELECT user_id, group_id, type, expense_date, amount, category_id, note, paid_by FROM expenses WHERE id = ?');
@@ -54,7 +56,7 @@ $existing = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$existing) {
-    echo json_encode(['ok' => false, 'error' => 'Expense not found.']);
+    apiResponse((['ok' => false, 'error' => 'Expense not found.']));
     exit;
 }
 
@@ -75,7 +77,7 @@ if ($existing['type'] === 'group' && $existing['group_id']) {
     $lockRow = $lockStmt->get_result()->fetch_assoc();
     $lockStmt->close();
     if ($lockRow && $lockRow['last_end'] && $existing['expense_date'] <= $lockRow['last_end']) {
-        echo json_encode(['ok' => false, 'error' => 'This expense date has already been settled and cannot be modified.']);
+        apiResponse((['ok' => false, 'error' => 'This expense date has already been settled and cannot be modified.']));
         exit;
     }
 }
@@ -87,7 +89,7 @@ if ($type === 'group' && $groupId && $groupId !== (int)($existing['group_id'] ??
     $lockRow = $lockStmt->get_result()->fetch_assoc();
     $lockStmt->close();
     if ($lockRow && $lockRow['last_end'] && $existing['expense_date'] <= $lockRow['last_end']) {
-        echo json_encode(['ok' => false, 'error' => 'Cannot move expense into a group with a settled period covering this date.']);
+        apiResponse((['ok' => false, 'error' => 'Cannot move expense into a group with a settled period covering this date.']));
         exit;
     }
 }
@@ -95,7 +97,7 @@ if ($type === 'group' && $groupId && $groupId !== (int)($existing['group_id'] ??
 // --- Permission check ---
 if ($existing['type'] === 'personal') {
     if ((int)$existing['user_id'] !== $userId) {
-        echo json_encode(['ok' => false, 'error' => 'You can only edit your own personal expenses.']);
+        apiResponse((['ok' => false, 'error' => 'You can only edit your own personal expenses.']));
         exit;
     }
 } else {
@@ -113,7 +115,7 @@ if ($existing['type'] === 'personal') {
     $role = $chk->get_result()->fetch_assoc();
     $chk->close();
     if (!$role || $role['role'] !== 'admin') {
-        echo json_encode(['ok' => false, 'error' => 'Only the group admin can edit group expenses.']);
+        apiResponse((['ok' => false, 'error' => 'Only the group admin can edit group expenses.']));
         exit;
     }
     $groupName = $role['group_name'] ?? 'the group';
@@ -152,5 +154,16 @@ if ($stmt->execute()) {
     idempotencyRespond($idemCtx, ['ok' => true], 200);
 } else {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'Failed to update expense.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to update expense.']));
+}
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
 }

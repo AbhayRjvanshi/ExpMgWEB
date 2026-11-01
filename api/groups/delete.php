@@ -5,15 +5,17 @@
  * Cascades: all group_members, expenses (via ON DELETE CASCADE / SET NULL).
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -21,7 +23,7 @@ $userId  = (int) $_SESSION['user_id'];
 $groupId = (int) ($_POST['group_id'] ?? 0);
 
 if ($groupId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid group.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid group.']));
     exit;
 }
 
@@ -33,12 +35,12 @@ $group = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$group) {
-    echo json_encode(['ok' => false, 'error' => 'Group not found.']);
+    apiResponse((['ok' => false, 'error' => 'Group not found.']));
     exit;
 }
 
 if ((int)$group['created_by'] !== $userId) {
-    echo json_encode(['ok' => false, 'error' => 'Only the group creator can delete the group.']);
+    apiResponse((['ok' => false, 'error' => 'Only the group creator can delete the group.']));
     exit;
 }
 
@@ -75,8 +77,19 @@ if ($stmt->execute()) {
         $nStmt->close();
     }
 
-    echo json_encode(['ok' => true]);
+    apiResponse((['ok' => true]));
 } else {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'Failed to delete group.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to delete group.']));
+}
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
 }

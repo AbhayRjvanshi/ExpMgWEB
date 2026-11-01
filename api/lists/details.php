@@ -5,10 +5,11 @@
  * Sort: high first, then moderate, then low. Within same priority → oldest first.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
 
 requireAuth();
 
@@ -21,7 +22,7 @@ $listId = (int) ($_GET['list_id'] ?? 0);
 list($page, $limit, $offset) = parsePagination(500, 1000);
 
 if ($listId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid list.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid list.']));
     exit;
 }
 
@@ -40,7 +41,7 @@ $list = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$list) {
-    echo json_encode(['ok' => false, 'error' => 'List not found.']);
+    apiResponse((['ok' => false, 'error' => 'List not found.']));
     exit;
 }
 
@@ -53,13 +54,13 @@ if ($list['group_id']) {
     $chk->store_result();
     if ($chk->num_rows === 0) {
         $chk->close();
-        echo json_encode(['ok' => false, 'error' => 'Access denied.']);
+        apiResponse((['ok' => false, 'error' => 'Access denied.']));
         exit;
     }
     $chk->close();
 } else {
     if ((int)$list['user_id'] !== $userId) {
-        echo json_encode(['ok' => false, 'error' => 'Access denied.']);
+        apiResponse((['ok' => false, 'error' => 'Access denied.']));
         exit;
     }
 }
@@ -92,9 +93,20 @@ $stmt->close();
 // of them rather than a slice of a larger set.
 $totalItems = count($items);
 
-echo json_encode([
+apiResponse(([
     'ok'         => true,
     'list'       => $list,
     'items'      => $items,
     'pagination' => paginationMeta(1, max($totalItems, 1), $totalItems)
-]);
+]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

@@ -10,15 +10,17 @@
  * Notifies other group members.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -28,7 +30,7 @@ $paidByParam = isset($_POST['paid_by']) ? (int) $_POST['paid_by'] : null;
 $priceParam  = isset($_POST['price']) && $_POST['price'] !== '' ? floatval($_POST['price']) : null;
 $confirmMode = isset($_POST['confirm']) && $_POST['confirm'] === '1';
 
-if ($itemId <= 0) { echo json_encode(['ok' => false, 'error' => 'Invalid item.']); exit; }
+if ($itemId <= 0) { apiResponse((['ok' => false, 'error' => 'Invalid item.'])); exit; }
 
 // Fetch item + list
 $stmt = $conn->prepare(
@@ -44,7 +46,7 @@ $stmt->execute();
 $item = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-if (!$item) { echo json_encode(['ok' => false, 'error' => 'Item not found.']); exit; }
+if (!$item) { apiResponse((['ok' => false, 'error' => 'Item not found.'])); exit; }
 
 $groupId = $item['group_id'] ? (int)$item['group_id'] : null;
 
@@ -54,11 +56,11 @@ if ($groupId) {
     $chk->bind_param('ii', $groupId, $userId);
     $chk->execute();
     $chk->store_result();
-    if ($chk->num_rows === 0) { $chk->close(); echo json_encode(['ok' => false, 'error' => 'Access denied.']); exit; }
+    if ($chk->num_rows === 0) { $chk->close(); apiResponse((['ok' => false, 'error' => 'Access denied.'])); exit; }
     $chk->close();
 } else {
     if ((int)$item['list_owner'] !== $userId) {
-        echo json_encode(['ok' => false, 'error' => 'Access denied.']);
+        apiResponse((['ok' => false, 'error' => 'Access denied.']));
         exit;
     }
 }
@@ -66,7 +68,7 @@ if ($groupId) {
 // === Confirm mode: group item popup confirmed with paid_by ===
 if ($confirmMode && $groupId) {
     if (!$paidByParam) {
-        echo json_encode(['ok' => false, 'error' => 'Please select who paid for this item.']);
+        apiResponse((['ok' => false, 'error' => 'Please select who paid for this item.']));
         exit;
     }
     // Validate paid_by is a group member
@@ -74,7 +76,7 @@ if ($confirmMode && $groupId) {
     $memChk->bind_param('ii', $groupId, $paidByParam);
     $memChk->execute();
     $memChk->store_result();
-    if ($memChk->num_rows === 0) { $memChk->close(); echo json_encode(['ok' => false, 'error' => 'Payer must be a group member.']); exit; }
+    if ($memChk->num_rows === 0) { $memChk->close(); apiResponse((['ok' => false, 'error' => 'Payer must be a group member.'])); exit; }
     $memChk->close();
 
     // Re-read current state
@@ -163,7 +165,7 @@ if ($confirmMode && $groupId) {
             'user_id' => $userId,
             'error' => $e->getMessage()
         ]);
-        echo json_encode(['ok' => false, 'error' => 'Failed to confirm purchase.']);
+        apiResponse((['ok' => false, 'error' => 'Failed to confirm purchase.']));
         exit;
     }
 
@@ -180,12 +182,12 @@ if ($confirmMode && $groupId) {
     $n->execute();
     $n->close();
 
-    echo json_encode([
+    apiResponse(([
         'ok' => true,
         'is_checked' => 1,
         'expense_created' => $expenseCreated,
         'is_post_settlement' => $isPostSettlement
-    ]);
+    ]));
     exit;
 }
 
@@ -200,7 +202,7 @@ if ($newState === 0) {
         $checkedTs = strtotime($item['checked_at']);
         $elapsed   = time() - $checkedTs;
         if ($elapsed > 600) {
-            echo json_encode(['ok' => false, 'error' => 'Cannot uncheck — more than 10 minutes have passed.']);
+            apiResponse((['ok' => false, 'error' => 'Cannot uncheck — more than 10 minutes have passed.']));
             exit;
         }
     }
@@ -244,7 +246,7 @@ if ($newState === 0) {
             'user_id' => $userId,
             'error' => $e->getMessage()
         ]);
-        echo json_encode(['ok' => false, 'error' => 'Failed to uncheck item.']);
+        apiResponse((['ok' => false, 'error' => 'Failed to uncheck item.']));
         exit;
     }
 
@@ -263,7 +265,7 @@ if ($newState === 0) {
         $n->close();
     }
 
-    echo json_encode(['ok' => true, 'is_checked' => 0, 'expense_created' => false, 'is_post_settlement' => false]);
+    apiResponse((['ok' => true, 'is_checked' => 0, 'expense_created' => false, 'is_post_settlement' => false]));
     exit;
 }
 
@@ -288,7 +290,7 @@ if ($groupId) {
         while ($m = $memRes->fetch_assoc()) $members[] = $m;
         $memStmt->close();
 
-        echo json_encode([
+        apiResponse(([
             'ok' => true,
             'is_checked' => 1,
             'needs_confirm' => true,
@@ -300,10 +302,10 @@ if ($groupId) {
                 'date' => $today
             ],
             'members' => $members
-        ]);
+        ]));
     } else {
         $stmt->close();
-        echo json_encode(['ok' => false, 'error' => 'Failed to update item.']);
+        apiResponse((['ok' => false, 'error' => 'Failed to update item.']));
     }
     exit;
 }
@@ -352,9 +354,20 @@ try {
         'user_id' => $userId,
         'error' => $e->getMessage()
     ]);
-    echo json_encode(['ok' => false, 'error' => 'Failed to update item.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to update item.']));
     exit;
 }
 
-echo json_encode(['ok' => true, 'is_checked' => 1, 'expense_created' => $expenseCreated, 'is_post_settlement' => false]);
+apiResponse((['ok' => true, 'is_checked' => 1, 'expense_created' => $expenseCreated, 'is_post_settlement' => false]));
 exit;
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

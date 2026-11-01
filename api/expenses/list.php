@@ -6,16 +6,31 @@
  * Returns JSON array of expenses.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
 
 requireAuth();
 
 $userId = (int) $_SESSION['user_id'];
 $date   = trim($_GET['date']  ?? '');
 $month  = trim($_GET['month'] ?? '');
+
+// M4 (PENTEST/moderately sever/M4.md): calendar-valid date + real month
+// range -- the shape-only checks accepted 2026-02-30 and 2026-13, which
+// then queried empty ranges and reported success.
+try {
+    if ($date !== '') {
+        validateDate($date, 'date');
+    }
+    if ($month !== '') {
+        validateMonth($month, 'month');
+    }
+} catch (Exception $e) {
+    apiResponse(['ok' => false, 'error' => 'Invalid date format.'], 400);
+}
 $total = 0;
 $page = 1; $limit = 20; $offset = 0; // set per branch below
 
@@ -168,7 +183,7 @@ if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
     $stmt->bind_param('iissiii', $userId, $userId, $startDate, $endDate, $userId, $limit, $offset);
 
 } else {
-    echo json_encode(['ok' => false, 'error' => 'Provide ?date=YYYY-MM-DD or ?month=YYYY-MM or ?start=YYYY-MM-DD&end=YYYY-MM-DD']);
+    apiResponse((['ok' => false, 'error' => 'Provide ?date=YYYY-MM-DD or ?month=YYYY-MM or ?start=YYYY-MM-DD&end=YYYY-MM-DD']));
     exit;
 }
 
@@ -217,8 +232,19 @@ if (!empty($groupIds)) {
     unset($e);
 }
 
-echo json_encode([
+apiResponse(([
     'ok' => true,
     'expenses' => $expenses,
     'pagination' => paginationMeta($page, $limit, $total)
-]);
+]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

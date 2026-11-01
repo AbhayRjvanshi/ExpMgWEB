@@ -4,10 +4,11 @@
  * Personal lists they own + group lists from their groups.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
 
 requireAuth();
 
@@ -61,8 +62,19 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-echo json_encode([
+apiResponse(([
     'ok'         => true,
     'lists'      => $lists,
     'pagination' => paginationMeta($page, $limit, $totalLists)
-]);
+]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

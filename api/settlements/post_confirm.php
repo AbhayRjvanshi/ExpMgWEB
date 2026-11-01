@@ -9,8 +9,10 @@
  * and confirmations are cleared.
  */
 require_once __DIR__ . '/settlement_helpers.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/logger.php';
@@ -25,7 +27,7 @@ $userId  = (int) $_SESSION['user_id'];
 $groupId = (int) ($_POST['group_id'] ?? 0);
 
 if ($groupId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid group.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid group.']));
     exit;
 }
 
@@ -43,7 +45,7 @@ $membership = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$membership) {
-    echo json_encode(['ok' => false, 'error' => 'You are not a member of this group.']);
+    apiResponse((['ok' => false, 'error' => 'You are not a member of this group.']));
     exit;
 }
 $groupName = $membership['group_name'] ?? 'the group';
@@ -61,7 +63,7 @@ $stmt->close();
 $memberCount = count($memberIds);
 
 if ($memberCount === 0) {
-    echo json_encode(['ok' => false, 'error' => 'No members in group.']);
+    apiResponse((['ok' => false, 'error' => 'No members in group.']));
     exit;
 }
 
@@ -76,7 +78,7 @@ $psCount = (int) $stmt->get_result()->fetch_assoc()['cnt'];
 $stmt->close();
 
 if ($psCount === 0) {
-    echo json_encode(['ok' => false, 'error' => 'No post-settlement expenses to confirm.']);
+    apiResponse((['ok' => false, 'error' => 'No post-settlement expenses to confirm.']));
     exit;
 }
 
@@ -296,7 +298,7 @@ if ($remaining <= 0) {
             'user_id' => $userId,
             'error' => $e->getMessage()
         ]);
-        echo json_encode(['ok' => false, 'error' => 'Failed to finalize settlement.']);
+        apiResponse((['ok' => false, 'error' => 'Failed to finalize settlement.']));
     }
 } else {
     // Notify other members ($groupName captured during the membership check)
@@ -317,4 +319,15 @@ if ($remaining <= 0) {
         'remaining'   => $remaining,
         'message'     => 'Your confirmation has been recorded.'
     ], 200);
+}
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
 }

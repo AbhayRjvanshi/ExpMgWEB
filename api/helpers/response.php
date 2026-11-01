@@ -85,6 +85,27 @@ function apiInstallGlobalErrorHandler(): void {
     });
 }
 
+
+/**
+ * M5 (PENTEST/moderately sever/M5.md): reject non-POST requests to write
+ * endpoints with a correct 405 + Allow header (RFC 9110 section 15.5.5).
+ */
+function requirePostMethod(): void {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+        header('Allow: POST');
+        apiError('Invalid method. Use POST.', 405);
+    }
+}
+
+/**
+ * M5: reject non-GET requests to read endpoints with 405 + Allow header.
+ */
+function requireGetMethod(): void {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+        header('Allow: GET');
+        apiError('Invalid method. Use GET.', 405);
+    }
+}
 /**
  * Send a JSON response derived from a service result array.
  * Automatically maps 'ok' => true to HTTP 200 and 'ok' => false to HTTP 400.

@@ -4,10 +4,11 @@
  * GET ?group_id=N
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
 
 requireAuth();
 
@@ -15,7 +16,7 @@ $userId  = (int) $_SESSION['user_id'];
 $groupId = (int) ($_GET['group_id'] ?? 0);
 
 if ($groupId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid group.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid group.']));
     exit;
 }
 
@@ -25,7 +26,7 @@ $stmt->bind_param('ii', $groupId, $userId);
 $stmt->execute();
 if (!$stmt->get_result()->fetch_assoc()) {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'Not a member of this group.']);
+    apiResponse((['ok' => false, 'error' => 'Not a member of this group.']));
     exit;
 }
 $stmt->close();
@@ -69,8 +70,19 @@ while ($r = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-echo json_encode([
+apiResponse(([
     'ok'          => true,
     'settlements' => $history,
     'pagination'  => paginationMeta($page, $limit, $totalSettlements)
-]);
+]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

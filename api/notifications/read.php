@@ -4,15 +4,17 @@
  * POST: id (single) or all=1 (mark all as read)
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -25,7 +27,7 @@ if (isset($_POST['all']) && $_POST['all'] == '1') {
     $stmt->execute();
     $affected = $stmt->affected_rows;
     $stmt->close();
-    echo json_encode(['ok' => true, 'marked' => $affected]);
+    apiResponse((['ok' => true, 'marked' => $affected]));
     exit;
 }
 
@@ -33,7 +35,7 @@ if (isset($_POST['all']) && $_POST['all'] == '1') {
 // as the legacy alias older clients still send. Both resolve to the MySQL row id.
 $notifId = (int)($_POST['event_id'] ?? $_POST['id'] ?? 0);
 if ($notifId <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid notification ID.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid notification ID.']));
     exit;
 }
 
@@ -55,4 +57,15 @@ if ($marked === 0) {
     ]);
 }
 
-echo json_encode(['ok' => true, 'marked' => $marked]);
+apiResponse((['ok' => true, 'marked' => $marked]));
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

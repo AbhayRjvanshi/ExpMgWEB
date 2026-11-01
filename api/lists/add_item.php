@@ -6,15 +6,17 @@
  * Notifies other group members.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../helpers/validator.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -29,15 +31,15 @@ $price       = isset($_POST['price']) && $_POST['price'] !== '' ? round((float) 
 // 'urgent' used to become 'low' and price '-5' used to become NULL (turning a
 // priced item into an unpriced one) -- both now fail with an explicit error.
 if (!in_array($priority, ['high', 'moderate', 'low'], true)) {
-    echo json_encode(['ok' => false, 'error' => 'Priority must be high, moderate or low.']);
+    apiResponse((['ok' => false, 'error' => 'Priority must be high, moderate or low.']));
     exit;
 }
 if ($price !== null && ($price < 0.01 || $price > 99999999.00)) {
-    echo json_encode(['ok' => false, 'error' => 'Price must be between 0.01 and 99999999.00.']);
+    apiResponse((['ok' => false, 'error' => 'Price must be between 0.01 and 99999999.00.']));
     exit;
 }
-if ($listId <= 0)          { echo json_encode(['ok' => false, 'error' => 'Invalid list.']); exit; }
-if ($description === '')   { echo json_encode(['ok' => false, 'error' => 'Description is required.']); exit; }
+if ($listId <= 0)          { apiResponse((['ok' => false, 'error' => 'Invalid list.'])); exit; }
+if ($description === '')   { apiResponse((['ok' => false, 'error' => 'Description is required.'])); exit; }
 
 // Fetch list for permission check
 $stmt = $conn->prepare('SELECT user_id, group_id, name FROM lists WHERE id = ?');
@@ -46,7 +48,7 @@ $stmt->execute();
 $list = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-if (!$list) { echo json_encode(['ok' => false, 'error' => 'List not found.']); exit; }
+if (!$list) { apiResponse((['ok' => false, 'error' => 'List not found.'])); exit; }
 
 $groupId = $list['group_id'] ? (int)$list['group_id'] : null;
 
@@ -55,11 +57,11 @@ if ($groupId) {
     $chk->bind_param('ii', $groupId, $userId);
     $chk->execute();
     $chk->store_result();
-    if ($chk->num_rows === 0) { $chk->close(); echo json_encode(['ok' => false, 'error' => 'Access denied.']); exit; }
+    if ($chk->num_rows === 0) { $chk->close(); apiResponse((['ok' => false, 'error' => 'Access denied.'])); exit; }
     $chk->close();
 } else {
     if ((int)$list['user_id'] !== $userId) {
-        echo json_encode(['ok' => false, 'error' => 'Access denied.']);
+        apiResponse((['ok' => false, 'error' => 'Access denied.']));
         exit;
     }
 }
@@ -88,8 +90,19 @@ if ($stmt->execute()) {
         $n->close();
     }
 
-    echo json_encode(['ok' => true, 'id' => $newId]);
+    apiResponse((['ok' => true, 'id' => $newId]));
 } else {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'Failed to add item.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to add item.']));
+}
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
 }

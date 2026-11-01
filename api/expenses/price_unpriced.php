@@ -5,14 +5,16 @@
  * The expense is recorded with the original checked_at date, not the current date.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -28,9 +30,9 @@ $priceRaw = $_POST['price'] ?? 0;
 $price  = is_numeric($priceRaw) ? round((float) $priceRaw, 2) : 0.0;
 $paidBy = !empty($_POST['paid_by']) ? (int) $_POST['paid_by'] : null;
 
-if ($itemId <= 0) { echo json_encode(['ok' => false, 'error' => 'Invalid item.']); exit; }
-if ($price <= 0)  { echo json_encode(['ok' => false, 'error' => 'Price must be greater than 0.']); exit; }
-if ($price > 99999999.00) { echo json_encode(['ok' => false, 'error' => 'Price must be at most 99999999.00.']); exit; }
+if ($itemId <= 0) { apiResponse((['ok' => false, 'error' => 'Invalid item.'])); exit; }
+if ($price <= 0)  { apiResponse((['ok' => false, 'error' => 'Price must be greater than 0.'])); exit; }
+if ($price > 99999999.00) { apiResponse((['ok' => false, 'error' => 'Price must be at most 99999999.00.'])); exit; }
 
 // Fetch the unpriced item
 $stmt = $conn->prepare(
@@ -46,9 +48,9 @@ $stmt->execute();
 $item = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-if (!$item) { echo json_encode(['ok' => false, 'error' => 'Item not found.']); exit; }
-if (!(int)$item['is_checked']) { echo json_encode(['ok' => false, 'error' => 'Item is not checked.']); exit; }
-if ((int)$item['expense_created']) { echo json_encode(['ok' => false, 'error' => 'Expense already created for this item.']); exit; }
+if (!$item) { apiResponse((['ok' => false, 'error' => 'Item not found.'])); exit; }
+if (!(int)$item['is_checked']) { apiResponse((['ok' => false, 'error' => 'Item is not checked.'])); exit; }
+if ((int)$item['expense_created']) { apiResponse((['ok' => false, 'error' => 'Expense already created for this item.'])); exit; }
 
 $groupId = $item['group_id'] ? (int)$item['group_id'] : null;
 
@@ -58,11 +60,11 @@ if ($groupId) {
     $chk->bind_param('ii', $groupId, $userId);
     $chk->execute();
     $chk->store_result();
-    if ($chk->num_rows === 0) { $chk->close(); echo json_encode(['ok' => false, 'error' => 'Access denied.']); exit; }
+    if ($chk->num_rows === 0) { $chk->close(); apiResponse((['ok' => false, 'error' => 'Access denied.'])); exit; }
     $chk->close();
 } else {
     if ((int)$item['list_owner'] !== $userId) {
-        echo json_encode(['ok' => false, 'error' => 'Access denied.']);
+        apiResponse((['ok' => false, 'error' => 'Access denied.']));
         exit;
     }
 }
@@ -85,7 +87,7 @@ $expType    = $groupId ? 'group' : 'personal';
 // For group items, paid_by is mandatory; for personal, it's the user
 if ($groupId) {
     if (!$paidBy) {
-        echo json_encode(['ok' => false, 'error' => 'Please select who paid for this item.']);
+        apiResponse((['ok' => false, 'error' => 'Please select who paid for this item.']));
         exit;
     }
     // Validate paid_by is a group member
@@ -93,7 +95,7 @@ if ($groupId) {
     $pbChk->bind_param('ii', $groupId, $paidBy);
     $pbChk->execute();
     $pbChk->store_result();
-    if ($pbChk->num_rows === 0) { $pbChk->close(); echo json_encode(['ok' => false, 'error' => 'Payer must be a group member.']); exit; }
+    if ($pbChk->num_rows === 0) { $pbChk->close(); apiResponse((['ok' => false, 'error' => 'Payer must be a group member.'])); exit; }
     $pbChk->close();
 } else {
     $paidBy = $userId;
@@ -126,7 +128,7 @@ try {
 
     if ($fresh && (int)$fresh['expense_created']) {
         $conn->rollback();
-        echo json_encode(['ok' => false, 'error' => 'Expense already created for this item.']);
+        apiResponse((['ok' => false, 'error' => 'Expense already created for this item.']));
         exit;
     }
 
@@ -139,7 +141,7 @@ try {
     if (!$ins->execute()) {
         $ins->close();
         $conn->rollback();
-        echo json_encode(['ok' => false, 'error' => 'Failed to create expense.']);
+        apiResponse((['ok' => false, 'error' => 'Failed to create expense.']));
         exit;
     }
     $expenseId = $ins->insert_id;
@@ -155,7 +157,7 @@ try {
 
     if ($linked !== 1) {
         $conn->rollback();
-        echo json_encode(['ok' => false, 'error' => 'Item was concurrently priced.']);
+        apiResponse((['ok' => false, 'error' => 'Item was concurrently priced.']));
         exit;
     }
 
@@ -168,5 +170,16 @@ try {
         'user_id' => $userId,
         'error' => $e->getMessage()
     ]);
-    echo json_encode(['ok' => false, 'error' => 'Failed to create expense.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to create expense.']));
+}
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
 }

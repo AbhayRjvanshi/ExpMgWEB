@@ -6,14 +6,16 @@
  * Returns JSON with the new group + join code.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -24,7 +26,7 @@ $idemCtx = idempotencyGuard($userId, 'groups/create');
 $name   = trim($_POST['name'] ?? '');
 
 if ($name === '' || strlen($name) > 100) {
-    echo json_encode(['ok' => false, 'error' => 'Group name is required (max 100 chars).']);
+    apiResponse((['ok' => false, 'error' => 'Group name is required (max 100 chars).']));
     exit;
 }
 
@@ -36,7 +38,7 @@ $row = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if ((int)$row['cnt'] >= 5) {
-    echo json_encode(['ok' => false, 'error' => 'You can create at most 5 groups.']);
+    apiResponse((['ok' => false, 'error' => 'You can create at most 5 groups.']));
     exit;
 }
 
@@ -64,7 +66,7 @@ if (!function_exists('generateJoinCode')) {
 
 $joinCode = generateJoinCode($conn);
 if (!$joinCode) {
-    echo json_encode(['ok' => false, 'error' => 'Failed to generate join code. Try again.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to generate join code. Try again.']));
     exit;
 }
 
@@ -74,7 +76,7 @@ $stmt->bind_param('ssi', $name, $joinCode, $userId);
 
 if (!$stmt->execute()) {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'Failed to create group.']);
+    apiResponse((['ok' => false, 'error' => 'Failed to create group.']));
     exit;
 }
 
@@ -96,3 +98,14 @@ idempotencyRespond($idemCtx, [
         'role'      => 'admin'
     ]
 ], 200);
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

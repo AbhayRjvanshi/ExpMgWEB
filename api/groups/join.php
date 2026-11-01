@@ -5,14 +5,16 @@
  * Business rule: max 10 members per group.
  */
 // Session is initialised (hardened cookie flags) by api/middleware/auth.php.
-header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../helpers/response.php';
+try {
+requirePostMethod();
 
 requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'error' => 'Invalid method.']);
+    apiResponse((['ok' => false, 'error' => 'Invalid method.']));
     exit;
 }
 
@@ -23,7 +25,7 @@ $idemCtx  = idempotencyGuard($userId, 'groups/join');
 $joinCode = strtoupper(trim($_POST['join_code'] ?? ''));
 
 if ($joinCode === '') {
-    echo json_encode(['ok' => false, 'error' => 'Please enter a join code.']);
+    apiResponse((['ok' => false, 'error' => 'Please enter a join code.']));
     exit;
 }
 
@@ -35,7 +37,7 @@ $group = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$group) {
-    echo json_encode(['ok' => false, 'error' => 'No group found with that code.']);
+    apiResponse((['ok' => false, 'error' => 'No group found with that code.']));
     exit;
 }
 
@@ -48,7 +50,7 @@ $stmt->execute();
 $stmt->store_result();
 if ($stmt->num_rows > 0) {
     $stmt->close();
-    echo json_encode(['ok' => false, 'error' => 'You are already a member of this group.']);
+    apiResponse((['ok' => false, 'error' => 'You are already a member of this group.']));
     exit;
 }
 $stmt->close();
@@ -61,7 +63,7 @@ $cnt = (int) $stmt->get_result()->fetch_assoc()['cnt'];
 $stmt->close();
 
 if ($cnt >= (int)$group['max_members']) {
-    echo json_encode(['ok' => false, 'error' => 'This group is full (max ' . $group['max_members'] . ' members).']);
+    apiResponse((['ok' => false, 'error' => 'This group is full (max ' . $group['max_members'] . ' members).']));
     exit;
 }
 
@@ -91,3 +93,14 @@ idempotencyRespond($idemCtx, [
         'role' => 'member'
     ]
 ], 200);
+
+} catch (Throwable $e) {
+    logMessage('ERROR', 'Unhandled endpoint exception', [
+        'endpoint' => $_SERVER['REQUEST_URI'] ?? '',
+        'method'   => $_SERVER['REQUEST_METHOD'] ?? '',
+        'error'    => $e->getMessage(),
+        'file'     => $e->getFile(),
+        'line'     => $e->getLine(),
+    ]);
+    apiError('Internal server error.', 500);
+}

@@ -172,6 +172,34 @@ function validateDate(string $dateString, string $fieldName): void {
     }
 }
 
+
+/**
+ * M4 (PENTEST/moderately sever/M4.md): validate a YYYY-MM month parameter.
+ * Shape AND range in one check (the loose \d{2} form accepted 2026-15).
+ *
+ * @throws Exception if the month is malformed or out of 01-12.
+ */
+function validateMonth(string $raw, string $fieldName = 'month'): string {
+    if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $raw)) {
+        throw new Exception("$fieldName must be in YYYY-MM format (got: $raw)");
+    }
+    return $raw;
+}
+
+/**
+ * L-2 (PENTEST/low severity/L-2.md): an ordered date range. Both bounds must
+ * be calendar-valid and start <= end. Lexicographic comparison is safe here
+ * because validateDate() guarantees canonical YYYY-MM-DD.
+ *
+ * @throws Exception on any violation.
+ */
+function validateDateRange(string $start, string $end, string $startField = 'start', string $endField = 'end'): void {
+    validateDate($start, $startField);
+    validateDate($end, $endField);
+    if ($start > $end) {
+        throw new Exception("$startField date is after $endField date");
+    }
+}
 /**
  * Validate that a string is a valid email address.
  *
