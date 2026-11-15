@@ -44,7 +44,7 @@ trade-off is intentional and must not be "cleaned up" during the migration.
 
 ```
 ExpMgWEB/
-├── api/                    41 endpoint/auth/worker files + helpers + middleware + dormant services
+├── api/                    40 HTTP endpoints + 1 CLI worker + helpers + middleware + dormant services
 ├── config/                 db, env, session, idempotency
 ├── pages/                  PHP page partials included by public/index.php
 ├── public/

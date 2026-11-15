@@ -9,7 +9,7 @@ checked against the PHP source, not against README claims.
 
 | Category | Count | Files |
 |---|---|---|
-| Endpoint + auth + worker files | 41 | 37 module endpoints + `login.php`, `logout.php`, `signup.php` + CLI worker |
+| Endpoint + auth + worker files | 41 | **40 HTTP endpoints** (36 module + `login.php`, `logout.php`, `signup.php` + `system/health.php`) **plus 1 CLI-only worker** |
 | Middleware | 1 | `api/middleware/auth.php` |
 | Helpers | 10 | `csrf`, `validator`, `logger`, `response`, `rate_limiter`, `outbox`, `notification_store`, `notification_publisher`, `notifications_config`, `redis` |
 | Dormant services | 10 | `RedisService`, `CacheService`, `LockService`, `HealthService`, `MetricsService`, `PredictiveHealthService`, `SystemOrchestrator`, `NotificationService_Redis`, `FileNotificationStore`, `NotificationStore` |
@@ -17,22 +17,38 @@ checked against the PHP source, not against README claims.
 | Settlement helper | 1 | `api/settlements/settlement_helpers.php` |
 | **Total PHP files under `api/`** | **64** | |
 
-Only 41 of the 64 files are endpoint/auth/worker files: 40 HTTP-reachable client endpoints
-plus one CLI-only worker. The rest are infrastructure, dormant code, or the dead bootstrap.
+Only 41 of the 64 files are endpoint/auth/worker files: **40 HTTP endpoints** (36 module
+endpoints, 3 auth endpoints, and `system/health.php`) plus one CLI-only worker that is not
+reachable over HTTP. The rest are infrastructure, dormant code, or the dead bootstrap.
 
 ### Endpoint census
 
 ```
-auth            login.php, logout.php, signup.php
-expenses        categories, create, delete, list, price_unpriced, summary, unpriced, update
-groups          create, delete, details, join, leave, remove_member, user_groups
-settlements     calculate, confirm, details, history, post_calculate, post_confirm,
-                settle, settle_all, settlement_helpers
-lists           add_item, check_item, create, delete, details, remove_item, user_lists
-budgets         get, set
-notifications   count, history, list, read
-system          health
-workers         process_outbox (CLI only)
+auth            login.php, logout.php, signup.php                         3 HTTP
+expenses        categories, create, delete, list, price_unpriced,
+                summary, unpriced, update                                 8 HTTP
+groups          create, delete, details, join, leave, remove_member,
+                user_groups                                               7 HTTP
+settlements     calculate, confirm, details, history, post_calculate,
+                post_confirm, settle, settle_all                          8 HTTP
+                + settlement_helpers.php  (shared helper, NOT an endpoint)
+lists           add_item, check_item, create, delete, details,
+                remove_item, user_lists                                   7 HTTP
+budgets         get, set                                                   2 HTTP
+notifications   count, history, list, read                                 4 HTTP
+system          health                                                     1 HTTP
+workers         process_outbox  (CLI only, not HTTP reachable)             0 HTTP
+```
+
+```
+module HTTP endpoints   36   (8 + 7 + 8 + 7 + 2 + 4)
+auth HTTP endpoints      3
+system HTTP endpoints    1
+--------------------------
+HTTP endpoints total    40
+
+CLI-only worker          1   (workers/process_outbox.php)
+non-endpoint helper      1   (settlements/settlement_helpers.php)
 ```
 
 ---

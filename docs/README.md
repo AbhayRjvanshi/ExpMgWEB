@@ -17,7 +17,7 @@ changing behaviour. Nothing in this directory is a design proposal for the PHP a
 | Audit snapshot commit | `5ed8de3` — "UI repair: restore markup eaten by the Phase 3 extraction" |
 | Documentation produced at | `66dedc1` — splash redirect fix only (`public/splash.php`) |
 | Snapshot date | 2026-11-15 |
-| Backend surface | 41 endpoint/auth/worker files under `api/` (37 module endpoints + login/logout/signup + 1 CLI worker); 64 PHP files total |
+| Backend surface | **40 HTTP endpoints** — 36 module + 3 auth + 1 system (`system/health.php`); plus 1 CLI-only worker (`workers/process_outbox.php`, not HTTP). 64 PHP files total |
 | Database | 14 tables (`schema.sql` is the source of truth) |
 | Test suite | `tests/run_tests.php` — **538 tests, 433 passed, 105 failed** |
 | Canonical test record | [`TEST_BASELINE.md`](TEST_BASELINE.md) |
@@ -37,7 +37,7 @@ this documentation set. See [`MIGRATION_PRESERVATION_PLAN.md`](MIGRATION_PRESERV
 |---|---|
 | [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md) | What the product is, its stack, runtime topology, request lifecycle, and design system |
 | [`FEATURE_INVENTORY.md`](FEATURE_INVENTORY.md) | Every user-facing feature, where it lives, and its preservation status for Flutter |
-| [`BACKEND_AUDIT.md`](BACKEND_AUDIT.md) | How the 41 endpoint/auth/worker files are structured and guarded |
+| [`BACKEND_AUDIT.md`](BACKEND_AUDIT.md) | How the 40 HTTP endpoints and the 1 CLI worker are structured and guarded |
 | [`DATABASE_AUDIT.md`](DATABASE_AUDIT.md) | All 14 tables, keys, constraints, invariants, and sync-readiness gaps |
 | [`FRONTEND_AUDIT.md`](FRONTEND_AUDIT.md) | SPA shell, JavaScript modules, page routing, frontend→API call map, charts/PDF/theme |
 | [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md) | Current verified security posture and the controls the Flutter client must respect |
@@ -72,6 +72,10 @@ code win**. Specifically:
   the older "regex-only date check" claim in `Issues.txt` is stale.
 - `graphify-out/graph.json` was generated 2026-06-03 and is stale. It may be used only as a
   navigation aid after regeneration; it is never an authority for behaviour.
+- The backend has **40 HTTP endpoints** (36 module + 3 auth + 1 system) and **1 CLI-only
+  worker**. Counts of "38 endpoints" or "41 endpoint files" in dated version-history sections
+  of `README.md` describe earlier code states and are preserved as history; open
+  `API_CONTRACT.md` §9.1 for the current classification.
 
 ---
 

@@ -166,7 +166,7 @@ Decision for the migration:
 
 | Work | Why deferred |
 |---|---|
-| Section 30 response-contract rollout | 38-endpoint change with its own regression surface |
+| Section 30 response-contract rollout | Multi-endpoint change (the suite scans 39 `api/` files) with its own regression surface |
 | KD-06 service layer | 88 tests; requires real implementation and characterization tests |
 | KD-05 ephemeral notifications | Must wire producers and consumers together |
 | KD-11 distributed services | No HTTP-path caller |
@@ -217,7 +217,8 @@ Phase 1 is complete when:
 
 - [x] The repository state and snapshot commit are recorded.
 - [x] The canonical test baseline is captured and reproducible.
-- [x] All 41 endpoint/auth/worker contracts are documented from source.
+- [x] All 40 HTTP endpoint contracts (36 module + 3 auth + 1 system) are documented from source,
+      and the 1 CLI-only worker is documented separately as non-HTTP.
 - [x] All 14 tables, constraints, and invariants are documented.
 - [x] Every frontend feature and its API call map is documented.
 - [x] Security status is reconciled with the latest penetration-test outcome.

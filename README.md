@@ -94,9 +94,9 @@ Two policy decisions are recorded here so they are not re-litigated:
    That is a regression, not a fix: it double-escapes on edit round-trips,
    breaks `LIKE` search, and corrupts exports. Prepared statements plus
    `esc()` in the UI are the correct boundary.
-2. **Section 30 is deferred, not rejected.** Migrating 38 endpoints to
-   `response.php`/`apiError` plus try/catch and the 405/400 contracts is a
-   self-contained change with its own regression surface.
+2. **Section 30 is deferred, not rejected.** Migrating the 39 `api/` files the
+   suite scans to `response.php`/`apiError` plus try/catch and the 405/400
+   contracts is a self-contained change with its own regression surface.
 
 `php tests/distributed_system_test.php` (standalone, not part of `run_tests.php`)
 runs 21/25 against the dormant distributed stack.

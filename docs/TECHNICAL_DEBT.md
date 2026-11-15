@@ -68,7 +68,9 @@ but adoption is incomplete:
 - Validation errors are not uniformly 400.
 - Not every endpoint has a `try/catch`; the global handler covers the rest.
 
-Finishing section 30 means touching 38 endpoints and re-running the full suite. It has its own
+Finishing section 30 means touching every `api/` file the suite scans — 39 files, comprising the
+36 module endpoints, `system/health.php`, the CLI worker, and `helpers/outbox.php`, excluding
+the 3 auth endpoints and the named helpers — then re-running the full suite. It has its own
 regression surface and must not be bundled into the Flutter migration. The contract documents
 the **effective** behaviour so the client can cope with both generations.
 
@@ -154,7 +156,7 @@ Deletion is **not** part of Phase 1. Recorded so nobody mistakes these files for
 |---|---|---|
 | `README.md` | 427/112/539 | 433/105/538 |
 | `AGENTS.md` | 427/112/539 | 433/105/538 |
-| `AGENTS.md` | "42 API files" | 64 PHP files under `api/`; 41 endpoint/auth/worker files (40 client-facing + 1 CLI worker) |
+| `AGENTS.md` | "42 API files" | 64 PHP files under `api/`; 41 endpoint/auth/worker files = 40 HTTP endpoints (36 module + 3 auth + 1 system) + 1 CLI worker |
 | `Issues.txt` | `settle.php:29` regex-only | `validateDate()` is used |
 | `Issues.txt` | 427/112/539 | 433/105/538 |
 | `graphify-out/GRAPH_REPORT.md` | June 2026 architecture | Stale; source is authority |

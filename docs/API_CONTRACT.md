@@ -306,7 +306,50 @@ Multiple validation failures may be joined into one `error` string with spaces.
 
 ## 9. Endpoint reference
 
-### 9.1 Expenses
+### 9.1 Endpoint inventory and classification
+
+The `api/` tree at snapshot `5ed8de3` contains **64 PHP files**. Of those,
+**40 are HTTP endpoints**, one is a **CLI-only worker**, and one is a **helper that is not an
+endpoint**.
+
+| Class | Count | Files |
+|---|---:|---|
+| Module HTTP endpoints | 36 | Expenses 8, Groups 7, Settlements 8, Lists 7, Budgets 2, Notifications 4 |
+| Authentication HTTP endpoints | 3 | `login.php`, `logout.php`, `signup.php` |
+| System HTTP endpoint | 1 | `system/health.php` |
+| **HTTP endpoints total** | **40** | |
+| CLI-only worker (not HTTP) | 1 | `workers/process_outbox.php` |
+| Non-endpoint helper inside a module dir | 1 | `settlements/settlement_helpers.php` |
+
+Module HTTP endpoints by directory:
+
+| Directory | Count | Endpoints |
+|---|---:|---|
+| `expenses/` | 8 | `categories`, `list`, `summary`, `create`, `update`, `delete`, `unpriced`, `price_unpriced` |
+| `groups/` | 7 | `user_groups`, `create`, `join`, `details`, `remove_member`, `leave`, `delete` |
+| `settlements/` | 8 | `calculate`, `confirm`, `settle`, `settle_all`, `history`, `details`, `post_calculate`, `post_confirm` |
+| `lists/` | 7 | `user_lists`, `create`, `delete`, `details`, `add_item`, `remove_item`, `check_item` |
+| `budgets/` | 2 | `get`, `set` |
+| `notifications/` | 4 | `count`, `list`, `history`, `read` |
+
+`expenses/` + `groups/` + `settlements/` + `lists/` + `budgets/` + `notifications/` = 36 module
+HTTP endpoints. Adding the 3 auth endpoints and `system/health.php` gives **40 HTTP endpoints**.
+
+Three things that are **not** HTTP endpoints:
+
+- `api/workers/process_outbox.php` — CLI-only. Over HTTP it returns
+  `403 {"ok":false,"error":"Forbidden: CLI execution only."}`. It is not part of the client
+  contract; see §9.9.
+- `api/settlements/settlement_helpers.php` — a shared library (`calculateSettlements()`), not a
+  route. It returns no response and is never called directly.
+- The 10 helpers, `middleware/auth.php`, the 10 dormant services, and `api/bootstrap.php` —
+  infrastructure, documented in `BACKEND_AUDIT.md`.
+
+> Earlier documents in this repository quote "38 API endpoints" (dated version-history sections
+> of `README.md`) and "41 endpoint files" (endpoint + auth + worker). Only the counts on this
+> page reflect the tree at the audit snapshot: **40 HTTP endpoints** plus 1 CLI-only worker.
+
+### 9.2 Expenses
 
 #### GET `/api/expenses/categories.php`
 
@@ -511,7 +554,7 @@ Errors: `Invalid item.`, `Item not found.`, `Invalid price.`, `Payer must be a g
 `This expense date has already been settled and cannot be modified.`,
 `Item was concurrently priced.`, `Failed to create expense.`
 
-### 9.2 Groups
+### 9.3 Groups
 
 #### GET `/api/groups/user_groups.php`
 
@@ -609,7 +652,7 @@ Auth + CSRF. `group_id`. Creator only. Cascades.
 Errors: `Invalid group.`, `Group not found.`,
 `Only the group creator can delete the group.`, `Failed to delete group.`
 
-### 9.3 Settlements
+### 9.4 Settlements
 
 #### GET `/api/settlements/calculate.php`
 
@@ -813,7 +856,7 @@ Errors: `Invalid group.`, `You are not a member of this group.`, `No members in 
 
 **Known gap:** the insert/count/finalize block is not under `SELECT … FOR UPDATE`.
 
-### 9.4 Lists
+### 9.5 Lists
 
 #### GET `/api/lists/user_lists.php`
 
@@ -955,7 +998,7 @@ Errors: `Invalid item.`, `Item not found.`, `Access denied.`,
 **Known gaps:** the group check marks the item before the popup, and confirm-mode `price` has no
 upper bound. See `TECHNICAL_DEBT.md`.
 
-### 9.5 Budgets
+### 9.6 Budgets
 
 #### GET `/api/budgets/get.php`
 
@@ -988,7 +1031,7 @@ Auth + CSRF + idempotency. `requirePostMethod()`. `month`, `amount_limit`.
 Errors: `Invalid month format.`, `Budget must be greater than zero.`,
 `Budget must be at most 99999999.00.`, `Failed to save budget.`
 
-### 9.6 Notifications
+### 9.7 Notifications
 
 #### GET `/api/notifications/count.php`
 
@@ -1037,7 +1080,7 @@ Auth + CSRF. `requirePostMethod()`.
 A foreign/nonexistent ID returns `marked: 0` with HTTP 200 (no enumeration oracle).
 Errors: `Invalid notification ID.`
 
-### 9.7 System
+### 9.8 System
 
 #### GET `/api/system/health.php`
 
@@ -1046,7 +1089,7 @@ counts. Shape is diagnostic and may vary; treat it as observability, not product
 
 Failure: HTTP 500 `{"ok":false,"success":false,"error":"Internal server error.","code":500}`.
 
-### 9.8 CLI worker
+### 9.9 CLI worker
 
 #### `api/workers/process_outbox.php`
 

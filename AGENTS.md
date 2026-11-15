@@ -28,7 +28,7 @@
 
 ```
 ExpMgWEB/
-├── api/                        # 64 PHP files: 41 endpoint/auth/worker, helpers, middleware, dormant services
+├── api/                        # 64 PHP files: 40 HTTP endpoints + 1 CLI worker, helpers, middleware, dormant services
 │   ├── bootstrap.php           # ⚠ Still included by ZERO files (see KD-02)
 │   ├── middleware/auth.php     # requireAuth() — first include of every endpoint;
 │   │                           #   boots config/session.php, emits CSP + security
@@ -284,7 +284,7 @@ or 400-instead-of-405 behaviour; `docs/API_CONTRACT.md` documents the effective 
 ### Two standing policy decisions
 
 1. **Never store HTML-escaped entities in MySQL.** Raw text goes in (prepared statements), `esc()` escapes at render time. The three assertions that expect `O&#039;Brien` / `&lt;script&gt;` in the column are rejected: write-time escaping double-escapes on edit round-trips, breaks `LIKE` search, and corrupts exports.
-2. **Section 30 is deferred, not rejected.** Moving 38 endpoints onto `response.php`/`apiError` plus try/catch and the 405/400 contracts is a single self-contained change with its own regression surface.
+2. **Section 30 is deferred, not rejected.** Moving the endpoint files the suite scans (39 `api/` files) onto `response.php`/`apiError` plus try/catch and the 405/400 contracts is a single self-contained change with its own regression surface.
 
 ### Pagination ceilings (do not "normalise" these)
 

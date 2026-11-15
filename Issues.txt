@@ -93,8 +93,10 @@
 
 ## Follow-ups (deliberately deferred)
 
-- **Section 30 `response.php` rewrite (7 tests)**: move 38 endpoints onto
-  `apiSuccess()` / `apiError()`, add try/catch, and return 405 for GET on
+- **Section 30 `response.php` rewrite (7 tests)**: move the 39 `api/` files the
+  suite scans (36 module endpoints + `system/health.php` + the CLI worker +
+  `helpers/outbox.php`) onto `apiSuccess()` / `apiError()`, add try/catch, and
+  return 405 for GET on
   POST-only endpoints and 400 for validation errors. Deferred as one change so
   its regression surface stays isolated.
 - **Section 28 service layer (88 tests) + KD-06**: implement the real
