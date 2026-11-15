@@ -28,7 +28,7 @@
 
 ```
 ExpMgWEB/
-├── api/                        # All API endpoints (42 files)
+├── api/                        # 64 PHP files: 41 endpoint/auth/worker, helpers, middleware, dormant services
 │   ├── bootstrap.php           # ⚠ Still included by ZERO files (see KD-02)
 │   ├── middleware/auth.php     # requireAuth() — first include of every endpoint;
 │   │                           #   boots config/session.php, emits CSP + security
@@ -88,7 +88,7 @@ ExpMgWEB/
 ├── schema.sql                  # Full DB schema (source of truth)
 ├── migration_v1.8.sql          # CHECK-constraint + idx_expense_date parity (guarded, idempotent, NOT applied to live DB)
 ├── migration_v2.2–v2.9.sql     # Incremental migrations (v2.9 = notification feed index)
-├── run_tests.php               # 539-test suite, 427 pass / 112 fail (all failures catalogued in Test Suite Notes)
+├── tests/run_tests.php         # Canonical 538-test suite, 433 pass / 105 fail (see docs/TEST_BASELINE.md)
 ├── .htaccess                   # Root webroot lockdown (dotfiles, dumps, docs, internal dirs)
 ├── AGENTS.md                   # ← You are here
 └── .mcp.json                   # Project-scoped MCP server config (403 via .htaccess)
@@ -261,19 +261,25 @@ Always wrap multi-step writes in `$conn->begin_transaction()` / `$conn->commit()
 
 ## Test Suite Notes
 
-`run_tests.php` has 35 sections and **539 tests**. Current baseline: **427 passed / 112 failed**. Every remaining failure is accounted for below; none are unknown.
+The canonical suite is **`tests/run_tests.php`** (the root `run_tests.php` is a stale copy). It
+has 35 sections and **538 tests**. Current baseline: **433 passed / 105 failed**. Every
+remaining failure is accounted for; the authoritative record is
+[`docs/TEST_BASELINE.md`](docs/TEST_BASELINE.md).
 
-Failure breakdown as of the v2.17 safe set:
+Failure breakdown at the Phase 1 snapshot:
 
 | Section | Failures | Cause |
 |---|---|---|
 | 28 | 88 | the planned business service layer does not exist (KD-06) |
 | 34 | 11 | ephemeral notification store built but unwired: `NotificationService`/`consume()`, `read.php` still MySQL-backed, `history.php` raw SQL, service-level `notification_store` usage, frontend still keyed on numeric ids (KD-05) |
 | 31, 32 | 3 | `31j`, `32u`, `32v` scan the same missing service files for `logger.php`, `LIMIT`/`array_slice`, `paginationMeta` |
-| 30 | 7 | `response.php` adoption, GET-on-POST 405, validation-error 400 — deferred as its own 38-endpoint change |
 | 9, 22, 26 | 3 | write-time HTML-entity assertions — **rejected by design** (see below) |
 
-**Total: 88 + 11 + 3 + 7 + 3 = 112.**
+**Total: 88 + 11 + 3 + 3 = 105.**
+
+Section 30 now passes (it was 7 failures in the older 427/112/539 baseline). The contract rollout
+is still deferred in the sense that some endpoints retain raw `json_encode`, 200-on-business-error,
+or 400-instead-of-405 behaviour; `docs/API_CONTRACT.md` documents the effective mixed state.
 
 ### Two standing policy decisions
 
@@ -329,7 +335,7 @@ See `.mcp.json` (project root) and `.cursor/mcp.json` for configuration.
 | v2.14 | README audit baseline |
 | v2.15 | README audit corrections, .gitignore cleanup |
 | v2.16 | Security hardening & wiring: webroot `.htaccess` lockdown, CLI-only gates, `config/session.php` + unified CSP/CSRF, idempotency wired to 11 POSTs, signup/login hardening, action-aware rate-limit retention, CSRF IP gate, read-only notification GETs. Suite: 403/134 of 537 |
-| v2.17 | Safe set: `schema.sql` CHECK/index parity + guarded `migration_v1.8.sql`, login attempt accounting for unknown emails, `paginationMeta()` on all 10 list endpoints with per-endpoint ceilings (30/50 notifications, 20/50 expenses, 500/1000 feeds), `validator.php` required by every endpoint, validation-message fixes (`numeric`, `greater than zero`, real month range), INFO log on expense creation, `event_id` compat alias. Suite: 427/112 of 539 |
+| v2.17 | Safe set: `schema.sql` CHECK/index parity + guarded `migration_v1.8.sql`, login attempt accounting for unknown emails, `paginationMeta()` on all 10 list endpoints with per-endpoint ceilings (30/50 notifications, 20/50 expenses, 500/1000 feeds), `validator.php` required by every endpoint, validation-message fixes (`numeric`, `greater than zero`, real month range), INFO log on expense creation, `event_id` compat alias. Suite at the time: 427/112 of 539 |
 
 ---
 

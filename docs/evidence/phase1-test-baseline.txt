@@ -1,0 +1,757 @@
+==========================================================
+  ExpMgWEB — Comprehensive Functional Test Suite
+==========================================================
+
+── 1. Schema Validation ──
+  PASS: Table 'users' exists
+  PASS: Table 'categories' exists
+  PASS: Table 'groups' exists
+  PASS: Table 'group_members' exists
+  PASS: Table 'expenses' exists
+  PASS: Table 'budgets' exists
+  PASS: Table 'lists' exists
+  PASS: Table 'list_items' exists
+  PASS: Table 'notifications' exists
+  PASS: Table 'settlements' exists
+  PASS: Table 'settlement_confirmations' exists
+  PASS: Table 'post_settlement_confirmations' exists
+  PASS: expenses.paid_by column exists
+  PASS: expenses.created_by column exists
+  PASS: expenses.checked_by column exists
+  PASS: expenses.is_post_settlement column exists
+  PASS: list_items.expense_id column exists
+  PASS: list_items.expense_created column exists
+  PASS: Categories seeded
+
+── 2. Auth: Signup / Login / Logout ──
+  PASS: Signup user A
+  PASS: Signup user B
+  PASS: Signup user C
+  PASS: Duplicate signup rejected
+  PASS: Login user A � session obtained
+  PASS: Login user B — session obtained
+  PASS: Login user C — session obtained
+  PASS: User A ID retrieved
+  PASS: User B ID retrieved
+  PASS: Wrong password rejected
+
+── 3. Categories ──
+  PASS: Get categories
+  PASS: Categories count >= 8
+
+── 4. Personal Expenses — CRUD ──
+  PASS: Create personal expense
+  PASS: List expenses by date
+  PASS: Created expense appears in list
+  PASS: List expenses by month
+  PASS: Update personal expense
+  PASS: Updated expense reflects changes
+  PASS: User B cannot update A's personal expense
+  PASS: Delete personal expense
+  PASS: User B cannot delete A's expense
+
+── 5. Expense Summary ──
+  PASS: Summary endpoint returns OK
+  PASS: Summary total_spent > 0
+  PASS: Summary has by_category
+  PASS: Summary has by_day
+
+── 6. Budgets ──
+  PASS: Set budget
+  PASS: Get budget
+  PASS: Budget amount correct
+  PASS: Update budget
+  PASS: Budget updated to 750
+  PASS: Budget set rejects GET
+
+── 7. Groups ──
+  PASS: Create group
+  PASS: Group ID valid
+  PASS: Join code returned
+  PASS: User groups list
+  PASS: Created group in list
+  PASS: User B joins group
+  PASS: User C joins group
+  PASS: Invalid join code rejected
+  PASS: Group details
+  PASS: Group has 3 members
+  PASS: User A is admin
+  PASS: User B is member
+
+── 8. Group Expenses ──
+  PASS: Create group expense (A pays)
+  PASS: Create group expense (B pays)
+  PASS: Paid_by tracked correctly
+  PASS: Non-admin cannot edit group expense
+  PASS: Admin can edit group expense
+  PASS: Non-admin cannot delete group expense
+
+── 9. Notifications ──
+  PASS: Notification count endpoint
+  PASS: Notification list endpoint
+  PASS: User B has notifications
+  PASS: Consume notification
+  PASS: Consume all notifications
+
+── 10. Settlement ──
+  PASS: Settlement calculate
+  PASS: Settlement has members
+  PASS: Settlement has settlements array
+  PASS: Per-person share correct
+  PASS: Settlement history (before settle)
+  PASS: No past settlements yet
+
+── 11. Settlement Confirmation ──
+  PASS: User A confirms settlement
+  PASS: Not yet finalized (1/3)
+  PASS: User B confirms settlement
+  PASS: Not yet finalized (2/3)
+  PASS: User C confirms settlement
+  PASS: Settlement finalized (3/3)
+  PASS: Settlement history has entries
+  PASS: Settlement details endpoint
+
+── 12. Settlement Lock ──
+  PASS: Cannot update settled expense
+  PASS: Cannot delete settled expense
+
+── 13. Post-Settlement Expenses ──
+  PASS: Add item for post-settlement
+  PASS: Check post-settlement item
+  PASS: Confirm post-settlement item
+  PASS: Post-settle expense created
+  PASS: Flagged as post-settlement
+  PASS: Late expense is_post_settlement = 1
+  PASS: Post-settlement calculate
+  PASS: Post-confirm user A
+  PASS: Post-confirm user B
+  PASS: Post-confirm user C
+
+── 14. Personal Lists ──
+  PASS: Create personal list
+  PASS: User lists endpoint
+  PASS: Created list appears
+  PASS: Add item with price
+  PASS: Add item without price
+  PASS: List details
+  PASS: List has 2 items
+  PASS: Check personal item
+  PASS: expense_created = 1 after check
+  PASS: expense_id stored
+  PASS: Uncheck personal item
+  PASS: Linked expense deleted on uncheck
+  PASS: expense_created reset to 0
+  PASS: expense_id reset to NULL
+  PASS: Remove item
+  PASS: User B cannot delete A's personal list
+  PASS: Delete personal list
+
+── 15. Group Lists ──
+  PASS: Create group list
+  PASS: Add item to group list
+  PASS: Check group item returns needs_confirm
+  PASS: needs_confirm flag set
+  PASS: Confirm group item check with paid_by
+  PASS: Expense created for group item
+  PASS: Group item expense_id stored
+  PASS: Non-admin member cannot delete group list
+  PASS: Admin can delete group list
+
+── 16. Unpriced Items ──
+  PASS: Add unpriced item
+  PASS: Check unpriced group item
+  PASS: Unpriced items endpoint
+  PASS: Unpriced item appears in list
+  PASS: Price unpriced item
+  PASS: Priced item has expense_id
+
+── 17. Settle.php Admin Guard ──
+  PASS: Non-admin cannot settle
+
+── 18. Settle All (Admin) ──
+  PASS: Non-admin cannot settle_all
+  PASS: Admin settle_all succeeds
+
+── 19. Group Leave & Delete ──
+  PASS: User C leaves group
+  PASS: Group has 2 members after leave
+  PASS: Non-admin cannot delete group
+  PASS: Admin deletes group
+
+── 20. Settlement Algorithm (Unit) ──
+  PASS: Algorithm returns settlements
+  PASS: Settlements balance (total = 50)
+  PASS: C pays A = 40
+  PASS: C pays B = 10
+  PASS: Equal contributions = no settlements
+  PASS: Single person = no settlements
+
+── 21. Unauthenticated Access ──
+  PASS: No auth: GET expenses/list.php blocked
+  PASS: No auth: POST expenses/create.php blocked
+  PASS: No auth: GET groups/user_groups.php blocked
+  PASS: No auth: GET lists/user_lists.php blocked
+  PASS: No auth: GET notifications/count.php blocked
+  PASS: No auth: GET budgets/get.php blocked
+  PASS: No auth: GET settlements/calculate.php blocked
+
+── 22. SQL Injection Protection ──
+  PASS: SQL injection login blocked
+  PASS: SQL injection signup handled
+  PASS: SQL injection signup no server error
+  PASS: Special chars in expense note
+  FAIL: Special chars preserved in DB
+  PASS: SQL injection in expense note handled
+  PASS: expenses table intact after injection attempt
+  PASS: SQL injection in join code blocked
+  PASS: SQL injection in list item handled
+  PASS: list_items intact after injection attempt
+
+── 23. UI File Integrity ──
+  PASS: File exists: public/index.php
+  PASS: File exists: pages/home.php
+  PASS: File exists: pages/expenses.php
+  PASS: File exists: pages/groups.php
+  PASS: File exists: pages/lists.php
+  PASS: File exists: pages/notifications.php
+  PASS: File exists: pages/login.php
+  PASS: File exists: pages/signup.php
+  PASS: File exists: public/splash.php
+  PASS: File exists: public/assets/js/app.js
+  PASS: File exists: public/assets/js/helpers.js
+  PASS: File exists: public/assets/css/styles.css
+  PASS: helpers.js loaded before app.js
+  PASS: helpers.js defines $()
+  PASS: helpers.js defines show()
+  PASS: helpers.js defines hide()
+  PASS: helpers.js defines escapeHTML()
+  PASS: helpers.js defines post()
+  PASS: helpers.js defines get()
+  PASS: helpers.js defines API const
+  PASS: app.js: no duplicate $() definitions
+  PASS: app.js: no duplicate show() definitions
+  PASS: app.js: no duplicate API const
+  PASS: pages/groups.php: no duplicate $() definition
+  PASS: pages/lists.php: no duplicate $() definition
+  PASS: pages/notifications.php: no duplicate $() definition
+
+── 24. PHP Syntax Check ──
+  PASS: All PHP files pass syntax check (0 errors)
+
+── 25. Prepared Statements Verification ──
+  PASS: No unsafe $conn->query() with variables in API files
+  PASS: config/db.php: no raw queries
+
+── 26. Input Validation Layer ──
+  PASS: validator.php exists
+  PASS: All API files include validator.php
+  PASS: Non-numeric amount rejected
+  PASS: Non-numeric amount error message
+  PASS: Negative amount rejected
+  PASS: Negative amount error message
+  PASS: Zero amount rejected
+  PASS: Invalid date rejected (2026-99-55)
+  PASS: Invalid date error message
+  PASS: Invalid calendar date rejected (Feb 30)
+  PASS: Invalid category ID rejected
+  PASS: Negative budget rejected
+  PASS: Invalid month rejected (15)
+  PASS: Empty group name rejected
+  PASS: Oversized group name rejected
+  PASS: Empty description rejected
+  PASS: XSS expense note accepted (sanitized)
+  FAIL: XSS script tag escaped in DB
+  PASS: XSS group name accepted (sanitized)
+  FAIL: XSS group name escaped in DB
+  PASS: confirm.php rejects GET
+  PASS: post_confirm.php rejects GET
+  PASS: settle.php rejects GET
+  PASS: settle_all.php rejects GET
+
+── 27. Authentication Middleware ──
+  PASS: auth.php middleware exists
+  PASS: All API files include auth middleware
+  PASS: No inline session_start() in API files
+  PASS: Middleware blocks expenses/list.php: correct error message
+  PASS: Middleware blocks expenses/create.php: correct error message
+  PASS: Middleware blocks groups/user_groups.php: correct error message
+  PASS: Middleware blocks budgets/set.php: correct error message
+  PASS: Login returns fresh session
+  PASS: Fresh login passes auth middleware
+  PASS: Login sets session cookie
+  PASS: Logout succeeds (redirect or JSON)
+  PASS: Post-logout: auth blocked
+  PASS: login.php starts session itself
+  PASS: login.php sets login_time
+  PASS: login.php calls session_regenerate_id
+
+── Section 28: Service Layer ──
+  FAIL: Service file exists: ExpenseService.php
+  FAIL: Service file exists: GroupService.php
+  FAIL: Service file exists: SettlementService.php
+  FAIL: Service file exists: ListService.php
+  FAIL: Service file exists: BudgetService.php
+  FAIL: Service file exists: NotificationService.php
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/ExpenseService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 1597
+  FAIL: ExpenseService declares class
+  FAIL: ExpenseService constructor takes mysqli
+  FAIL: ExpenseService stores conn as property
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/GroupService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 1597
+  FAIL: GroupService declares class
+  FAIL: GroupService constructor takes mysqli
+  FAIL: GroupService stores conn as property
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/SettlementService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 1597
+  FAIL: SettlementService declares class
+  FAIL: SettlementService constructor takes mysqli
+  FAIL: SettlementService stores conn as property
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/ListService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 1597
+  FAIL: ListService declares class
+  FAIL: ListService constructor takes mysqli
+  FAIL: ListService stores conn as property
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/BudgetService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 1597
+  FAIL: BudgetService declares class
+  FAIL: BudgetService constructor takes mysqli
+  FAIL: BudgetService stores conn as property
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/NotificationService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 1597
+  FAIL: NotificationService declares class
+  FAIL: NotificationService constructor exists
+  FAIL: NotificationService uses notification store abstraction
+  FAIL: expenses/create.php includes ExpenseService.php
+  FAIL: expenses/update.php includes ExpenseService.php
+  FAIL: expenses/delete.php includes ExpenseService.php
+  FAIL: expenses/list.php includes ExpenseService.php
+  FAIL: expenses/summary.php includes ExpenseService.php
+  FAIL: expenses/categories.php includes ExpenseService.php
+  FAIL: groups/create.php includes GroupService.php
+  FAIL: groups/delete.php includes GroupService.php
+  FAIL: groups/details.php includes GroupService.php
+  FAIL: groups/join.php includes GroupService.php
+  FAIL: groups/leave.php includes GroupService.php
+  FAIL: groups/user_groups.php includes GroupService.php
+  FAIL: settlements/calculate.php includes SettlementService.php
+  FAIL: settlements/confirm.php includes SettlementService.php
+  FAIL: settlements/settle.php includes SettlementService.php
+  FAIL: settlements/settle_all.php includes SettlementService.php
+  FAIL: settlements/history.php includes SettlementService.php
+  FAIL: settlements/details.php includes SettlementService.php
+  FAIL: settlements/post_calculate.php includes SettlementService.php
+  FAIL: settlements/post_confirm.php includes SettlementService.php
+  FAIL: lists/create.php includes ListService.php
+  FAIL: lists/delete.php includes ListService.php
+  FAIL: lists/add_item.php includes ListService.php
+  FAIL: lists/remove_item.php includes ListService.php
+  FAIL: lists/check_item.php includes ListService.php
+  FAIL: lists/details.php includes ListService.php
+  FAIL: lists/user_lists.php includes ListService.php
+  FAIL: budgets/get.php includes BudgetService.php
+  FAIL: budgets/set.php includes BudgetService.php
+  FAIL: notifications/count.php includes NotificationService.php
+  FAIL: notifications/list.php includes NotificationService.php
+  FAIL: notifications/read.php includes NotificationService.php
+  FAIL: expenses/create.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: expenses/update.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: expenses/delete.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: expenses/list.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: expenses/summary.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: expenses/categories.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/create.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/delete.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/details.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/join.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/leave.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/user_groups.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: budgets/get.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: budgets/set.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: notifications/count.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: notifications/list.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: notifications/read.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/create.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/delete.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/add_item.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/remove_item.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/check_item.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/details.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/user_lists.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/calculate.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/confirm.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/settle.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/settle_all.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/history.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/details.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/post_calculate.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/post_confirm.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  PASS: login.php does not use service layer
+  PASS: logout.php does not use service layer
+  PASS: signup.php does not use service layer
+  PASS: 28f: Create expense via service layer
+  PASS: 28f: List expenses via service layer
+  PASS: 28f: Update expense via service layer
+  PASS: 28f: Delete expense via service layer
+  PASS: 28f: Get categories via service layer
+  PASS: 28f: Get summary via service layer
+  PASS: 28g: Set budget via service layer
+  PASS: 28g: Get budget via service layer
+  PASS: 28h: Notification count via service layer
+  PASS: 28h: Notification list via service layer
+  PASS: 28i: Create list via service layer
+  PASS: 28i: List details via service layer
+  PASS: 28i: Add list item via service layer
+  PASS: 28i: Check list item via service layer
+  PASS: 28i: Remove list item via service layer
+  PASS: 28i: User lists via service layer
+  PASS: 28i: Delete list via service layer
+
+── 29. Database Constraints & Indexes ──
+  PASS: 29a: CHECK constraint chk_expense_amount exists on expenses
+  PASS: 29a: CHECK constraint chk_budget_amount exists on budgets
+  PASS: 29a: CHECK constraint chk_settlement_amount exists on settlements
+  PASS: 29a: CHECK constraint chk_item_price exists on list_items
+  PASS: 29a: CHECK constraint chk_max_members exists on groups
+  PASS: 29b: Index idx_expense_date exists on expenses
+  PASS: 29b: Index idx_settlement_period exists on settlements
+  PASS: 29b: Index idx_notif_created exists on notifications
+  PASS: 29c: FK expenses.user_id → users
+  PASS: 29c: FK expenses.group_id → groups
+  PASS: 29c: FK expenses.category_id → categories
+  PASS: 29c: FK group_members.group_id → groups
+  PASS: 29c: FK group_members.user_id → users
+  PASS: 29c: FK budgets.user_id → users
+  PASS: 29c: FK lists.user_id → users
+  PASS: 29c: FK list_items.list_id → lists
+  PASS: 29c: FK notifications.user_id → users
+  PASS: 29c: FK settlements.group_id → groups
+  PASS: 29d: UNIQUE username on users
+  PASS: 29d: UNIQUE email on users
+  PASS: 29d: UNIQUE join_code on groups
+  PASS: 29d: UNIQUE uq_group_user on group_members
+  PASS: 29d: UNIQUE uq_user_month on budgets
+  PASS: 29d: UNIQUE uq_group_user on settlement_confirmations
+  PASS: 29d: UNIQUE uq_ps_conf on post_settlement_confirmations
+  PASS: 29e: All tables use InnoDB engine
+  PASS: 29f: Negative expense amount rejected by CHECK
+  PASS: 29g: Zero expense amount rejected by CHECK
+  PASS: 29h: Negative budget amount rejected by CHECK
+  PASS: 29i: Negative list item price rejected by CHECK
+  PASS: 29k: FK rejects expense with nonexistent user_id
+  PASS: 29l: FK rejects group_member with nonexistent group_id
+  PASS: 29m: UNIQUE rejects duplicate group membership
+  PASS: 29n: EXPLAIN shows index usage for expense_date query
+  PASS: 29o: idx_settlement_period available for settlement period query
+  PASS: 29p: idx_notif_created available for notification cleanup
+  PASS: 29q: schema.sql defines chk_expense_amount
+  PASS: 29q: schema.sql defines chk_budget_amount
+  PASS: 29q: schema.sql defines chk_settlement_amount
+  PASS: 29q: schema.sql defines chk_item_price
+  PASS: 29q: schema.sql defines chk_max_members
+  PASS: 29r: schema.sql defines idx_expense_date
+  PASS: 29r: schema.sql defines idx_settlement_period
+  PASS: 29r: schema.sql defines idx_notif_created
+  PASS: 29s: migration_v1.8.sql exists
+  PASS: 29t: Create expense passes CHECK constraint
+  PASS: 29t: Delete constraint-test expense
+  PASS: 29u: Set budget passes CHECK constraint
+  PASS: 29u: Get budget after constraint
+
+── 30. Centralized Error Handling ──
+  PASS: 30a: response.php exists
+  PASS: 30b: apiResponse() defined
+  PASS: 30b: apiSuccess() defined
+  PASS: 30b: apiError() defined
+  PASS: 30c: response.php uses http_response_code
+  PASS: 30c: response.php sets Content-Type JSON
+  PASS: 30d: All endpoints include response.php
+  PASS: 30e: No endpoint sets Content-Type manually
+  PASS: 30f: All endpoints have try/catch
+  PASS: 30g: All endpoints use apiError 500 in catch
+  PASS: 30h: No bare echo json_encode in endpoints
+  PASS: 30i: GET categories returns HTTP 200
+  PASS: 30i: Response has Content-Type JSON
+  PASS: 30j: GET on POST-only endpoint returns HTTP 405
+  PASS: 30j: 405 response has error key
+  PASS: 30k: Unauthenticated request returns HTTP 401
+  PASS: 30l: Validation error returns HTTP 400
+  PASS: 30l: 400 response has error key
+
+── 31. Logging and Observability ──
+  PASS: 31a: logger.php exists
+  PASS: 31b: logMessage() function defined
+  PASS: 31b: Logger writes to logs/app.log
+  PASS: 31b: Logger uses FILE_APPEND | LOCK_EX
+  PASS: 31c: logs directory exists
+  PASS: 31e: Login creates INFO log entry
+  PASS: 31f: Log entry is valid JSON
+  PASS: 31f: Log has 'time' field
+  PASS: 31f: Log has 'level' field
+  PASS: 31f: Log has 'message' field
+  PASS: 31f: Log has 'context' field
+  PASS: 31g: Login log has user context
+  PASS: 31g: Login log has IP context
+  PASS: 31g: Login log level is INFO
+  PASS: 31h: Failed login creates WARNING log
+  PASS: 31h: Failed login level is WARNING
+  PASS: 31i: Auth failure creates WARNING log
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/ExpenseService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2267
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/GroupService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2267
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/SettlementService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2267
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/BudgetService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2267
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/ListService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2267
+  FAIL: 31j: All services require logger.php — Missing in: ExpenseService.php, GroupService.php, SettlementService.php, BudgetService.php, ListService.php
+  PASS: 31k: All catch blocks include logMessage('ERROR')
+  PASS: 31l: auth.php requires logger.php
+  PASS: 31l: auth.php logs WARNING events
+  PASS: 31m: Expense creation logs INFO event
+  PASS: 31n: Signup logs INFO event
+
+── 32. Pagination and Query Performance ──
+  PASS: 32a: parsePagination() defined
+  PASS: 32b: paginationMeta() defined
+  PASS: 32c: Created 5 expenses for pagination
+  PASS: 32d: Page 1 ok
+  PASS: 32e: Pagination key present
+  PASS: 32f: Pagination has page/limit/total/pages
+  PASS: 32g: Page 1 returns limit items
+  PASS: 32h: Total >= 5
+  PASS: 32i: Pages >= 3
+  PASS: 32j: Page 2 ok
+  PASS: 32k: Page 2 has different items
+  PASS: 32l: Limit capped at 50
+  PASS: 32m: Default pagination present
+  PASS: 32n: Default page is 1
+  PASS: 32o: Default limit is 20
+  PASS: 32p: Lists pagination present
+  PASS: 32q: Groups pagination present
+  PASS: 32r: Notifications pagination present
+  PASS: 32s: Notifications default limit 30
+  PASS: 32t: All list endpoints use parsePagination()
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/ExpenseService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2436
+    MISSING LIMIT/slice in services/ExpenseService.php
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/GroupService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2436
+    MISSING LIMIT/slice in services/GroupService.php
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/SettlementService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2436
+    MISSING LIMIT/slice in services/SettlementService.php
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/ListService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2436
+    MISSING LIMIT/slice in services/ListService.php
+  FAIL: 32u: All paginated services use SQL LIMIT or array_slice
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/ExpenseService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2449
+    MISSING paginationMeta in services/ExpenseService.php
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/GroupService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2449
+    MISSING paginationMeta in services/GroupService.php
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/SettlementService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2449
+    MISSING paginationMeta in services/SettlementService.php
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/ListService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2449
+    MISSING paginationMeta in services/ListService.php
+  FAIL: 32v: All services return paginationMeta
+  PASS: 32w: Page beyond total returns empty
+  PASS: 32x: Page beyond still has pagination meta
+
+── 33. Rate Limiting ──
+  PASS: 33a: rate_limiter.php exists
+  PASS: 33b: checkRateLimit() defined
+  PASS: 33c: recordRateLimit() defined
+  PASS: 33d: cleanupRateLimits() defined
+  PASS: 33e: rateLimitRetryAfter() defined
+  PASS: 33f: rate_limits table exists
+  PASS: 33g: rate_limits has ip_address column
+  PASS: 33h: rate_limits has action column
+  PASS: 33i: rate_limits has attempted_at column
+  PASS: 33j: idx_rate_ip_action index exists
+  PASS: 33k: login.php requires rate_limiter.php
+  PASS: 33l: signup.php requires rate_limiter.php
+  PASS: 33m: auth.php requires rate_limiter.php
+  PASS: 33n: login.php calls checkRateLimit
+  PASS: 33o: login.php calls recordRateLimit
+  PASS: 33p: signup.php calls checkRateLimit
+  PASS: 33q: auth.php calls checkRateLimit for API
+  PASS: 33r: Login rate limit records attempts
+  PASS: 33s: 6th attempt blocked (no extra record)
+  PASS: 33t: Different action not rate-limited
+  PASS: 33u: API rate limit returns 429
+  PASS: 33v: 429 response has error message
+  PASS: 33w: Access restored after rate limit cleared
+  PASS: 33x: migration_v2.2.sql exists
+  PASS: 33y: schema.sql has rate_limits table
+
+── 34. Ephemeral Notification System ──
+  PASS: 34a: notification_store.php exists
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/NotificationService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2632
+  FAIL: 34b: NotificationService uses notification store
+  FAIL: 34c: NotificationService has consume()
+  PASS: 34c: NotificationService no markAsRead
+  PASS: 34d: Notification endpoints configuration ok
+  PASS: 34e: read.php accepts event_id
+  PASS: 34f: read.php backward compat with id
+  PASS: 34g: Create test group for notifications
+  PASS: 34g: User B joins group (triggers notification)
+  PASS: 34h: Notification count > 0 after group join
+  PASS: 34i: List returns notifications
+  PASS: 34i: Notifications have event_id field
+  PASS: 34j: Notification has message
+  PASS: 34j: Notification has type
+  PASS: 34j: Notification has created_at
+  PASS: 34k: Consume single notification
+  FAIL: 34k: Consumed notification is removed
+  PASS: 34m: Consume all notifications
+  PASS: 34m: Count is 0 after consume all
+  PASS: 34n: Notification list has pagination
+  FAIL: 34o: history.php uses NotificationService
+  FAIL: 34o: history.php no raw SQL
+  PASS: 34p: data/notifications directory exists
+  PASS: 34p: data/notifications is writable
+  PASS: 34q: notification_store defines notifPublish()
+  PASS: 34q: notification_store defines notifPublishToGroup()
+  PASS: 34q: notification_store defines notifList()
+  PASS: 34q: notification_store defines notifCount()
+  PASS: 34q: notification_store defines notifConsume()
+  PASS: 34q: notification_store defines notifConsumeAll()
+  PASS: 34q: notification_store defines notifLatest()
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/ExpenseService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2735
+  FAIL: 34r: ExpenseService.php uses notification_store
+  PASS: 34r: ExpenseService.php no INSERT INTO notifications
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/ListService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2735
+  FAIL: 34r: ListService.php uses notification_store
+  PASS: 34r: ListService.php no INSERT INTO notifications
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/SettlementService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2735
+  FAIL: 34r: SettlementService.php uses notification_store
+  PASS: 34r: SettlementService.php no INSERT INTO notifications
+PHP Warning:  file_get_contents(C:\xampp\htdocs\ExpMgWEB\tests/../api/services/GroupService.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\ExpMgWEB\tests\run_tests.php on line 2735
+  FAIL: 34r: GroupService.php uses notification_store
+  PASS: 34r: GroupService.php no INSERT INTO notifications
+  PASS: 34s: Store defines max per user
+  PASS: 34s: Max is 50
+  PASS: 34t: Store defines TTL
+  PASS: 34t: TTL is 259200
+  PASS: 34u: Store defines group rate limit
+  PASS: 34v: Store uses sha256 for dedup
+  PASS: 34w: Store uses file locking
+  FAIL: 34x: Frontend sends event_id
+  FAIL: 34x: Frontend tracks lastSeenEventId
+
+── 35. System Health ──
+  PASS: 35a: Predictive score is within range
+  PASS: 35b: Predictive state is valid
+  PASS: 35c: Orchestrator snapshot has mode
+  PASS: 35c: Orchestrator snapshot has score
+  PASS: 35c: Orchestrator snapshot has retry_policy
+  PASS: 35c: Orchestrator snapshot has concurrency_limit
+  PASS: 35c: Orchestrator snapshot has fallback flag
+  PASS: 35d: health.php returns ok
+  PASS: 35d: health.php returns status
+  PASS: 35d: health.php returns queue_pressure
+  PASS: 35d: health.php returns retry_after
+  PASS: 35d: health.php returns redis snapshot
+  PASS: 35d: health.php returns backend labels
+  PASS: 35d: health.php returns outbox snapshot
+
+── Cleanup ──
+  Test data cleaned up.
+
+==========================================================
+  RESULTS: 433 passed, 105 failed out of 538 tests
+==========================================================
+
+Failed tests:
+  FAIL: Special chars preserved in DB
+  FAIL: XSS script tag escaped in DB
+  FAIL: XSS group name escaped in DB
+  FAIL: Service file exists: ExpenseService.php
+  FAIL: Service file exists: GroupService.php
+  FAIL: Service file exists: SettlementService.php
+  FAIL: Service file exists: ListService.php
+  FAIL: Service file exists: BudgetService.php
+  FAIL: Service file exists: NotificationService.php
+  FAIL: ExpenseService declares class
+  FAIL: ExpenseService constructor takes mysqli
+  FAIL: ExpenseService stores conn as property
+  FAIL: GroupService declares class
+  FAIL: GroupService constructor takes mysqli
+  FAIL: GroupService stores conn as property
+  FAIL: SettlementService declares class
+  FAIL: SettlementService constructor takes mysqli
+  FAIL: SettlementService stores conn as property
+  FAIL: ListService declares class
+  FAIL: ListService constructor takes mysqli
+  FAIL: ListService stores conn as property
+  FAIL: BudgetService declares class
+  FAIL: BudgetService constructor takes mysqli
+  FAIL: BudgetService stores conn as property
+  FAIL: NotificationService declares class
+  FAIL: NotificationService constructor exists
+  FAIL: NotificationService uses notification store abstraction
+  FAIL: expenses/create.php includes ExpenseService.php
+  FAIL: expenses/update.php includes ExpenseService.php
+  FAIL: expenses/delete.php includes ExpenseService.php
+  FAIL: expenses/list.php includes ExpenseService.php
+  FAIL: expenses/summary.php includes ExpenseService.php
+  FAIL: expenses/categories.php includes ExpenseService.php
+  FAIL: groups/create.php includes GroupService.php
+  FAIL: groups/delete.php includes GroupService.php
+  FAIL: groups/details.php includes GroupService.php
+  FAIL: groups/join.php includes GroupService.php
+  FAIL: groups/leave.php includes GroupService.php
+  FAIL: groups/user_groups.php includes GroupService.php
+  FAIL: settlements/calculate.php includes SettlementService.php
+  FAIL: settlements/confirm.php includes SettlementService.php
+  FAIL: settlements/settle.php includes SettlementService.php
+  FAIL: settlements/settle_all.php includes SettlementService.php
+  FAIL: settlements/history.php includes SettlementService.php
+  FAIL: settlements/details.php includes SettlementService.php
+  FAIL: settlements/post_calculate.php includes SettlementService.php
+  FAIL: settlements/post_confirm.php includes SettlementService.php
+  FAIL: lists/create.php includes ListService.php
+  FAIL: lists/delete.php includes ListService.php
+  FAIL: lists/add_item.php includes ListService.php
+  FAIL: lists/remove_item.php includes ListService.php
+  FAIL: lists/check_item.php includes ListService.php
+  FAIL: lists/details.php includes ListService.php
+  FAIL: lists/user_lists.php includes ListService.php
+  FAIL: budgets/get.php includes BudgetService.php
+  FAIL: budgets/set.php includes BudgetService.php
+  FAIL: notifications/count.php includes NotificationService.php
+  FAIL: notifications/list.php includes NotificationService.php
+  FAIL: notifications/read.php includes NotificationService.php
+  FAIL: expenses/create.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: expenses/update.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: expenses/delete.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: expenses/list.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: expenses/summary.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: expenses/categories.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/create.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/delete.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/details.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/join.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/leave.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: groups/user_groups.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: budgets/get.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: budgets/set.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: notifications/count.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: notifications/list.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: notifications/read.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/create.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/delete.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/add_item.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/remove_item.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/check_item.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/details.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: lists/user_lists.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/calculate.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/confirm.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/settle.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/settle_all.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/history.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/details.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/post_calculate.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: settlements/post_confirm.php has no raw SQL (SELECT/INSERT/UPDATE/DELETE)
+  FAIL: 31j: All services require logger.php — Missing in: ExpenseService.php, GroupService.php, SettlementService.php, BudgetService.php, ListService.php
+  FAIL: 32u: All paginated services use SQL LIMIT or array_slice
+  FAIL: 32v: All services return paginationMeta
+  FAIL: 34b: NotificationService uses notification store
+  FAIL: 34c: NotificationService has consume()
+  FAIL: 34k: Consumed notification is removed
+  FAIL: 34o: history.php uses NotificationService
+  FAIL: 34o: history.php no raw SQL
+  FAIL: 34r: ExpenseService.php uses notification_store
+  FAIL: 34r: ListService.php uses notification_store
+  FAIL: 34r: SettlementService.php uses notification_store
+  FAIL: 34r: GroupService.php uses notification_store
+  FAIL: 34x: Frontend sends event_id
+  FAIL: 34x: Frontend tracks lastSeenEventId

@@ -64,18 +64,28 @@ Built and covered by tests, but **not on any HTTP request path**:
 
 ### Test reality
 
-`php run_tests.php` reports **427 passed / 112 failed out of 539 tests**. The 112
-failures are not random, and every one of them is accounted for:
+The canonical record is [`docs/TEST_BASELINE.md`](docs/TEST_BASELINE.md). At the Phase 1
+snapshot the canonical suite is **`tests/run_tests.php`** and reports:
+
+```
+RESULTS: 433 passed, 105 failed out of 538 tests
+```
+
+Every failure is accounted for:
 
 | Section | Failures | Cause |
 |---|---|---|
 | 28 | 88 | the planned business service layer (`ExpenseService`, `GroupService`, `SettlementService`, `ListService`, `BudgetService`, `NotificationService`) does not exist (KD-06) |
 | 34 | 11 | ephemeral notification store is built but unwired: `NotificationService`/`consume()`, `read.php` still uses MySQL, `history.php` uses raw SQL, service-level `notification_store` usage, and the frontend still keys on numeric ids (KD-05) |
 | 31, 32 | 3 | `31j`, `32u`, `32v` scan the same missing service files for `logger.php`, `LIMIT`/`array_slice` and `paginationMeta` |
-| 30 | 7 | `response.php` adoption, GET-on-POST 405, validation-error 400 — deferred as a single 38-endpoint rewrite |
 | 9, 22, 26 | 3 | write-time HTML-entity assertions rejected by design (see policy below) |
 
-**Total: 88 + 11 + 3 + 7 + 3 = 112.**
+**Total: 88 + 11 + 3 + 3 = 105.**
+
+Section 30 (response-helper adoption, 405, validation 400) now passes; it was 7 failures in the
+older 427/112/539 baseline. The 538 (rather than 539) total is documented variance: one
+conditional test block does not execute on the rebuilt database.
+
 
 Two policy decisions are recorded here so they are not re-litigated:
 
@@ -563,7 +573,7 @@ The test script creates 3 temporary test users, exercises every feature via real
 
 ```bash
 # From the project root (XAMPP must be running with Apache + MySQL)
-php run_tests.php
+php tests/run_tests.php
 ```
 
 Expected output (last line):
@@ -572,7 +582,12 @@ Expected output (last line):
 RESULTS: <N> passed, <N> failed out of <total> tests
 ```
 
-> **Note:** sections 28-34 assert planned-but-unfinished refactors (service layer, `response.php` rewrite, ephemeral notification store). The current baseline is **427 passed / 112 failed out of 539 tests**: 88 are the missing service layer (§28), 11 the unwired ephemeral notification store (§34), 3 service-file scans (`31j`, `32u`, `32v`), 7 the deferred `response.php` rewrite (§30), and 3 write-time HTML-escaping assertions rejected by design (§9/§22/§26). See [Runtime Status](#runtime-status-audited-2026-10-28).
+> **Note:** sections 28-34 assert planned-but-unfinished refactors (service layer, ephemeral
+> notification store). The canonical baseline is **433 passed / 105 failed out of 538 tests**:
+> 88 are the missing service layer (§28), 11 the unwired ephemeral notification store (§34), and
+> 3 are service-file scans (`31j`, `32u`, `32v`) plus 3 write-time HTML-escaping assertions
+> rejected by design (§9/§22/§26). Section 30 now passes. See
+> [`docs/TEST_BASELINE.md`](docs/TEST_BASELINE.md).
 
 ---
 
@@ -762,7 +777,7 @@ A significant update focusing on visual improvements and deep codebase cleanup.
 - `run_tests.php` updated to:
   - Understand the `NotificationStore` abstraction and the new service structure.
   - Treat non-endpoint helpers (`notifications_config.php`, `notification_publisher.php`, `redis.php`) as pure libraries (excluded from “all endpoints must…” tests).
-  - **Superseded:** the suite has grown to 539 tests; the current result is `RESULTS: 427 passed, 112 failed out of 539 tests` - see [Runtime Status](#runtime-status-audited-2026-10-28).
+  - **Superseded:** the suite has grown to 538 tests; the canonical result is `RESULTS: 433 passed, 105 failed out of 538 tests` - see [`docs/TEST_BASELINE.md`](docs/TEST_BASELINE.md).
 
 **Redis status (important note):**
 - The **file-based notification backend remains the default and production-ready path** (`NOTIFICATIONS_BACKEND=file`).

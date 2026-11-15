@@ -59,21 +59,20 @@
 ## Testing
 
 - [x] **"Test suite failing immediately" (Fixed / obsolete)**: the suite now
-  completes. Current baseline: **427 passed, 112 failed out of 539 tests**
-  (`php run_tests.php`, CLI only).
-- [ ] **112 remaining failures are known and expected**:
+  completes. Canonical baseline: **433 passed, 105 failed out of 538 tests**
+  (`php tests/run_tests.php`, CLI only). The authoritative record is
+  `docs/TEST_BASELINE.md`.
+- [ ] **105 remaining failures are known and expected**:
   - 88 — section 28: the `ExpenseService` / `GroupService` /
     `SettlementService` / `ListService` / `BudgetService` / `NotificationService`
     layer does not exist (KD-06).
   - 11 — section 34: ephemeral notification store built but unwired (KD-05).
   - 3 — `31j`, `32u`, `32v`: scans of those same missing service files.
-  - 7 — section 30: `response.php` adoption, GET-on-POST 405, validation 400 —
-    deferred as one 38-endpoint change.
   - 3 — sections 9/22/26: write-time HTML-entity assertions, **rejected by
     design** (see the two policy decisions below).
 
-  Total: 88 + 11 + 3 + 7 + 3 = 112. See `README.md` → Runtime Status and
-  `AGENTS.md` → Test Suite Notes for the same breakdown.
+  Total: 88 + 11 + 3 + 3 = 105. Section 30 now passes (it was 7 failures in
+  the older 427/112/539 baseline). See `docs/TEST_BASELINE.md`.
 
 ### Two standing policy decisions
 
@@ -108,8 +107,7 @@
   migration can land separately.
 - **`api/bootstrap.php` (KD-02)** and the dormant `api/services/` inventory
   (KD-11): delete, or wire deliberately and document.
-- **`api/settlements/settle.php:29` date check**: still regex-only, so an
-  impossible period date (`2026-02-30`) is accepted here even though
-  `settlements/details.php` now rejects it. Deliberately deferred — bundle it
-  with the section-30 controller pass so the admin settle path is not touched in
-  isolation.
+- **`api/settlements/settle.php` date check (stale item)**: the endpoint now uses
+  `validateDate()` and rejects impossible/reversed periods; this older claim is
+  no longer accurate. See `docs/BACKEND_AUDIT.md` §3.4 and
+  `docs/API_CONTRACT.md` §9.3.
