@@ -143,8 +143,9 @@ return JSON only for the rate-limit rejection path.
 | Session lifetime | 24 hours absolute from `login_time` |
 | Session ID | Regenerated on successful login |
 | Password storage | `password_hash(..., PASSWORD_BCRYPT)` |
-| CSRF | Double-submit cookie + `X-CSRF-Token` header, POST-body fallback |
+| CSRF | `X-CSRF-Token` header (with `$_SERVER` and POST-body fallbacks); the cookie is only an optional consistency check |
 | CSRF failure gate | 50 failures / 10 minutes per IP → HTTP 429 |
+| CSRF exception | `logout.php` has no CSRF check and no method guard (forced-logout risk, KD-31) |
 | Session guard | `requireAuth()` on every module endpoint |
 | Heartbeat bucket | `notifications/count.php` uses `requireAuth(false)` → 30/min/user |
 

@@ -88,18 +88,22 @@ requireAuth();                 // session + 24h expiry + CSRF + rate limits
 
 ### 2.2 CSRF
 
-Canonical implementation: `api/helpers/csrf.php::verifyCsrf()`. Accepted token sources:
+Canonical implementation: `api/helpers/csrf.php::verifyCsrf()`. Request token sources, in order:
 
-1. `X-CSRF-Token` header;
-2. `$_SERVER['HTTP_X_CSRF_TOKEN']`;
-3. POST body `csrf_token`;
-4. double-submit cookie.
+1. `X-CSRF-Token` header (read via `getallheaders()`, case-insensitive);
+2. `$_SERVER['HTTP_X_CSRF_TOKEN']` (same header where `getallheaders()` is unavailable);
+3. POST body `csrf_token`.
+
+The `csrf_token` cookie is **not** a request token source. It is an optional consistency check:
+compared to the session token only when present, skipped when absent. See `API_CONTRACT.md` §4.
 
 Failures are recorded per IP; 50 failures in 10 minutes produce a `429` gate. The session token
 is rotated about every 12 hours. `verifyCsrfToken()` in the middleware is a thin wrapper.
 
 `login.php` and `signup.php` also call `verifyCsrf()`, so pre-auth POSTs without a token are
-rejected.
+rejected. `logout.php` is the exception: no CSRF check and no method guard (KD-31).
+The 403 messages are `CSRF token missing from session`, `CSRF token missing from request`,
+`Invalid CSRF token`, and `CSRF cookie mismatch`.
 
 ### 2.3 Response envelope
 
@@ -161,6 +165,10 @@ Buckets observed:
 | `api_heartbeat` | 30 | 60 s |
 | `login` | 5 | 900 s |
 | `signup` | 3 | 3600 s |
+
+`signup` counts **successful registrations only** — `recordRateLimit()` runs inside the
+`if ($insertOk)` branch (`api/signup.php:128-130`), so validation failures, duplicates, and DB
+errors do not consume the quota. It limits account creation, not attempts.
 | `csrf_fail` | 50 | 600 s |
 
 `cleanupRateLimits()` applies action-aware retention. A denied request receives
@@ -186,9 +194,9 @@ Some endpoints still use `preg_match` for month shape (`^\d{4}-\d{2}$`) plus a r
 
 | Endpoint | Method | Behaviour |
 |---|---|---|
-| `api/signup.php` | POST | Validates username 3–50, valid email, password ≥ 8, matching confirm; bcrypt hash; duplicate username/email → flash error; success → flash + redirect to login; IP bucket 3/hour; CSRF required |
+| `api/signup.php` | POST | Validates username 3–50, valid email, password ≥ 8, matching confirm; bcrypt hash; duplicate username/email → flash error; success → flash + redirect to login; IP bucket 3/hour counting successful registrations only; CSRF required |
 | `api/login.php` | POST | Validates non-empty; unknown email and bad password both record a failed attempt and return the same message; success regenerates session ID, stores `user_id`, `username`, `login_time`, rotates CSRF, redirects to SPA; IP bucket 5/15 min |
-| `api/logout.php` | GET/POST | Clears session and cookie, redirects to login |
+| `api/logout.php` | GET/POST | **No CSRF and no method guard.** Clears session and cookie, redirects to login (KD-31) |
 
 Normal failures are **HTTP 302 redirects with session flash messages**, not JSON. The
 rate-limit rejection is JSON with HTTP 429.

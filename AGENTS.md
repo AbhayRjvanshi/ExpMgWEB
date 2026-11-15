@@ -203,8 +203,8 @@ Do not assume these two systems are in sync. The publisher/store abstraction is 
 `api/bootstrap.php` still contains a duplicate copy of this hardening and is included by **zero** files. Do not add it to endpoints — that would double-send headers. Either delete it or make it the single front-controller include (KD-02).
 
 ### CSRF — One Implementation, Two Entry Points
-- `verifyCsrf()` in `api/helpers/csrf.php` — canonical. Double-submit (cookie + `X-CSRF-Token` header, with `$_SERVER` and POST-body fallbacks), failure recording, IP gate (50 failures / 10 min → `429`), `global $conn` for the rate limiter.
-- `verifyCsrfToken()` in `api/middleware/auth.php` — a thin wrapper that now delegates to `verifyCsrf()`. `requireAuth()` calls it on POST/PUT/PATCH/DELETE.
+- `verifyCsrf()` in `api/helpers/csrf.php` — canonical. Request token from the `X-CSRF-Token` header (with `$_SERVER['HTTP_X_CSRF_TOKEN']` and POST-body `csrf_token` fallbacks); the `csrf_token` cookie is only an optional consistency check, never a token source. Failure recording, IP gate (50 failures / 10 min → `429`), `global $conn` for the rate limiter.
+- `verifyCsrfToken()` in `api/middleware/auth.php` — a thin wrapper that now delegates to `verifyCsrf()`. `requireAuth()` calls it on POST/PUT/PATCH/DELETE. `api/logout.php` is the one endpoint that skips both auth and CSRF and has no method guard (KD-31).
 
 When adding CSRF verification manually, always call `verifyCsrf()`. Do not re-implement token comparison.
 

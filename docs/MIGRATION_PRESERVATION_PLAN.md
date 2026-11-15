@@ -58,7 +58,9 @@ These must hold in the PHP backend and in any Flutter implementation that touche
 2. There is no anonymous API access.
 3. Guest mode is Flutter-local only; it never calls the API.
 4. Session lifetime is 24 hours absolute.
-5. CSRF is required on every write, including login and signup.
+5. CSRF is required on every write, including login and signup. The single exception is
+   `logout.php`, which has no CSRF check and no method guard — preserving that behaviour is
+   deliberate, and the risk is documented (KD-31).
 6. Admin-only actions remain admin-only: `settle.php`, `settle_all.php`, group delete,
    member removal, group expense edit/delete.
 

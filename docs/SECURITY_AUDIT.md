@@ -16,7 +16,7 @@ differ, source wins.
 |---|---|
 | Authentication | Required on every module endpoint; no anonymous API path |
 | Session | Hardened cookie, 24-hour absolute lifetime, ID rotation on login |
-| CSRF | Enforced on writes, including login/signup; IP failure gate |
+| CSRF | Enforced on writes via `requireAuth()`, and directly on login/signup; NOT on `logout.php`; IP failure gate |
 | SQL injection | No dynamic SQL with user values; prepared statements throughout |
 | Authorization | Row-level scoping verified; two documented residual gaps |
 | Settlement integrity | C1/C2/C3 closed; admin-only writers; lock enforced |
@@ -76,14 +76,34 @@ No finding from the original test remains open in remediation scope.
 
 ### 3.2 CSRF
 
-`verifyCsrf()` accepts a header, `$_SERVER` value, POST body token, or double-submit cookie.
-Failures are recorded against the IP; 50 failures in 10 minutes produce HTTP 429. Tokens rotate
-about every 12 hours. Protected endpoints call it through `requireAuth()`; login/signup call it
-directly.
+`api/helpers/csrf.php::verifyCsrf()` is the single implementation; `verifyCsrfToken()` in
+`middleware/auth.php` only delegates to it.
 
-A Flutter client using the same cookie session must send `X-CSRF-Token` on every write and must
-obtain the token from the page/session bootstrap. A future token-based API would require a
-different CSRF story; none exists today.
+**Coverage.** `requireAuth()` calls it for `POST`, `PUT`, `PATCH`, and `DELETE` on every
+authenticated endpoint. `login.php` and `signup.php` are unauthenticated but call `verifyCsrf()`
+directly after their POST guard (L-3). **`api/logout.php` is the documented exception** — it
+verifies nothing and has no method guard (see §4).
+
+**Request token.** Read from `X-CSRF-Token` (via `getallheaders()`, case-insensitive), falling
+back to `$_SERVER['HTTP_X_CSRF_TOKEN']`, then to the `csrf_token` POST field.
+
+**Cookie.** `generateCsrfToken()` also sets a JS-readable `csrf_token` cookie holding the same
+value as the session token. It is **not** an independent token source: it is compared to the
+session token only when present, and skipped when absent. Dropping the cookie does not weaken or
+bypass the check, and the cookie alone cannot authenticate a request.
+
+**Failures.** All are 403 with a specific message — `CSRF token missing from session`,
+`CSRF token missing from request`, `Invalid CSRF token`, or `CSRF cookie mismatch`. Each failure
+is logged and recorded against the IP in `rate_limits` (`csrf_fail`). 50 failures in 10 minutes
+produce HTTP 429 `Too many failed security checks. Try again later.` The IP keying matters: an
+attacker who drops cookies still accumulates failures because the gate is stored in the database,
+not the session.
+
+**Rotation.** Every 12 hours, on login, and after expiry.
+
+A Flutter client using the same cookie session must send `X-CSRF-Token` on every write except
+logout, and must obtain the token from the page/session bootstrap rather than from the cookie. A
+future token-based API would require a different CSRF story; none exists today.
 
 ### 3.3 Authorization
 
@@ -208,6 +228,7 @@ credentials live in the untracked `.env`.
 | Post-confirm race | Low | Documented, preserved |
 | List confirm price has no ceiling | Low | Documented, preserved |
 | Inline handlers blocked by CSP | Low (UI) | Documented, preserved |
+| Unguarded logout (no CSRF, no method guard) | Low — forced logout only | Documented, preserved (KD-31) |
 | No TLS in local XAMPP | Environmental | Deployment responsibility |
 | Session cookie `Secure` absent on HTTP | Environmental | Expected locally |
 | Demo password in history/docs | Low | Do not reuse; history rewrite optional |
@@ -223,7 +244,7 @@ would require explicit approval and separate evidence.
 
 1. Never call a protected endpoint without an authenticated session.
 2. Never add anonymous API access for guest mode.
-3. Send CSRF on every write, including login/signup.
+3. Send CSRF on every write, including login/signup. `logout.php` needs no token and accepts GET.
 4. Send `Idempotency-Key` for create/confirm/settle actions and reuse it on retry.
 5. Treat 401 as logout and 429 as a hard retry-after signal.
 6. Respect the 24-hour absolute session lifetime.

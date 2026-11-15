@@ -37,7 +37,7 @@ Every endpoint except `signup.php`, `login.php`, and `logout.php` starts with `r
 |---|---|---|
 | No session `user_id` | 401 | `{"ok":false,"error":"Authentication required"}` |
 | Session older than 24 h | 401 | `{"ok":false,"error":"Session expired"}` |
-| CSRF missing/invalid on write | 403 | see §4 |
+| CSRF missing/invalid on write | 403 | see §4 — not applicable to `logout.php` |
 | Rate limit exceeded | 429 | see §5 |
 | Valid session | continues | — |
 
@@ -103,12 +103,24 @@ Passwords do not match.
 Username or email already taken.
 ```
 
-Rate limit: 3 / hour / IP → HTTP 429 JSON, `limited_by: "signup"`.
+Rate limit: 3 successful registrations / hour / IP → HTTP 429 JSON, `limited_by: "signup"`.
+Only rows actually inserted are recorded (`api/signup.php:130`); validation failures, duplicate
+username/email, and DB errors do **not** consume the quota. The limit therefore caps account
+creation, not registration attempts.
 
 ### 2.3 Logout
 
-`GET` or `POST /api/logout.php` — no auth required. Clears the session and cookie, then
-`302` to `../pages/login.php`.
+`GET` or `POST /api/logout.php` — no auth required, **no CSRF verification, and no HTTP method
+guard**. The file calls `session_start()`, empties `$_SESSION`, expires the session cookie, calls
+`session_destroy()`, then `302` to `../pages/login.php`.
+
+Because there is no method guard, a plain `GET`, a top-level browser navigation, or a cross-site
+`<img>`/link can end the user's session. That is a forced-logout nuisance, not an account
+compromise: the request carries no data and cannot act as the user. It is recorded as
+low-severity debt (`TECHNICAL_DEBT.md` KD-31) and is **not** fixed during the freeze.
+
+For the Flutter client: call it on explicit sign-out only, and treat a 302 to the login page as
+success. Do not send a CSRF token — it is ignored.
 
 ---
 
@@ -163,28 +175,79 @@ Never branch on HTTP 200 alone. Treat a missing `ok` as failure.
 
 ## 4. CSRF contract
 
-Required on every `POST`, `PUT`, `PATCH`, `DELETE`, including login and signup.
+Enforced by `requireAuth()` on `POST`, `PUT`, `PATCH`, and `DELETE` for every authenticated
+endpoint. `login.php` and `signup.php` are unauthenticated but call `verifyCsrf()` directly after
+their own POST guard, so they are covered too.
 
-Accepted token sources, in order:
+**One exception: `api/logout.php` performs no CSRF verification and has no method guard.** See
+§2.3.
 
-1. `X-CSRF-Token` request header;
-2. `HTTP_X_CSRF_TOKEN` server value (same header);
-3. `csrf_token` form field;
-4. double-submit cookie.
+### 4.1 Request token sources
 
-The token is available from the page bootstrap (`meta[name="csrf-token"]`, hidden form field,
-and cookie). A Flutter client that loads the PHP shell should scrape or receive it once per
-session and send the header.
+The request token is read from exactly one of these, in this order
+(`api/helpers/csrf.php:156-158`):
 
-Failure body (HTTP 403):
+| # | Source | Notes |
+|---:|---|---|
+| 1 | `X-CSRF-Token` request header | Read via `getallheaders()` and lower-cased, so the header is case-insensitive |
+| 2 | `$_SERVER['HTTP_X_CSRF_TOKEN']` | The same header, exposed by SAPIs where `getallheaders()` is unavailable |
+| 3 | `csrf_token` POST field | The fallback that keeps native form posts working |
 
-```json
-{"ok": false, "error": "Invalid or missing CSRF token."}
+Sources 1 and 2 are the same HTTP header seen through two APIs; only one is ever present. A
+client should send the header and never rely on the POST field.
+
+### 4.2 The `csrf_token` cookie is not a token source
+
+`generateCsrfToken()` also sets a `csrf_token` cookie (`HttpOnly = false` so JavaScript can read
+it) holding the same value as the session token. On verification that cookie is **only** an
+optional consistency check — if it is present and differs from the session token the request is
+rejected, and if it is absent the check is skipped entirely:
+
+```php
+if (isset($_COOKIE['csrf_token'])) { /* compare, reject on mismatch */ }
 ```
 
-Exact message may vary by branch; treat any 403 as a token refresh + retry-once signal.
+Consequences for a client:
 
-IP gate: 50 CSRF failures / 10 minutes → HTTP 429. Do not retry blindly.
+- the cookie can never substitute for the header or POST field;
+- omitting the cookie is not an error;
+- reading the cookie is a convenient way to *obtain* the token, not a way to *send* it;
+- a stale cookie after token rotation produces a 403 even when the header is correct, so on a
+  403 the client should re-read the session token rather than reuse a cached cookie value.
+
+### 4.3 Failure responses
+
+All CSRF rejections are HTTP 403 with `{"ok":false,"error":"<message>"}`. The message identifies
+which check failed (`api/helpers/csrf.php`):
+
+| Condition | Exact `error` |
+|---|---|
+| No `$_SESSION['csrf_token']` | `CSRF token missing from session` |
+| No header and no `csrf_token` POST field | `CSRF token missing from request` |
+| Request token differs from the session token | `Invalid CSRF token` |
+| Cookie present but differs from the session token | `CSRF cookie mismatch` |
+
+These are literal strings. There is no combined "invalid or missing" message — the four above
+are the only CSRF error strings the backend emits. Treat any 403 from a write as "fetch a fresh
+token, retry once".
+
+Every 403 is logged with the IP, endpoint and user (plus the submitted token length on a
+mismatch), and recorded in the `rate_limits` table under `csrf_fail`.
+
+### 4.4 Failure gate
+
+50 recorded CSRF failures per IP in 10 minutes → HTTP 429:
+
+```json
+{"ok":false,"error":"Too many failed security checks. Try again later.","retry_after":42}
+```
+
+A `Retry-After` header is added when the remaining wait is known. Do not retry blindly.
+
+### 4.5 Token lifetime
+
+The session token rotates after 12 hours (`CSRF_TOKEN_LIFETIME = 43200`), on login, and whenever
+`getCsrfToken()` finds an expired one.
 
 ---
 
@@ -196,7 +259,7 @@ IP gate: 50 CSRF failures / 10 minutes → HTTP 429. Do not retry blindly.
 | `api_ip` | 240 | 60 s | every authenticated request, per IP |
 | `api_heartbeat` | 30 | 60 s | `notifications/count.php` |
 | `login` | 5 | 900 s | failed login attempts |
-| `signup` | 3 | 3600 s | successful/failed signups |
+| `signup` | 3 | 3600 s | **successful** registrations only — failed, invalid, and duplicate attempts are not counted |
 | `csrf_fail` | 50 | 600 s | CSRF failures |
 
 Denied response:
@@ -1331,7 +1394,11 @@ Auth/limits:
 ```
 Authentication required
 Session expired
-Invalid or missing CSRF token.
+CSRF token missing from session
+CSRF token missing from request
+Invalid CSRF token
+CSRF cookie mismatch
+Too many failed security checks. Try again later.
 Too many requests. Rate limited.
 Rate limited
 ```
@@ -1459,7 +1526,8 @@ Internal server error.
 ## 13. Flutter implementation checklist
 
 1. Persist the session cookie across app restarts; on 401, clear it and route to login.
-2. Fetch and cache the CSRF token; refresh after login and after a 403.
+2. Fetch and cache the CSRF token; send it as `X-CSRF-Token` (not the cookie, which is only a
+   consistency check); refresh after login and after a 403. `logout.php` needs no token.
 3. Wrap all writes with a per-intent `Idempotency-Key` for the 11 wrapped endpoints.
 4. Parse `ok` first; show `error` verbatim where appropriate.
 5. Cast numeric fields defensively (`num.tryParse(value.toString())`).

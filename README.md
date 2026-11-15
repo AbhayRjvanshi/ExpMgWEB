@@ -36,7 +36,7 @@ deploying the codebase.
 | Component | Reached from | Role |
 |---|---|---|
 | `config/session.php` + `api/middleware/auth.php` | every `api/**` endpoint, `public/index.php` | Hardened session start (`use_strict_mode`, `HttpOnly`, `SameSite=Lax`, `Secure` only on HTTPS), CSP + `nosniff` + `X-Frame-Options: DENY` + `Referrer-Policy`, API rate limits (user 120/60s, IP 240/60s), CSRF check on mutating methods |
-| `api/helpers/csrf.php` | via `auth.php` | `verifyCsrf()` — `X-CSRF-Token` header / `$_SERVER` / POST body / double-submit cookie, plus an IP gate (50 failures per 10 min ⇒ `429`) |
+| `api/helpers/csrf.php` | via `auth.php` | `verifyCsrf()` — `X-CSRF-Token` header / `$_SERVER` / POST body token; the cookie is only an optional consistency check against the session token; plus an IP gate (50 failures per 10 min ⇒ `429`) |
 | `api/helpers/rate_limiter.php` | login, signup, `auth.php`, CSRF gate | DB-backed limiter on `rate_limits`; retention is action-aware (120 s for `api_user`/`api_ip`, 3600 s otherwise) |
 | `config/idempotency.php` | 11 POST endpoints | `idempotencyGuard()` / `idempotencyRespond()`; file backend by default, Redis optional. Requests without `Idempotency-Key` bypass it |
 | `api/helpers/logger.php` | everywhere | JSON-lines to `logs/app.log`, rotated to `app.log.1` at 10 MB |
@@ -468,8 +468,8 @@ The UI uses a custom **mint-to-emerald green** CSS palette:
 ## Business Rules
 
 - **Session security:** 24-hour session lifetime enforced by middleware; centralized `requireAuth()` guard on all API endpoints; **CSRF protection** enforced on all state-changing requests (POST/PUT/PATCH/DELETE) via session-bound 256-bit tokens with timing-attack resistant validation.
-- **CSRF protection (hardened):** All POST/PUT/PATCH/DELETE requests require `X-CSRF-Token` header matching session token; double-submit cookie defense (cookie + header verification); tokens auto-rotated every 12 hours; SameSite=Lax cookie policy (OAuth/redirect compatible); failed attempts logged with WARNING level; threshold monitoring (50 failures/10 min triggers CRITICAL alert); Content-Security-Policy headers prevent XSS.
-- **Rate limiting:** Rate limiting enforced at three tiers — login (5 attempts per 15 minutes), signup (3 attempts per hour), and general API (120 requests per minute per user, 240 requests per minute per IP). Backed by the `rate_limits` database table with probabilistic cleanup (~1% of requests purge expired entries).
+- **CSRF protection (hardened):** All POST/PUT/PATCH/DELETE requests require an `X-CSRF-Token` header or `csrf_token` POST field matching the session token (`$_SERVER['HTTP_X_CSRF_TOKEN']` is accepted as a fallback); the `csrf_token` cookie is only an optional consistency check against the session token, not an independent token source; tokens auto-rotated every 12 hours; SameSite=Lax cookie policy (OAuth/redirect compatible); failed attempts logged with WARNING level; threshold monitoring (50 failures/10 min triggers CRITICAL alert); Content-Security-Policy headers prevent XSS. `api/logout.php` is the one exception — it performs no CSRF verification and has no method guard (KD-31).
+- **Rate limiting:** Rate limiting enforced at three tiers — login (5 failed attempts per 15 minutes), signup (3 **successful** registrations per hour; failed and duplicate attempts are not counted), and general API (120 requests per minute per user, 240 requests per minute per IP). Backed by the `rate_limits` database table with probabilistic cleanup (~1% of requests purge expired entries).
 - **Password hashing:** bcrypt via `password_hash()` / `password_verify()`.
 - **Expense permissions:** Personal expenses — only the owner can edit/delete. Group expenses — only the group admin can edit/delete.
 - **Group limits:** Max 5 groups per user; max 10 members per group.

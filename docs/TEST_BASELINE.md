@@ -25,8 +25,10 @@ Requirements:
 
 ## 2. Current baseline
 
-Captured 2026-11-15 at `66dedc1` (audited snapshot `5ed8de3`) and re-captured verbatim at
-`d43dcd2`, which changes documentation only — the code state under test is identical:
+Captured 2026-11-15 against code state `66dedc1` (the splash `data-redirect` fix on top of the
+audited snapshot `5ed8de3`). No PHP, frontend, schema, migration, or test file has changed since
+`66dedc1` — every later commit in this audit touches Markdown and `Issues.txt` only — so the
+same suite result applies to the current HEAD:
 
 ```
 RESULTS: 433 passed, 105 failed out of 538 tests
@@ -162,34 +164,39 @@ numbers.
 ## 5. Reproducing and verifying
 
 ```powershell
-# 1. Confirm the snapshot
-git rev-parse --short HEAD        # expect 66dedc1 for the docs commit
+# 1. Confirm the audited CODE state. This must print 66dedc1.
+#    Do NOT expect HEAD to be 66dedc1: HEAD advances with the documentation
+#    commits, which change no code. This command ignores them.
+git log -1 --format='%h %s' -- api config pages public schema.sql tests/run_tests.php
+# expect: 66dedc1
+
+# 2. See where HEAD actually is (docs commits sit on top of 66dedc1)
 git log --oneline -3
 
-# 2. Confirm services are running
+# 3. Confirm services are running
 #    Apache and MySQL must be up in XAMPP.
 
-# 3. Run the suite
+# 4. Run the suite
 php tests/run_tests.php
 
-# 4. Confirm the summary line
+# 5. Confirm the summary line
 #    RESULTS: 433 passed, 105 failed out of 538 tests
 
-# 5. Compare the failure set
+# 6. Compare the failure set
 #    Any failure outside the catalogue in §3 is a real regression.
 ```
 
-Useful checks:
+Useful checks against the saved capture:
 
 ```powershell
-# Count unique failures from a saved run
-Get-Content tests/.phase1_baseline_run.txt |
+# Count unique failures from the saved run
+Get-Content docs/evidence/phase1-test-baseline.txt |
   Where-Object { $_ -match 'FAIL:' } |
   Sort-Object -Unique |
   Measure-Object
 
-# List section 28/34-only failures
-Select-String -Path tests/.phase1_baseline_run.txt -Pattern 'FAIL: (Service|3[124])'
+# List service/pagination-only failures
+Select-String -Path docs/evidence/phase1-test-baseline.txt -Pattern 'FAIL: (Service|3[124])'
 ```
 
 The suite seeds its own users and data. Running it against a database with unrelated data may
@@ -243,8 +250,9 @@ differently (`tests/run_tests.php:1586`).
 | 34 | Ephemeral notification system |
 | 35 | System health and predictive health |
 
-Sections 1–27, 29, 30, 33, and 35 are expected to pass completely. The failures are confined to
-28, 34, three scans in 31/32, and three policy assertions.
+Sections 1–8, 10–21, 23–25, 27, 29, 30, 33, and 35 pass completely. Sections **9, 22, and 26
+each contain one policy-rejected failing assertion**, so they do not pass in full. The remaining
+failures are confined to 28, 34, the three scans in 31/32, and those three policy assertions.
 
 ---
 

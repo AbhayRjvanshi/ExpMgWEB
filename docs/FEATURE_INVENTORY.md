@@ -19,9 +19,9 @@ Legend for **Status**:
 |---|---|---|---|---|---|---|
 | AUTH-1 | Signup | Live | `pages/signup.php`, `auth-page.js` | `api/signup.php` | `users` | Preserve validation, duplicate handling, redirect-to-login |
 | AUTH-2 | Login | Live | `pages/login.php`, `auth-page.js` | `api/login.php` | `users`, `rate_limits` | Preserve error text, CSRF, 5/15-min IP throttle |
-| AUTH-3 | Logout | Live | header action in `app.js` | `api/logout.php` | — | Destroy session; return to login |
+| AUTH-3 | Logout | Live | header action in `app.js` | `api/logout.php` | — | Destroy session; return to login. No CSRF and no method guard (KD-31) |
 | AUTH-4 | Session expiry | Live | redirect on 401 | `api/middleware/auth.php` | — | Treat 401 as logout; 24-hour absolute limit |
-| AUTH-5 | CSRF protection | Live | `helpers.js` token cache | `api/helpers/csrf.php` | `rate_limits` | Send `X-CSRF-Token` on every write |
+| AUTH-5 | CSRF protection | Live | `helpers.js` token cache | `api/helpers/csrf.php` | `rate_limits` | Send `X-CSRF-Token` on every write except `logout.php` |
 | AUTH-6 | Idempotent retries | Live | `helpers.js` per-intent key | `config/idempotency.php` | file/Redis | Generate one key per user intent |
 | AUTH-7 | Rate limiting | Live | handles 429 + `Retry-After` | `api/helpers/rate_limiter.php` | `rate_limits` | Display retry state; do not hammer |
 | AUTH-8 | Guest mode | **Absent** | none | none | — | Flutter-only local mode; never calls the API |
