@@ -110,14 +110,23 @@ creation, not registration attempts.
 
 ### 2.3 Logout
 
-`GET` or `POST /api/logout.php` — no auth required, **no CSRF verification, and no HTTP method
-guard**. The file calls `session_start()`, empties `$_SESSION`, expires the session cookie, calls
-`session_destroy()`, then `302` to `../pages/login.php`.
+`/api/logout.php` accepts **any** HTTP method — it has no method guard at all, so `GET`, `POST`,
+`PUT`, `DELETE`, and the rest behave identically. There is no auth requirement and **no CSRF
+verification**. The file calls `session_start()`, empties `$_SESSION`, expires the session
+cookie, calls `session_destroy()`, then `302` to `../pages/login.php`.
 
-Because there is no method guard, a plain `GET`, a top-level browser navigation, or a cross-site
-`<img>`/link can end the user's session. That is a forced-logout nuisance, not an account
-compromise: the request carries no data and cannot act as the user. It is recorded as
-low-severity debt (`TECHNICAL_DEBT.md` KD-31) and is **not** fixed during the freeze.
+**Forced-logout risk.** The relevant case is a cross-site **top-level navigation using a safe
+method** — an attacker page linking to `https://host/ExpMgWEB/api/logout.php`, or any link the
+user clicks. The session cookie is `SameSite=Lax`, so it is attached to top-level safe-method
+navigations and that request does end the session.
+
+Embedded cross-site requests cannot do this: an `<img>`, `<iframe>`, or `fetch()` from another
+origin is a subresource request, `SameSite=Lax` does not attach the session cookie to it, and
+`session_start()` therefore finds no session to destroy.
+
+The impact is a nuisance logout, not an account compromise: the request carries no data and
+cannot act as the user. It is recorded as low-severity debt (`TECHNICAL_DEBT.md` KD-31) and is
+**not** fixed during the freeze.
 
 For the Flutter client: call it on explicit sign-out only, and treat a 302 to the login page as
 success. Do not send a CSRF token — it is ignored.

@@ -228,7 +228,7 @@ credentials live in the untracked `.env`.
 | Post-confirm race | Low | Documented, preserved |
 | List confirm price has no ceiling | Low | Documented, preserved |
 | Inline handlers blocked by CSP | Low (UI) | Documented, preserved |
-| Unguarded logout (no CSRF, no method guard) | Low — forced logout only | Documented, preserved (KD-31) |
+| Unguarded logout (any method, no CSRF) | Low — forced logout via cross-site top-level navigation only | Documented, preserved (KD-31) |
 | No TLS in local XAMPP | Environmental | Deployment responsibility |
 | Session cookie `Secure` absent on HTTP | Environmental | Expected locally |
 | Demo password in history/docs | Low | Do not reuse; history rewrite optional |

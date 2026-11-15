@@ -128,8 +128,8 @@ must tolerate the extra `success`/`code` keys. It must not assume `200` for a bu
 `requirePostMethod()` returns **405** with `Allow: POST`; `requireGetMethod()` returns **405**
 with `Allow: GET`. Adoption is partial: settlement and expense endpoints use them explicitly;
 some older paths retain an inline method check that returns `apiResponse(['ok'=>false,
-'error'=>'Invalid method.'])` with HTTP 400. The contract records the effective status per
-endpoint.
+'error'=>'Invalid method.'])` with HTTP 400. `logout.php` has no guard at all and therefore
+accepts every method. The contract records the effective status per endpoint.
 
 ### 2.5 Idempotency
 
@@ -196,7 +196,7 @@ Some endpoints still use `preg_match` for month shape (`^\d{4}-\d{2}$`) plus a r
 |---|---|---|
 | `api/signup.php` | POST | Validates username 3–50, valid email, password ≥ 8, matching confirm; bcrypt hash; duplicate username/email → flash error; success → flash + redirect to login; IP bucket 3/hour counting successful registrations only; CSRF required |
 | `api/login.php` | POST | Validates non-empty; unknown email and bad password both record a failed attempt and return the same message; success regenerates session ID, stores `user_id`, `username`, `login_time`, rotates CSRF, redirects to SPA; IP bucket 5/15 min |
-| `api/logout.php` | GET/POST | **No CSRF and no method guard.** Clears session and cookie, redirects to login (KD-31) |
+| `api/logout.php` | **Any** (no guard) | **No CSRF and no method guard**, so every HTTP method behaves the same. Clears session and cookie, redirects to login (KD-31) |
 
 Normal failures are **HTTP 302 redirects with session flash messages**, not JSON. The
 rate-limit rejection is JSON with HTTP 429.

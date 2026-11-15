@@ -51,7 +51,7 @@ Additions from this audit:
 | KD-28 | `graphify-out/` stale | Generated 2026-06-03 | Regenerate before navigation use |
 | KD-29 | Docs quote 427/112/539 | Actual 433/105/538 | Fix docs (done in Phase 1) |
 | KD-30 | `Issues.txt` claims `settle.php` is regex-only | Source uses `validateDate()` | Fix docs (done in Phase 1) |
-| KD-31 | `api/logout.php` has no CSRF check and no method guard | Any `GET`, cross-site link or image can force a logout. No data exposure and no action performed as the user, so severity is low — but session-termination is attacker-triggerable | Preserve during freeze; see `SECURITY_AUDIT.md` §3.2 and §4 |
+| KD-31 | `api/logout.php` has no CSRF check and no method guard (it accepts any HTTP method) | A cross-site top-level safe-method navigation — a clicked link — carries the `SameSite=Lax` session cookie and can force a logout. Embedded cross-site requests (`<img>`, `<iframe>`, `fetch`) do not carry the cookie, so they cannot. No data exposure and no action performed as the user; severity is low | Preserve during freeze; see `SECURITY_AUDIT.md` §3.2 and §4 |
 
 ---
 
