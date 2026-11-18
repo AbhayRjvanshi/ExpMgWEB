@@ -93,3 +93,62 @@ code win**. Specifically:
 
 See [`MIGRATION_PRESERVATION_PLAN.md`](MIGRATION_PRESERVATION_PLAN.md) for the complete rules
 and the sign-off gate.
+
+---
+
+## Phase 2 — Target architecture and technical design
+
+Phase 1 (above) records **what the application does today**. Phase 2 records **what the Flutter
+migration is designed to be**: the target architecture, the database changes, the proposed v2 API,
+the synchronisation protocol, the security model, deployment, and the validation plan.
+
+**Phase 2 is documentation only.** No Flutter project exists, no package was added, and no file
+under `api/`, `config/`, `pages/`, `public/`, `schema.sql`, `migration_v*.sql`, or `tests/` was
+changed. Every v2 endpoint is proposed, not implemented. The owner has not yet approved Phase 2
+(UQ-20), and no Phase 2 tag exists.
+
+### Start here
+
+| Document | What it answers |
+|---|---|
+| [`WORK/PHASE_2_READINESS_REPORT.md`](WORK/PHASE_2_READINESS_REPORT.md) | **Read first.** Verdict, findings F-01…F-20, C-01…C-29, acceptance checklist, git status, and §J — correction reports |
+| [`WORK/PHASE_2_DESIGN_PLAN.md`](WORK/PHASE_2_DESIGN_PLAN.md) | Scope, work packages, sequence, risks, file manifest |
+| [`WORK/REQUIREMENTS_TRACEABILITY.md`](WORK/REQUIREMENTS_TRACEABILITY.md) | 164 requirements with status and verification method (164 SPECIFIED/PRESERVED, 0 PARTIAL, 0 OPEN, 0 NOT ADDRESSED) |
+| [`architecture/ARCHITECTURE_DECISIONS.md`](architecture/ARCHITECTURE_DECISIONS.md) | D-01…D-38 — **wins on any contradiction** (22 ACCEPTED, 16 PROPOSED) |
+| [`architecture/UNRESOLVED_QUESTIONS.md`](architecture/UNRESOLVED_QUESTIONS.md) | UQ-01…UQ-20 — 18 APPROVED, 2 APPROVED (PROVISIONAL), 0 NOT APPROVED; total 20 UQs |
+
+### Full index
+
+| Area | Documents |
+|---|---|
+| Architecture | [`TARGET_ARCHITECTURE`](architecture/TARGET_ARCHITECTURE.md) · [`SYSTEM_COMPONENTS`](architecture/SYSTEM_COMPONENTS.md) · [`DATA_FLOW`](architecture/DATA_FLOW.md) (10 diagrams) · [`TECHNOLOGY_STACK`](architecture/TECHNOLOGY_STACK.md) · [`FLUTTER_ARCHITECTURE`](architecture/FLUTTER_ARCHITECTURE.md) · [`BACKEND_COEXISTENCE`](architecture/BACKEND_COEXISTENCE.md) |
+| Database | [`DATABASE_DESIGN`](database/DATABASE_DESIGN.md) · [`ENTITY_RELATIONSHIP_DIAGRAM`](database/ENTITY_RELATIONSHIP_DIAGRAM.md) · [`DATABASE_SCHEMA_SPECIFICATION`](database/DATABASE_SCHEMA_SPECIFICATION.md) · [`DATA_OWNERSHIP`](database/DATA_OWNERSHIP.md) · [`VERSIONING_AND_CONFLICT_RESOLUTION`](database/VERSIONING_AND_CONFLICT_RESOLUTION.md) · [`DATABASE_MIGRATION_STRATEGY`](database/DATABASE_MIGRATION_STRATEGY.md) |
+| API | [`API_ARCHITECTURE`](api/API_ARCHITECTURE.md) · [`API_CONTRACT_SPECIFICATION`](api/API_CONTRACT_SPECIFICATION.md) · [`SYNC_API_SPECIFICATION`](api/SYNC_API_SPECIFICATION.md) · [`AUTHENTICATION_AND_AUTHORIZATION`](api/AUTHENTICATION_AND_AUTHORIZATION.md) · [`API_ERROR_HANDLING`](api/API_ERROR_HANDLING.md) · [`API_VERSIONING`](api/API_VERSIONING.md) |
+| Synchronisation | [`SYNCHRONIZATION_ARCHITECTURE`](synchronization/SYNCHRONIZATION_ARCHITECTURE.md) · [`OFFLINE_DATA_MANAGEMENT`](synchronization/OFFLINE_DATA_MANAGEMENT.md) · [`SYNC_WORKFLOWS`](synchronization/SYNC_WORKFLOWS.md) · [`CONFLICT_RESOLUTION`](synchronization/CONFLICT_RESOLUTION.md) · [`GUEST_DATA_MIGRATION`](synchronization/GUEST_DATA_MIGRATION.md) |
+| Security | [`SECURITY_ARCHITECTURE`](security/SECURITY_ARCHITECTURE.md) · [`ACCESS_CONTROL`](security/ACCESS_CONTROL.md) · [`SESSION_MANAGEMENT`](security/SESSION_MANAGEMENT.md) |
+| Deployment | [`DEPLOYMENT_ARCHITECTURE`](deployment/DEPLOYMENT_ARCHITECTURE.md) |
+| Testing | [`ARCHITECTURE_VALIDATION_PLAN`](testing/ARCHITECTURE_VALIDATION_PLAN.md) (212 unique cases; inventory in §15.5) |
+
+Paths are relative to this directory (`docs/`). Phase 2 documents live under `WORK/`,
+`architecture/`, `database/`, `api/`, `synchronization/`, `security/`, `deployment/`, and `testing/`.
+
+### Status vocabulary used throughout
+
+| Status | Meaning |
+|---|---|
+| `ACCEPTED` | Decided and approved by the project owner (D-01…D-07, D-16, D-17, D-18, D-22…D-26, D-28, D-33…D-38; 22 decisions) |
+| `PROPOSED` | Designed by the architecture agent, awaiting future review (16 decisions) |
+| `APPROVED` | Approved policy for architectural questions (UQ-01…UQ-04, UQ-06, UQ-07, UQ-08, UQ-10…UQ-20; 18 questions) |
+| `APPROVED (PROVISIONAL)` | Approved policy subject to operational or load validation (UQ-05, UQ-09; 2 questions) |
+| `NOT APPROVED` | Explicitly withheld / deferred sign-off (0 questions) |
+
+### Status of Phase 2 Sign-off (UQ-20)
+
+**UQ-20 is APPROVED.** The project owner formally approved UQ-20 on 2026-11-18, accepting the Phase 2 architecture and technical documentation baseline.
+
+This formal sign-off authorizes:
+1. Formal acceptance of the Phase 2 architecture and technical documentation baseline.
+2. Committing and tagging the accepted documentation baseline in Git (`phase2-architecture-approved`).
+3. Execution of the three planned verification spikes (`A-DB-3`, `A-DB-4`, `A-WEB-1`), strictly within their documented scopes on isolated/disposable environments.
+
+Formal sign-off does NOT authorize production application implementation, database schema changes or migrations, or production deployment. These activities remain strictly gated and require separate owner authorization.
