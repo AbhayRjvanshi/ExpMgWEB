@@ -7,6 +7,7 @@
 .env
 .env.*
 !.env.example
+!.env*.example
 
 # NOTE: config/db.php is tracked on purpose. It reads config/env.php and holds
 # no credentials, and every endpoint requires it - ignoring it broke fresh clones.

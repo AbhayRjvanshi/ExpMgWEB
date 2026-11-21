@@ -40,7 +40,7 @@ owner can do that.
 | D-06 | Versioning and optimistic concurrency | `ACCEPTED` | 2026-11-15 |
 | D-07 | Documentation-first development | `ACCEPTED` | 2026-11-15 |
 | D-08 | Flutter Web deploys same-origin with the API | `PROPOSED` | 2026-11-15 |
-| D-09 | Cookie-session authentication is retained; no JWT in this architecture | `PROPOSED` | 2026-11-15 |
+| D-09 | Dual authentication model: Bearer JWTs for Flutter, BFF sessions for legacy web | `PROPOSED` (MODIFIED) | 2026-11-20 |
 | D-10 | A dedicated v2 API surface for new capabilities | `PROPOSED` | 2026-11-15 |
 | D-11 | Server-authoritative sync: version + change log + tombstones + cursor | `PROPOSED` | 2026-11-15 |
 | D-12 | Client-generated UUIDv7 is the canonical record identity | `PROPOSED` | 2026-11-15 |
@@ -375,43 +375,48 @@ CSRF/session model exactly, and satisfies the current CSP unchanged. Adding CORS
 
 ---
 
-### D-09 — Cookie-session authentication is retained; no JWT in this architecture
+### D-09 — Dual authentication model: Bearer JWTs for Flutter, BFF sessions for legacy web
 
 | Field | Value |
 |---|---|
-| Status | `PROPOSED` |
-| Date recorded | 2026-11-15 |
+| Status | `PROPOSED` (MODIFIED in Phase 3.0) |
+| Date recorded | 2026-11-15 (Updated 2026-11-20) |
 | Decision owner | Architecture work (agent) |
 
-**Context.** The backend authenticates exclusively through a PHP session cookie
-(`config/session.php`, `api/middleware/auth.php`). There is no token API, no OAuth, no API key
-(`PROJECT_OVERVIEW.md` §6). Native HTTP clients persist cookies perfectly well; SameSite is
-ignored outside browsers.
+**Context.** The backend historically authenticated exclusively through a PHP session cookie
+(`config/session.php`, `api/middleware/auth.php`). Phase 3 introduces Supabase Auth (GoTrue) for
+identity management and authentication across clients.
 
-**Decision.** All platforms authenticate with the same PHP session cookie and the same
-`X-CSRF-Token` requirement. No JWT, OAuth, or bearer-token scheme is introduced in this
-architecture.
+**Historical Formulation (2026-11-15, Superseded).** All platforms authenticate with the same
+PHP session cookie and the same `X-CSRF-Token` requirement. No JWT or bearer-token scheme was to
+be introduced.
+
+**Reconciled Decision (2026-11-20, Phase 3.0).** A **Dual Authentication Model** is adopted:
+1. **Flutter Clients (Mobile, Desktop, Web):** Authenticate with Supabase Auth to obtain standard
+   RS256/ES256 JWT access tokens and long-lived refresh tokens. Client requests transmit
+   `Authorization: Bearer <access_token>`, cryptographically verified by PHP (`api/middleware/auth.php`)
+   using cached Supabase JWKS.
+2. **Legacy PHP/JavaScript Website:** Preserves its existing cookie-based session and CSRF
+   mechanisms through a PHP **Backend-For-Frontend (BFF) session bridge**. `api/login.php`
+   authenticates against Supabase Auth, stores the session securely in `$_SESSION`, and issues the
+   hardened `PHPSESSID` cookie. The legacy SPA frontend remains 100% cookie-driven and unmodified.
 
 **Rationale.**
-- It preserves every existing security control: session rotation, 24-hour absolute expiry,
-  `HttpOnly` cookie, server-side revocation by session destruction, CSRF.
-- A JWT would require new issuance, rotation, revocation, and CSRF-replacement design — four new
-  attack surfaces for no product requirement.
-- CSRF is still required with cookies, and the current implementation already supports a
-  header-based token, which is exactly what a native client can send.
+- Provides standard token-based authentication for modern Flutter native and web clients without
+  cookie handling quirks.
+- Fully preserves the legacy web application without requiring a frontend rewrite.
+- Eliminates the need for client-side JWT handling in the legacy JavaScript codebase.
+- Preserves canonical CSRF protection (`verifyCsrf()`) for cookie-authenticated web sessions.
 
-**Trade-offs accepted.**
-- One blocking gap: a machine-readable bootstrap for the CSRF token and session identity is
-  missing (finding F-01). This design **requires** a new `GET /api/v2/auth/session.php`
-  endpoint; until it exists, native clients must load an HTML page and read the `csrf_token`
-  cookie. That is a documented interim workaround, not a design.
-- 24-hour absolute expiry is poor mobile UX. It is **not** changed here; see D-24 (`NEEDS
-  APPROVAL`).
-- No per-device session revocation exists, because sessions are files. See D-25.
+**Trade-offs & Constraints.**
+- Flutter HTTP clients must explicitly intercept 401 `TOKEN_EXPIRED` responses and execute token
+  refresh with idempotency protection on retries.
+- Immediate device revocation requires application-level registry enforcement (`sync_clients`), as
+  Supabase refresh-token revocation does not immediately invalidate already-issued access JWTs.
 
-**Affected components.** API, Flutter, security.
-**Related documents.** `api/AUTHENTICATION_AND_AUTHORIZATION.md`,
-`security/SESSION_MANAGEMENT.md`.
+**Affected components.** API, Flutter, Legacy Web, Supabase Auth, Security.
+**Related documents.** `docs/architecture/PHASE_3_0_ARCHITECTURE_BLUEPRINT.md` §4,
+`docs/architecture/TARGET_ARCHITECTURE.md`.
 
 ---
 
@@ -843,13 +848,18 @@ group ledger changes other members' balances without their knowledge, and silent
 
 **Decision & Lifecycle Rules (Owner-Approved).**
 1. **Pre-flight balance gate:** Account deletion is strictly blocked if the user has **any unsettled group balance**, whether debit (user owes money) OR credit (user is owed money). All relevant group obligations must be settled before deletion becomes eligible. **Financial forfeiture of credits is unapproved and prohibited.**
-2. **Sole administrator succession procedure (Two Choices Before Deletion):** A sole group administrator cannot delete their account without administrative succession under one of two owner-approved choices:
-   - *Choice A (Manual Selection):* Explicitly transfer the admin role to an existing active group member via `POST /api/v2/groups/transfer_admin.php`.
-   - *Choice B (Automatic Succession):* Allow automatic transfer of the group administrator role to the earliest-joined remaining active member of that group (`SELECT user_id FROM group_members WHERE group_id = ? AND user_id != ? ORDER BY joined_at ASC, id ASC LIMIT 1`).
-   Deleting a financially active group as a substitute for transferring responsibility is strictly prohibited. (If a 1-member group with zero balance, it must be formally archived/closed prior to account deletion).
+2. **Hybrid Group Administrator Succession Procedure (Owner-Approved 2026-11-20):** When an account deletion is initiated, the system identifies every group where the departing user is an administrator. For each group independently:
+   - *Co-Administrator Handling:* If a group already has one or more other active co-administrators (`role = 'admin'` where `user_id != departing_admin_id`, `ui.is_deleted = false`, active profile in `user_accounts`, and no in-flight account deletion in `outbox_events`), **succession appointment is bypassed for that group**; existing co-administrator(s) maintain uninterrupted governance. The review summary confirms: `"Co-administrator [Username] already holds admin privileges. Succession not required."`
+   - *Manual Option Offered:* If the departing administrator is the sole active administrator, offer the option to manually select their successor from eligible remaining group members.
+   - *Automatic Successor Displayed:* Concurrently display the member who would become administrator under the automatic succession rule.
+   - *Appoint Manual Selection:* If the administrator explicitly selects someone, appoint that selected member.
+   - *Appoint Automatic Successor:* If the administrator skips or declines manual selection, automatically appoint the earliest-joined eligible remaining group member.
+   - *Pre-Confirmation Review:* The departing administrator must review the succession outcomes across all their administered groups before confirming account deletion.
+   - *Eligibility & Deterministic Selection (Schema Invariants):* Eligible members must be active group members (`user_id != departing_admin_id`, `ui.is_deleted = false`, profile exists in `user_accounts`, `joined_at IS NOT NULL`, `role = 'member'`, and no in-flight deletion in `outbox_events`). Primary ordering is earliest `joined_at ASC`; deterministic tie-breaker is lowest surrogate primary key `gm.id ASC`, guaranteeing 100% deterministic, reproducible selection without hypothetical schema columns.
+   - *Zero-Member Group Policy (Owner Decision 2026-11-20 - Option 2 Approved):* If an administered group has no eligible remaining members (the departing administrator is the sole member, or all others have departed/deleted), the system displays this in the pre-confirmation review and **automatically transitions the zero-member group to `ARCHIVED` status** upon account deletion completion (with zero balance verified), preserving its historical ledger under standard archival rules (D-26). Deleting an active group as a substitute for succession remains prohibited.
 3. **Personal data purge:** Purely personal records (personal expenses, personal lists, personal budgets, personal notifications) are permanently hard-deleted in one atomic transaction; local cache on device is wiped.
 4. **Shared financial preservation & original username attribution:** Shared group expenses, settlements, and confirmations are retained to preserve mathematical balance integrity for surviving members. In historical group records, the user's **original username is preserved** accompanied by a clear context badge: `"This user deleted their account."` (the username is NOT replaced with generic "Deleted User" or a pseudonym).
-5. **Immediate session & device revocation:** All active PHP web sessions are destroyed; database sessions (`app_sessions`) deleted; remember-device credentials revoked; all `sync_devices` rows set to `revoked_at = NOW(6)` (immediate `401`/`403` on all v1 and v2 endpoints).
+5. **Immediate session & device revocation:** All active PHP web sessions are destroyed; database sessions (`app_sessions`) deleted; remember-device credentials revoked; all `sync_clients` / `sync_devices` rows marked `is_revoked = true` / `revoked_at = NOW(6)`. In accordance with the standardized security contract, revoked devices are strictly rejected with **HTTP 403 Forbidden (`DEVICE_REVOKED`)** on all sync and v2 endpoints (preventing client interceptors from executing automatic token-refresh loops), while destroyed web sessions produce HTTP 401 Unauthenticated on legacy v1 endpoints.
 6. **Group archival lifecycle interaction (D-26):** Historical group records and deleted users' original usernames are preserved during the normal group lifecycle, including archival. Once a group has completed six full months in the archived state, its administrator may independently initiate a permanent-deletion request (D-26). If executed, all group records are permanently purged.
 
 **Affected components.** Database, API, Flutter, Security.

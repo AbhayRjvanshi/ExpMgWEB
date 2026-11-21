@@ -88,10 +88,15 @@ user's original username is retained in historical group records while those rec
 - Account deletion is strictly blocked if the user has **any unsettled group balance**, whether debit (user owes money) OR credit (user is owed money).
 - All relevant group obligations must be settled before deletion becomes eligible.
 - **Financial forfeiture of credits is prohibited.** A user cannot forfeit positive balances to bypass the settlement requirement.
-- **Sole Group Administrator Procedure (Two Choices Before Deletion):** If the user is the sole administrator of any active group with other members, deletion is blocked until administrative responsibility is transferred under one of two owner-approved choices:
-  1. *Manual Successor Designation:* The departing administrator explicitly selects an existing active group member to succeed them as administrator via `POST /api/v2/groups/transfer_admin.php`.
-  2. *Automatic Succession:* If the administrator does not manually designate a successor, the system allows automatic transfer of the group administrator role to the earliest-joined remaining member of that group (`SELECT user_id FROM group_members WHERE group_id = ? AND user_id != ? ORDER BY joined_at ASC, id ASC LIMIT 1`).
-  Deleting a financially active group as a substitute for transferring responsibility is prohibited. (If a 1-member group with 0 balance, it must be formally archived/closed prior to account deletion).
+- **Hybrid Group Administrator Succession (Owner-Approved 2026-11-20):** If the user is an administrator of any group, the system processes succession independently per group:
+  1. *Co-Administrator Handling:* If a group already has one or more other active co-administrators (`role = 'admin'` where `user_id != departing_admin_id`, `ui.is_deleted = false`, active profile exists in `user_accounts`, and no in-flight account deletion in `outbox_events`), **succession appointment is bypassed for that group**; existing co-administrator(s) maintain uninterrupted group governance. The pre-confirmation review informs the departing administrator: `"Co-administrator [Username] already holds admin privileges. Succession transfer not required."`
+  2. *Manual Successor Option:* If the departing administrator is the sole active administrator, offer the option to manually select an eligible remaining active member.
+  3. *Automatic Successor Display:* Concurrently display the member who would become administrator under the automatic succession rule.
+  4. *Appoint Manual Choice:* If selected, that member is appointed group administrator.
+  5. *Appoint Automatic Successor:* If skipped or declined, the earliest-joined eligible active member is automatically appointed (`ORDER BY gm.joined_at ASC, gm.id ASC LIMIT 1`).
+  6. *Pre-Confirmation Review:* The departing administrator reviews succession outcomes for all their groups before confirming account deletion.
+  7. *Deterministic Selection & Tie-Breaking (Schema Invariants):* Eligible members must be active group members (`user_id != departing_admin_id`, `ui.is_deleted = false`, active profile exists in `user_accounts`, `joined_at IS NOT NULL`, `role = 'member'`, and no in-flight account deletion in `outbox_events`). Primary ordering is earliest `joined_at ASC`; deterministic tie-breaker is lowest surrogate primary key `gm.id ASC`, guaranteeing 100% deterministic, reproducible selection without introducing hypothetical schema columns.
+  8. *Zero-Member Group Policy (Owner Decision 2026-11-20 - Option 2 Approved):* If an administered group has no eligible remaining members (the departing administrator is the sole member, or all others have departed/deleted), the system displays this in the pre-confirmation review and **automatically transitions the zero-member group to `ARCHIVED` status** upon account deletion completion (with zero balance verified), preserving its historical ledger under standard archival rules (D-26). Deleting an active group as a substitute for succession remains prohibited.
 
 **2. Personal Account Data Purge:**
 Atomic hard-deletion of purely personal records:
@@ -102,7 +107,7 @@ Atomic hard-deletion of purely personal records:
 - Personal monthly budgets (`budgets` table).
 - User notifications and personal activity logs.
 - Remember-device credentials and active sessions in `app_sessions`.
-- Device synchronization authorizations in `sync_devices` marked `revoked_at = NOW(6)`.
+- Device synchronization authorizations in `sync_clients` / `sync_devices` marked `is_revoked = true` / `revoked_at = NOW(6)` (strictly rejected with HTTP 403 Forbidden `DEVICE_REVOKED` on all sync and v2 endpoints).
 - Personal cached data on device wiped upon account deletion.
 
 **3. Historical Group Records & Original Username Preservation:**
@@ -174,8 +179,8 @@ Revoking a device immediately:
 1. Invalidates that device's authenticated session in the database-backed `app_sessions` registry.
 2. Revokes its remember-device credentials.
 3. Revokes its synchronization permissions (`sync_devices.revoked_at = NOW(6)`).
-4. Prevents further authorized v1 API access using the revoked session (returns `401 Unauthorized`).
-5. Prevents further authorized v2 API access (returns `401 Unauthorized` or `403 DEVICE_REVOKED`).
+4. Prevents further authorized v1 API access using the revoked session (destroyed session produces `401 Unauthorized`).
+5. Prevents further authorized v2 and synchronization API access (strictly returns **`HTTP 403 Forbidden`** with `{"ok": false, "error": "Device has been revoked", "code": "DEVICE_REVOKED"}`). This prevents client HTTP interceptors from entering automatic JWT refresh loops and immediately instructs the native client to lock/purge local offline databases per D-25.
 6. Updates the active-device list to show the device as revoked.
 7. Requires fresh authentication before the device can be used again.
 
